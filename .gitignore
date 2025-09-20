@@ -183,3 +183,4 @@ cython_debug/
 funscript-output/
 .vscode/
 .idea/
+nul
