@@ -1,0 +1,1 @@
+from .funscript import Funscript
