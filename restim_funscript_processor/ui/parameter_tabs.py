@@ -3,12 +3,95 @@ from tkinter import ttk
 from typing import Dict, Any
 
 
+def calculate_combine_percentages(ratio):
+    """Calculate the percentages for combine ratio."""
+    left_pct = (ratio - 1) / ratio * 100
+    right_pct = 1 / ratio * 100
+    return left_pct, right_pct
+
+
+def format_percentage_label(file1_name, file2_name, ratio):
+    """Format a percentage label for combine ratios."""
+    left_pct, right_pct = calculate_combine_percentages(ratio)
+    return f"{file1_name} {left_pct:.1f}% | {file2_name} {right_pct:.1f}%"
+
+
+class CombineRatioControl:
+    """A control that shows both slider and text entry for combine ratios with percentage display."""
+
+    def __init__(self, parent, label_text, file1_name, file2_name, initial_value, min_val=1, max_val=10, row=0):
+        self.file1_name = file1_name
+        self.file2_name = file2_name
+        self.var = tk.DoubleVar(value=initial_value)
+
+        # Label
+        ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+
+        # Slider - we'll handle rounding in the callback
+        self.slider = ttk.Scale(parent, from_=min_val, to=max_val, variable=self.var,
+                               orient=tk.HORIZONTAL, length=200, command=self._on_change)
+        self.slider.grid(row=row, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+        # Text entry with better formatting
+        self.entry = ttk.Entry(parent, textvariable=self.var, width=8)
+        self.entry.grid(row=row, column=2, padx=5, pady=5)
+        self.entry.bind('<Return>', self._on_entry_change)
+        self.entry.bind('<FocusOut>', self._on_entry_change)
+
+        # Set initial value with proper formatting
+        self.var.set(round(initial_value, 1))
+
+        # Percentage display
+        self.percentage_label = ttk.Label(parent, text="", foreground="blue")
+        self.percentage_label.grid(row=row, column=3, sticky=tk.W, padx=5, pady=5)
+
+        # Initial update
+        self._update_percentage_display()
+
+    def _on_change(self, value=None):
+        """Called when slider moves."""
+        # Ensure value is rounded to one decimal place
+        try:
+            current_value = float(self.var.get())
+            rounded_value = round(current_value, 1)
+            # Only update if significantly different to avoid infinite loops
+            if abs(current_value - rounded_value) > 0.01:
+                self.var.set(rounded_value)
+            self._update_percentage_display()
+        except (ValueError, tk.TclError):
+            pass
+
+    def _on_entry_change(self, event=None):
+        """Called when text entry changes."""
+        try:
+            value = float(self.var.get())
+            if value >= 1:  # Minimum ratio of 1
+                # Round to one decimal place for consistency
+                rounded_value = round(value, 1)
+                if abs(value - rounded_value) > 0.01:
+                    self.var.set(rounded_value)
+                self._update_percentage_display()
+        except (ValueError, tk.TclError):
+            pass
+
+    def _update_percentage_display(self):
+        """Update the percentage display label."""
+        try:
+            ratio = float(self.var.get())
+            if ratio >= 1:
+                percentage_text = format_percentage_label(self.file1_name, self.file2_name, ratio)
+                self.percentage_label.config(text=percentage_text)
+        except ValueError:
+            self.percentage_label.config(text="Invalid ratio")
+
+
 class ParameterTabs(ttk.Notebook):
     def __init__(self, parent, config: Dict[str, Any]):
         super().__init__(parent)
 
         self.config = config
         self.parameter_vars = {}
+        self.combine_ratio_controls = {}  # Store custom ratio controls
 
         self.setup_tabs()
 
@@ -159,23 +242,30 @@ class ParameterTabs(ttk.Notebook):
 
         row += 1
 
+        # Configure grid for the combination controls
+        frame.columnconfigure(1, weight=1)
+
         # Frequency Ramp Combine Ratio
-        ttk.Label(frame, text="Frequency Ramp Combine Ratio:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.IntVar(value=self.config['frequency']['frequency_ramp_combine_ratio'])
-        self.parameter_vars['frequency']['frequency_ramp_combine_ratio'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1-10) Ratio for combining frequency and ramp").grid(row=row, column=2, sticky=tk.W, padx=5)
+        freq_ramp_control = CombineRatioControl(
+            frame, "Frequency Combine:",
+            "Ramp", "Speed",
+            self.config['frequency']['frequency_ramp_combine_ratio'],
+            min_val=1, max_val=10, row=row
+        )
+        self.parameter_vars['frequency']['frequency_ramp_combine_ratio'] = freq_ramp_control.var
+        self.combine_ratio_controls['frequency_ramp_combine_ratio'] = freq_ramp_control
 
         row += 1
 
         # Pulse Frequency Combine Ratio
-        ttk.Label(frame, text="Pulse Frequency Combine Ratio:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.IntVar(value=self.config['frequency']['pulse_frequency_combine_ratio'])
-        self.parameter_vars['frequency']['pulse_frequency_combine_ratio'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1-10) Ratio for combining speed with alpha-based frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
+        pulse_freq_control = CombineRatioControl(
+            frame, "Pulse Frequency Combine:",
+            "Speed", "Alpha-Frequency",
+            self.config['frequency']['pulse_frequency_combine_ratio'],
+            min_val=1, max_val=10, row=row
+        )
+        self.parameter_vars['frequency']['pulse_frequency_combine_ratio'] = pulse_freq_control.var
+        self.combine_ratio_controls['pulse_frequency_combine_ratio'] = pulse_freq_control
 
     def setup_volume_tab(self):
         """Setup the Volume parameters tab."""
@@ -184,13 +274,18 @@ class ParameterTabs(ttk.Notebook):
 
         row = 0
 
+        # Configure grid for the combination controls
+        frame.columnconfigure(1, weight=1)
+
         # Volume Ramp Combine Ratio
-        ttk.Label(frame, text="Volume Ramp Combine Ratio:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.DoubleVar(value=self.config['volume']['volume_ramp_combine_ratio'])
-        self.parameter_vars['volume']['volume_ramp_combine_ratio'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1.0-10.0) Ratio for combining volume and ramp").grid(row=row, column=2, sticky=tk.W, padx=5)
+        volume_ramp_control = CombineRatioControl(
+            frame, "Volume Combine:",
+            "Ramp", "Speed",
+            self.config['volume']['volume_ramp_combine_ratio'],
+            min_val=1.0, max_val=10.0, row=row
+        )
+        self.parameter_vars['volume']['volume_ramp_combine_ratio'] = volume_ramp_control.var
+        self.combine_ratio_controls['volume_ramp_combine_ratio'] = volume_ramp_control
 
         row += 1
 
@@ -259,13 +354,18 @@ class ParameterTabs(ttk.Notebook):
 
         row += 1
 
+        # Configure grid for the combination controls
+        frame.columnconfigure(1, weight=1)
+
         # Pulse Width Combine Ratio
-        ttk.Label(frame, text="Pulse Width Combine Ratio:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.IntVar(value=self.config['pulse']['pulse_width_combine_ratio'])
-        self.parameter_vars['pulse']['pulse_width_combine_ratio'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1-10) Ratio for combining pulse width components").grid(row=row, column=2, sticky=tk.W, padx=5)
+        pulse_width_control = CombineRatioControl(
+            frame, "Pulse Width Combine:",
+            "Speed", "Alpha-Limited",
+            self.config['pulse']['pulse_width_combine_ratio'],
+            min_val=1, max_val=10, row=row
+        )
+        self.parameter_vars['pulse']['pulse_width_combine_ratio'] = pulse_width_control.var
+        self.combine_ratio_controls['pulse_width_combine_ratio'] = pulse_width_control
 
         row += 1
 
@@ -300,12 +400,14 @@ class ParameterTabs(ttk.Notebook):
         row += 1
 
         # Pulse Rise Combine Ratio
-        ttk.Label(frame, text="Pulse Rise Combine Ratio:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.IntVar(value=self.config['pulse']['pulse_rise_combine_ratio'])
-        self.parameter_vars['pulse']['pulse_rise_combine_ratio'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1-10) Ratio for pulse rise time combining").grid(row=row, column=2, sticky=tk.W, padx=5)
+        pulse_rise_control = CombineRatioControl(
+            frame, "Pulse Rise Combine:",
+            "Beta-Mirrored", "Speed-Inverted",
+            self.config['pulse']['pulse_rise_combine_ratio'],
+            min_val=1, max_val=10, row=row
+        )
+        self.parameter_vars['pulse']['pulse_rise_combine_ratio'] = pulse_rise_control.var
+        self.combine_ratio_controls['pulse_rise_combine_ratio'] = pulse_rise_control
 
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""
@@ -360,6 +462,10 @@ class ParameterTabs(ttk.Notebook):
             for param, var in variables.items():
                 config[section][param] = var.get()
 
+        # Update custom combine ratio controls
+        for control_name, control in self.combine_ratio_controls.items():
+            control._update_percentage_display()
+
     def update_display(self, config: Dict[str, Any]):
         """Update UI display with configuration values."""
         self.config = config
@@ -368,3 +474,7 @@ class ParameterTabs(ttk.Notebook):
                 for param, var in variables.items():
                     if param in config[section]:
                         var.set(config[section][param])
+
+        # Update custom combine ratio controls display
+        for control_name, control in self.combine_ratio_controls.items():
+            control._update_percentage_display()

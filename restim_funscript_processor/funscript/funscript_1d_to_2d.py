@@ -1,3 +1,4 @@
+# credit @diglet48 https://github.com/diglet48/restim/blob/master/funscript/funscript_conversion.py
 import numpy as np
 import json
 import argparse

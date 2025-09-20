@@ -7,7 +7,7 @@ A Python GUI application for processing funscript files for electrostimulation d
 - **Intuitive GUI**: Easy-to-use interface with organized parameter tabs
 - **Comprehensive Processing**: Generates 10 different output funscripts for various stimulation parameters
 - **Auto-generation**: Automatically creates alpha/beta files from main funscript when missing using 1D to 2D conversion
-- **Configurable Parameters**: 30+ configurable parameters across 5 categories
+- **Configurable Parameters**: 30+ configurable parameters with improved ratio controls showing real-time percentages
 - **File Management**: Automatic intermediary file management with optional cleanup
 - **Progress Tracking**: Real-time progress updates during processing
 - **Configuration Persistence**: Save and load parameter configurations
@@ -53,9 +53,9 @@ The application processes a single input funscript and generates:
 3. Configure parameters in the tabbed interface:
    - **General**: Basic processing parameters
    - **Speed**: Speed calculation settings + Alpha/Beta auto-generation controls
-   - **Frequency**: Frequency mapping parameters
-   - **Volume**: Volume processing settings
-   - **Pulse**: Pulse parameter configuration
+   - **Frequency**: Frequency mapping with improved ratio sliders showing real-time percentages
+   - **Volume**: Volume processing with clear combination ratio controls
+   - **Pulse**: Pulse parameters with intuitive ratio displays
    - **Advanced**: Optional features and inversions
 
 4. Choose processing options:
@@ -79,6 +79,21 @@ Use "Reset to Defaults" to restore factory settings.
 - **Output files**: Placed in the same directory as the input file
 - **Auxiliary files**: If `alpha.funscript`, `beta.funscript`, `speed.funscript`, or `ramp.funscript` exist alongside your input file, they will be used instead of generated
 - **Auto-generation**: Missing `alpha.funscript` and `beta.funscript` files are automatically created from the main funscript using 1D to 2D radial conversion
+
+## Enhanced Ratio Controls
+
+The application features improved combination ratio controls that clearly show how files are mixed:
+
+- **Interactive Sliders**: Adjust ratios with real-time visual feedback (automatically rounded to 0.1 precision)
+- **Percentage Display**: See exact mixing percentages (e.g., "Ramp 83.3% | Speed 16.7%")
+- **Clear Labeling**: Each control shows which files are being combined
+- **Dual Input**: Use sliders for quick adjustment or text entry for precise values
+- **Clean Values**: All ratio values automatically round to one decimal place for clarity
+
+### Example Ratio Meanings:
+- **Ratio 2**: 50% File1 + 50% File2 (equal mix)
+- **Ratio 3**: 66.7% File1 + 33.3% File2 (File1 dominant)
+- **Ratio 6**: 83.3% File1 + 16.7% File2 (heavily weighted toward File1)
 
 ## Technical Details
 
