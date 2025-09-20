@@ -1,0 +1,156 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build Windows executable
+      run: python build_windows.py
+
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-build
+        path: dist/*.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-tk fuse
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build Linux AppImage
+      run: python build_linux.py
+
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-build
+        path: dist/*.tar.gz
+
+  create-release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: windows-build
+        path: ./artifacts/windows/
+
+    - name: Download Linux artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: linux-build
+        path: ./artifacts/linux/
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
+
+          ### Features
+          - **Windows**: Single executable file - no Python installation required
+          - **Linux**: AppImage - portable application that runs on most distributions
+          - **Auto-generation**: Creates alpha/beta files from main funscript when missing
+          - **30+ Parameters**: Comprehensive control over processing with intuitive UI
+          - **Real-time Feedback**: Progress tracking and percentage displays for ratio controls
+
+          ### Downloads
+          - **Windows**: Download the `.zip` file, extract, and run `RestimFunscriptProcessor.exe`
+          - **Linux**: Download the `.tar.gz` file, extract, make executable, and run the `.AppImage`
+
+          ### Generated Output Files
+          The application processes a single input funscript and generates 10 output files:
+          1. `alpha.funscript` - Alpha channel data
+          2. `alpha-prostate.funscript` - Inverted alpha for prostate stimulation
+          3. `beta.funscript` - Beta channel data
+          4. `frequency.funscript` - Combined ramp/speed frequency
+          5. `pulse_frequency.funscript` - Alpha-based pulse frequency
+          6. `pulse_rise_time.funscript` - Composite timing signal
+          7. `pulse_width.funscript` - Limited alpha-based width
+          8. `volume.funscript` - Standard volume control
+          9. `volume-prostate.funscript` - Enhanced volume for prostate
+          10. `volume-stereostim.funscript` - Mapped volume range
+
+          ### Installation
+          See the included `INSTALLATION.txt` file in each download for detailed instructions.
+
+          ### Support
+          - Report issues: [GitHub Issues](https://github.com/${{ github.repository }}/issues)
+          - Documentation: See included README.md files
+        draft: false
+        prerelease: false
+
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./artifacts/windows/RestimFunscriptProcessor-${{ steps.get_version.outputs.VERSION }}-Windows.zip
+        asset_name: RestimFunscriptProcessor-${{ steps.get_version.outputs.VERSION }}-Windows.zip
+        asset_content_type: application/zip
+
+    - name: Upload Linux Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./artifacts/linux/RestimFunscriptProcessor-${{ steps.get_version.outputs.VERSION }}-Linux.tar.gz
+        asset_name: RestimFunscriptProcessor-${{ steps.get_version.outputs.VERSION }}-Linux.tar.gz
+        asset_content_type: application/gzip
