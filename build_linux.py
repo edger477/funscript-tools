@@ -17,19 +17,59 @@ def download_appimagetool():
 
     if appimagetool_path.exists():
         print("appimagetool already exists")
+        # Verify it's executable
+        if not os.access(appimagetool_path, os.X_OK):
+            os.chmod(appimagetool_path, 0o755)
         return str(appimagetool_path)
 
     print("Downloading appimagetool...")
     url = "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
 
     try:
-        urllib.request.urlretrieve(url, appimagetool_path)
+        # Use requests-like approach with urllib for better error handling
+        import urllib.request
+        import urllib.error
+
+        # Download with headers to avoid being blocked
+        request = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+        })
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            with open(appimagetool_path, 'wb') as f:
+                f.write(response.read())
+
         os.chmod(appimagetool_path, 0o755)  # Make executable
         print(f"Downloaded: {appimagetool_path}")
+
+        # Verify the file is actually executable
+        if not appimagetool_path.exists() or appimagetool_path.stat().st_size < 1000:
+            raise Exception("Downloaded file appears to be corrupted or too small")
+
         return str(appimagetool_path)
+
     except Exception as e:
         print(f"Failed to download appimagetool: {e}")
-        return None
+        print("Trying alternative download method...")
+
+        # Try with curl as fallback
+        try:
+            result = subprocess.run([
+                'curl', '-L', '-o', str(appimagetool_path),
+                '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                url
+            ], check=True, capture_output=True, text=True, timeout=60)
+
+            if appimagetool_path.exists() and appimagetool_path.stat().st_size > 1000:
+                os.chmod(appimagetool_path, 0o755)
+                print(f"Downloaded with curl: {appimagetool_path}")
+                return str(appimagetool_path)
+            else:
+                raise Exception("Curl download failed or file too small")
+
+        except Exception as e2:
+            print(f"Curl fallback also failed: {e2}")
+            return None
 
 def build_linux_binary():
     """Build Linux binary using PyInstaller."""
