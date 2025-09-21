@@ -184,3 +184,5 @@ funscript-output/
 .vscode/
 .idea/
 nul
+testdata/
+*.funscript

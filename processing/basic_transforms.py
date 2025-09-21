@@ -6,7 +6,7 @@ from funscript import Funscript
 
 
 def invert_funscript(funscript):
-    """Invert all position values (pos = 1.0 - pos)."""
+    """Invert all position values (pos = 1.0 - pos). Funscript stores values in 0-1 range internally."""
     new_x = funscript.x.copy()
     new_y = 1.0 - funscript.y
     return Funscript(new_x, new_y)

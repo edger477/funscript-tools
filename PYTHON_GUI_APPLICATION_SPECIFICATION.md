@@ -44,13 +44,24 @@ restim_funscript_processor/
 │ Input File: [________________________] [Browse...]         │
 │                                                             │
 │ ┌─── 1D to 2D Conversion ────────────────────────────────┐ │
-│ │ Algorithm: ○ Circular (0°-180°)                        │ │
-│ │           ○ Top-Left-Right (0°-270°)                   │ │
-│ │           ○ Top-Right-Left (0°-90°)                    │ │
-│ │ Points Per Second: [25]                                │ │
-│ │ Min Distance From Center: [====|====] (0.1)           │ │
-│ │ Speed at Edge (Hz): [===|=====] (2.0)                 │ │
-│ │                     [Convert to 2D]                    │ │
+│ │ [Basic] [Prostate]                                     │ │
+│ │ ┌─ Basic ───────────────────────────────────────────┐  │ │
+│ │ │ Algorithm: ○ Circular (0°-180°)                   │  │ │
+│ │ │           ○ Top-Left-Right (0°-270°)              │  │ │
+│ │ │           ○ Top-Right-Left (0°-90°)               │  │ │
+│ │ │ Points Per Second: [25]                           │  │ │
+│ │ │ Min Distance From Center: [====|====] (0.1)      │  │ │
+│ │ │ Speed at Edge (Hz): [===|=====] (2.0)            │  │ │
+│ │ │                     [Convert to 2D]               │  │ │
+│ │ └───────────────────────────────────────────────────┘  │ │
+│ │ ┌─ Prostate ────────────────────────────────────────┐  │ │
+│ │ │ ☑ Generate from inverted funscript                │  │ │
+│ │ │ Algorithm: ○ Standard (0°-180°)                   │  │ │
+│ │ │           ○ Tear-shaped (0°-180°)                 │  │ │
+│ │ │ Points Per Second: [25]                           │  │ │
+│ │ │ Min Distance From Center: [====|====] (0.5)      │  │ │
+│ │ │                     [Convert to 2D]               │  │ │
+│ │ └───────────────────────────────────────────────────┘  │ │
 │ └───────────────────────────────────────────────────────┘ │
 │                                                             │
 │ ┌─── Processing Options ─────────────────────────────────┐ │
@@ -274,6 +285,12 @@ Generate additional inverted files if enabled in Advanced tab:
     "min_distance_from_center": 0.1,
     "speed_at_edge_hz": 2.0
   },
+  "prostate_generation": {
+    "generate_from_inverted": true,
+    "algorithm": "standard",
+    "points_per_second": 25,
+    "min_distance_from_center": 0.5
+  },
   "frequency": {
     "alpha_freq_min": 0.30,
     "alpha_freq_max": 0.95,
@@ -344,16 +361,27 @@ Generate additional inverted files if enabled in Advanced tab:
 
 ## 1D to 2D Conversion Algorithm
 
-### Multiple Conversion Algorithms
-The application includes a comprehensive 1D to 2D conversion system with three different algorithms for generating alpha (x-axis) and beta (y-axis) funscripts from a single main funscript:
+### Tabbed Conversion Interface
+The application includes a comprehensive 1D to 2D conversion system with dedicated tabs for different conversion purposes:
 
-#### Algorithm Options
+#### Basic Tab - Standard Conversion
 1. **Circular (0°-180°)**: Original semicircular motion algorithm
 2. **Top-Left-Right (0°-270°)**: Oscillating arc motion counter-clockwise from top
 3. **Top-Right-Left (0°-90°)**: Oscillating arc motion clockwise from top
 
-### Speed-Responsive Radius Control
-All algorithms now include dynamic radius control based on movement speed:
+#### Prostate Tab - Specialized Prostate Conversion
+1. **Generate from inverted funscript**: Checkbox (default: checked) - Apply inversion before conversion
+2. **Standard (0°-180°)**: Basic semicircular motion with fixed radius for prostate stimulation
+3. **Tear-shaped (0°-180°)**: Variable-radius semicircular motion with configurable distance pattern
+   - Distance = 1.0 at 0° (outer edge)
+   - Distance = min_distance_from_center at 120°-180° (configurable constant zone)
+   - Linear interpolation from 0° to 120°
+4. **Min Distance From Center**: Slider (0.3-0.9, default: 0.5) - Controls distance for tear-shaped constant zone
+
+### Algorithm-Specific Features
+
+#### Basic Tab - Speed-Responsive Radius Control
+Basic algorithms include dynamic radius control based on movement speed:
 
 ```python
 def convert_with_speed_control(funscript, algorithm, min_distance_from_center=0.1, speed_at_edge_hz=2.0):
@@ -370,6 +398,13 @@ def convert_with_speed_control(funscript, algorithm, min_distance_from_center=0.
     - Top-Left-Right: funscript_pos maps to 0°-270°, radius varies with speed
     - Top-Right-Left: funscript_pos maps to 0°-90°, radius varies with speed
     """
+
+#### Prostate Tab - Fixed Radius Control
+Prostate algorithms use simplified, fixed radius patterns optimized for prostate stimulation:
+
+- **Standard**: Fixed radius of 1.0 for consistent semicircular motion
+- **Tear-shaped**: Variable radius based on angle position, using configurable min_distance_from_center
+  - No speed-responsive scaling for more predictable stimulation patterns
 ```
 
 ### Configuration Parameters

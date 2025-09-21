@@ -21,6 +21,12 @@ DEFAULT_CONFIG = {
         "min_distance_from_center": 0.1,
         "speed_at_edge_hz": 2.0
     },
+    "prostate_generation": {
+        "generate_from_inverted": True,
+        "algorithm": "standard",
+        "points_per_second": 25,
+        "min_distance_from_center": 0.5
+    },
     "frequency": {
         "alpha_freq_min": 0.30,
         "alpha_freq_max": 0.95,
@@ -70,6 +76,10 @@ PARAMETER_RANGES = {
         "points_per_second": (1, 100),
         "min_distance_from_center": (0.1, 0.9),
         "speed_at_edge_hz": (1.0, 5.0)
+    },
+    "prostate_generation": {
+        "points_per_second": (1, 100),
+        "min_distance_from_center": (0.3, 0.9)
     },
     "frequency": {
         "alpha_freq_min": (0.0, 1.0),
