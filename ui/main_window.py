@@ -15,7 +15,7 @@ class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Restim Funscript Processor")
-        self.root.geometry("800x700")
+        self.root.geometry("800x950")
         self.root.resizable(True, True)
 
         # Configuration

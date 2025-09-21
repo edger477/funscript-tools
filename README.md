@@ -57,9 +57,9 @@ The application processes a single input funscript and generates:
 
 4. Configure parameters in the tabbed interface:
    - **General**: Basic processing parameters
-   - **Speed**: Speed calculation settings + Alpha/Beta auto-generation controls
+   - **Speed**: Speed calculation settings
    - **Frequency**: Frequency mapping with improved ratio sliders showing real-time percentages
-   - **Volume**: Volume processing with clear combination ratio controls
+   - **Volume**: Volume processing with percentage-based ramp generation and clear combination ratio controls
    - **Pulse**: Pulse parameters with intuitive ratio displays
    - **Advanced**: Optional features and inversions
 
@@ -83,6 +83,7 @@ Use "Reset to Defaults" to restore factory settings.
 - **Intermediary files**: Created in `funscript-temp` subdirectory (automatically cleaned up if option selected)
 - **Output files**: Placed in the same directory as the input file
 - **Auxiliary files**: If `alpha.funscript`, `beta.funscript`, `speed.funscript`, or `ramp.funscript` exist alongside your input file, they will be used instead of generated
+- **Ramp Generation**: Volume ramp uses percentage-based progression with configurable rate (0-40% per hour, default 15%)
 - **Auto-generation**: Missing `alpha.funscript` and `beta.funscript` files are automatically created from the main funscript using multiple 1D to 2D conversion algorithms
 - **1D to 2D Conversion**: Dedicated section with algorithm selection and speed-responsive radius control
 
@@ -120,13 +121,14 @@ The conversion system includes dynamic radius control that responds to funscript
 
 ## Enhanced Ratio Controls
 
-The application features improved combination ratio controls that clearly show how files are mixed:
+The application features improved combination ratio controls and ramp generation:
 
 - **Interactive Sliders**: Adjust ratios with real-time visual feedback (automatically rounded to 0.1 precision)
 - **Percentage Display**: See exact mixing percentages (e.g., "Ramp 83.3% | Speed 16.7%")
 - **Clear Labeling**: Each control shows which files are being combined
 - **Dual Input**: Use sliders for quick adjustment or text entry for precise values
 - **Clean Values**: All ratio values automatically round to one decimal place for clarity
+- **Smart Ramp Generation**: Percentage-based progression with real-time value display and per-minute calculation
 
 ### Example Ratio Meanings:
 - **Ratio 2**: 50% File1 + 50% File2 (equal mix)

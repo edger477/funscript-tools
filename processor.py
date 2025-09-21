@@ -155,7 +155,8 @@ class RestimProcessor:
 
         # Generate volume ramp if not provided
         if not ramp_exists:
-            ramp_funscript = make_volume_ramp(main_funscript)
+            ramp_percent_per_hour = self.params.get('volume', {}).get('ramp_percent_per_hour', 15)
+            ramp_funscript = make_volume_ramp(main_funscript, ramp_percent_per_hour)
             ramp_funscript.save_to_path(self._get_temp_path("ramp"))
         else:
             ramp_funscript = Funscript.from_file(self._get_temp_path("ramp"))

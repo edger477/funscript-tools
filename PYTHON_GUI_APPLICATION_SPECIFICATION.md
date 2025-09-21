@@ -39,7 +39,7 @@ restim_funscript_processor/
 ### Main Window Layout
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Restim Funscript Processor                                  │
+│ Restim Funscript Processor                       (800x950)  │
 ├─────────────────────────────────────────────────────────────┤
 │ Input File: [________________________] [Browse...]         │
 │                                                             │
@@ -60,10 +60,11 @@ restim_funscript_processor/
 │                                                             │
 │ ┌─── Parameters ─────────────────────────────────────────┐ │
 │ │ [General] [Speed] [Frequency] [Volume] [Pulse] [Advanced] │
-│ │ ┌─ General ─────────────────────────────────────────────┐ │
-│ │ │ Rest Level: [0.4    ] (0.0-1.0)                     │ │
-│ │ │ Speed Window (sec): [5     ] (1-30)                 │ │
-│ │ │ Accel Window (sec): [3     ] (1-10)                 │ │
+│ │ ┌─ Volume ──────────────────────────────────────────────┐ │
+│ │ │ Ramp (% per hour): [===|====] (15%) = 0.25% per min │ │
+│ │ │ Current ramp value: 0.75 for 60 minute duration     │ │
+│ │ │ Volume Ramp Combine Ratio: [6.0  ] (1.0-10.0)      │ │
+│ │ │ Prostate Volume Multiplier: [1.5  ] (1.0-3.0)      │ │
 │ │ └─────────────────────────────────────────────────────┘ │
 │ └───────────────────────────────────────────────────────┘ │
 │                                                             │
@@ -99,6 +100,7 @@ restim_funscript_processor/
 - **Prostate Volume Rest Level**: Float (0.0-1.0, default: 0.7) - Rest level for prostate volume
 - **Stereostim Volume Min**: Float (0.0-1.0, default: 0.50) - Minimum mapping for stereostim volume
 - **Stereostim Volume Max**: Float (0.0-1.0, default: 1.00) - Maximum mapping for stereostim volume
+- **Ramp (% per hour)**: Integer (0-40%, default: 15%) - Volume ramp progression rate with real-time current value and per-minute display
 
 #### Pulse Tab
 - **Pulse Width Limit Min**: Float (0.0-1.0, default: 0.1) - Minimum limit for pulse width
@@ -164,7 +166,9 @@ class RestimProcessor:
    - Convert speed to acceleration
    - Parameters: `accel_window_size`
 3. **Generate volume ramp** (if not provided):
-   - Create 4-point ramp pattern
+   - Create 4-point ramp pattern using percentage-based progression
+   - Second point fixed at 10 seconds with calculated value based on ramp percentage
+   - Formula: `ramp_value = 1.0 - (duration_seconds * ramp_per_second)`
 
 #### Phase 3: Frequency Processing
 1. **Alpha-based frequency**:
@@ -281,7 +285,8 @@ Generate additional inverted files if enabled in Advanced tab:
     "prostate_volume_multiplier": 1.5,
     "prostate_rest_level": 0.7,
     "stereostim_volume_min": 0.50,
-    "stereostim_volume_max": 1.00
+    "stereostim_volume_max": 1.00,
+    "ramp_percent_per_hour": 15
   },
   "pulse": {
     "pulse_width_min": 0.1,

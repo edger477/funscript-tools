@@ -32,7 +32,8 @@ DEFAULT_CONFIG = {
         "prostate_volume_multiplier": 1.5,
         "prostate_rest_level": 0.7,
         "stereostim_volume_min": 0.50,
-        "stereostim_volume_max": 1.00
+        "stereostim_volume_max": 1.00,
+        "ramp_percent_per_hour": 15
     },
     "pulse": {
         "pulse_width_min": 0.1,
@@ -81,7 +82,8 @@ PARAMETER_RANGES = {
         "prostate_volume_multiplier": (1.0, 3.0),
         "prostate_rest_level": (0.0, 1.0),
         "stereostim_volume_min": (0.0, 1.0),
-        "stereostim_volume_max": (0.0, 1.0)
+        "stereostim_volume_max": (0.0, 1.0),
+        "ramp_percent_per_hour": (0, 40)
     },
     "pulse": {
         "pulse_width_min": (0.0, 1.0),

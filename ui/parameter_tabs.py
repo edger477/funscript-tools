@@ -279,10 +279,10 @@ class ParameterTabs(ttk.Notebook):
 
         # Volume Ramp Combine Ratio
         volume_ramp_control = CombineRatioControl(
-            frame, "Volume Combine:",
+            frame, "Volume Combine Ratio (Ramp | Speed):",
             "Ramp", "Speed",
             self.config['volume']['volume_ramp_combine_ratio'],
-            min_val=1.0, max_val=10.0, row=row
+            min_val=3.0, max_val=10.0, row=row
         )
         self.parameter_vars['volume']['volume_ramp_combine_ratio'] = volume_ramp_control.var
         self.combine_ratio_controls['volume_ramp_combine_ratio'] = volume_ramp_control
@@ -326,6 +326,22 @@ class ParameterTabs(ttk.Notebook):
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
         ttk.Label(frame, text="(0.0-1.0) Maximum mapping for stereostim volume").grid(row=row, column=2, sticky=tk.W, padx=5)
+
+        row += 1
+
+        # Ramp Percent Per Hour
+        ttk.Label(frame, text="Ramp (% per hour):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.IntVar(value=self.config['volume']['ramp_percent_per_hour'])
+        self.parameter_vars['volume']['ramp_percent_per_hour'] = var
+        ramp_scale = ttk.Scale(frame, from_=0, to=40, variable=var, orient=tk.HORIZONTAL, length=150, command=self._update_ramp_display)
+        ramp_scale.grid(row=row, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        # Create label for current value and per-minute calculation
+        self.ramp_value_label = ttk.Label(frame, text="", foreground="blue")
+        self.ramp_value_label.grid(row=row, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Initial update
+        self._update_ramp_display()
 
     def setup_pulse_tab(self):
         """Setup the Pulse parameters tab."""
@@ -478,3 +494,23 @@ class ParameterTabs(ttk.Notebook):
         # Update custom combine ratio controls display
         for control_name, control in self.combine_ratio_controls.items():
             control._update_percentage_display()
+
+        # Update ramp display if it exists
+        if hasattr(self, 'ramp_value_label'):
+            self._update_ramp_display()
+
+    def _update_ramp_display(self, value=None):
+        """Update the ramp value display with current value and per-minute calculation."""
+        try:
+            # Get current ramp value
+            ramp_per_hour = int(self.parameter_vars['volume']['ramp_percent_per_hour'].get())
+
+            # Calculate per-minute value
+            ramp_per_minute = round(ramp_per_hour / 60.0, 2)
+
+            # Update label text
+            display_text = f"{ramp_per_hour}% per hour ({ramp_per_minute}% per minute)"
+            self.ramp_value_label.config(text=display_text)
+        except (KeyError, ValueError, AttributeError):
+            # Handle case where variables aren't initialized yet
+            pass
