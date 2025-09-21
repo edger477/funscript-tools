@@ -12,6 +12,7 @@ from processing.basic_transforms import (
 from processing.combining import combine_funscripts
 from processing.special_generators import make_volume_ramp
 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
+from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
 
 
 class RestimProcessor:
@@ -122,6 +123,33 @@ class RestimProcessor:
             if not beta_exists:
                 beta_funscript.save_to_path(self._get_temp_path("beta"))
                 beta_exists = True
+
+        # Generate prostate alpha and beta files if auto-generation is enabled
+        if self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
+            # Check if prostate files already exist
+            alpha_prostate_exists = self._copy_if_exists("alpha-prostate", "alpha-prostate")
+            beta_prostate_exists = self._copy_if_exists("beta-prostate", "beta-prostate")
+
+            if not alpha_prostate_exists or not beta_prostate_exists:
+                self._update_progress(progress_callback, 17, "Generating prostate alpha and beta files from main funscript...")
+                prostate_config = self.params.get('prostate_generation', {})
+                prostate_points_per_second = prostate_config.get('points_per_second', 25)
+                prostate_algorithm = prostate_config.get('algorithm', 'tear-shaped')
+                prostate_min_distance = prostate_config.get('min_distance_from_center', 0.5)
+                prostate_generate_from_inverted = prostate_config.get('generate_from_inverted', True)
+
+                alpha_prostate_funscript, beta_prostate_funscript = generate_alpha_beta_prostate_from_main(
+                    main_funscript, prostate_points_per_second, prostate_algorithm,
+                    prostate_min_distance, prostate_generate_from_inverted
+                )
+
+                if not alpha_prostate_exists:
+                    alpha_prostate_funscript.save_to_path(self._get_temp_path("alpha-prostate"))
+                    alpha_prostate_exists = True
+
+                if not beta_prostate_exists:
+                    beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
+                    beta_prostate_exists = True
 
         # Phase 2: Core File Generation (20-40%)
         self._update_progress(progress_callback, 20, "Generating speed file...")
@@ -292,6 +320,12 @@ class RestimProcessor:
             shutil.copy2(self._get_temp_path("alpha"), self._get_output_path("alpha"))
         if beta_exists:
             shutil.copy2(self._get_temp_path("beta"), self._get_output_path("beta"))
+
+        # Copy prostate alpha and beta to outputs if they exist
+        if 'alpha_prostate_exists' in locals() and alpha_prostate_exists:
+            shutil.copy2(self._get_temp_path("alpha-prostate"), self._get_output_path("alpha-prostate"))
+        if 'beta_prostate_exists' in locals() and beta_prostate_exists:
+            shutil.copy2(self._get_temp_path("beta-prostate"), self._get_output_path("beta-prostate"))
 
         # Generate optional inverted files if enabled
         if self.params['advanced']['enable_pulse_frequency_inversion'] and alpha_exists:

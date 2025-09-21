@@ -17,13 +17,13 @@ DEFAULT_CONFIG = {
     "alpha_beta_generation": {
         "points_per_second": 25,
         "auto_generate": True,
-        "algorithm": "circular",
+        "algorithm": "top-right-left",
         "min_distance_from_center": 0.1,
         "speed_at_edge_hz": 2.0
     },
     "prostate_generation": {
         "generate_from_inverted": True,
-        "algorithm": "standard",
+        "algorithm": "tear-shaped",
         "points_per_second": 25,
         "min_distance_from_center": 0.5
     },
@@ -108,7 +108,7 @@ PARAMETER_RANGES = {
 
 
 class ConfigManager:
-    def __init__(self, config_file: str = "restim_config.json"):
+    def __init__(self, config_file: str = "config.json"):
         self.config_file = Path(config_file)
         self.config = DEFAULT_CONFIG.copy()
         self.load_config()

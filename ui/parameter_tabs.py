@@ -162,11 +162,23 @@ class ParameterTabs(ttk.Notebook):
         entry.grid(row=row, column=1, padx=5, pady=5)
         ttk.Label(frame, text="(1-10) Window size for acceleration calculation").grid(row=row, column=2, sticky=tk.W, padx=5)
 
+        row += 2
+
+        # Auto-generation section
+        ttk.Label(frame, text="Auto-generation:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
+
+        row += 1
+
+        # Auto Generate Alpha/Beta
+        self.parameter_vars['alpha_beta_generation'] = {}
+        var = tk.BooleanVar(value=self.config['alpha_beta_generation']['auto_generate'])
+        self.parameter_vars['alpha_beta_generation']['auto_generate'] = var
+        ttk.Checkbutton(frame, text="Auto-generate alpha/beta files when missing", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+
     def setup_speed_tab(self):
         """Setup the Speed parameters tab."""
         frame = self.speed_frame
         self.parameter_vars['speed'] = {}
-        self.parameter_vars['alpha_beta_generation'] = {}
 
         row = 0
 
@@ -192,28 +204,6 @@ class ParameterTabs(ttk.Notebook):
         combo = ttk.Combobox(frame, textvariable=var, values=["max", "rms"], state="readonly", width=15)
         combo.grid(row=row, column=1, padx=5, pady=5)
         ttk.Label(frame, text="Method for normalizing speed values").grid(row=row, column=2, sticky=tk.W, padx=5)
-
-        row += 2
-
-        # Alpha/Beta Generation section
-        ttk.Label(frame, text="Alpha/Beta Generation:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
-
-        row += 1
-
-        # Auto Generate Alpha/Beta
-        var = tk.BooleanVar(value=self.config['alpha_beta_generation']['auto_generate'])
-        self.parameter_vars['alpha_beta_generation']['auto_generate'] = var
-        ttk.Checkbutton(frame, text="Auto-generate alpha/beta files when missing", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
-
-        row += 1
-
-        # Points Per Second
-        ttk.Label(frame, text="Points Per Second:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.IntVar(value=self.config['alpha_beta_generation']['points_per_second'])
-        self.parameter_vars['alpha_beta_generation']['points_per_second'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(1-100) Interpolation density for alpha/beta generation").grid(row=row, column=2, sticky=tk.W, padx=5)
 
     def setup_frequency_tab(self):
         """Setup the Frequency parameters tab."""
