@@ -30,61 +30,46 @@ def convert_funscript_prostate(funscript, points_per_second=25, algorithm="stand
     if len(working_funscript.x) < 2:
         raise ValueError("Funscript must have at least 2 actions for prostate conversion.")
 
-    # Create interpolated timeline
-    start_time = working_funscript.x[0]
-    end_time = working_funscript.x[-1]
-    duration = end_time - start_time
-    num_points = int(duration * points_per_second)
-
-    if num_points < 2:
-        num_points = 2
-
-    new_times = np.linspace(start_time, end_time, num_points)
-
-    # Interpolate positions
-    interpolated_positions = np.interp(new_times, working_funscript.x, working_funscript.y)
-
-    # Note: interpolated_positions are already in 0-1 range from Funscript class
-    funscript_positions = interpolated_positions
-
     # Convert to alpha and beta based on algorithm
     if algorithm == "tear-shaped":
+        # Create interpolated timeline for tear-shaped algorithm
+        start_time = working_funscript.x[0]
+        end_time = working_funscript.x[-1]
+        duration = end_time - start_time
+        num_points = int(duration * points_per_second)
+
+        if num_points < 2:
+            num_points = 2
+
+        new_times = np.linspace(start_time, end_time, num_points)
+
+        # Interpolate positions
+        interpolated_positions = np.interp(new_times, working_funscript.x, working_funscript.y)
+
         alpha_values, beta_values = _convert_tear_shaped(
-            funscript_positions, min_distance_from_center
-        )
-    else:  # standard
-        alpha_values, beta_values = _convert_standard(
-            funscript_positions
+            interpolated_positions, min_distance_from_center
         )
 
-    # Create Funscript objects (values already in 0-1 range, as expected by Funscript class)
-    alpha_funscript = Funscript(new_times.tolist(), alpha_values.tolist())
-    beta_funscript = Funscript(new_times.tolist(), beta_values.tolist())
+        # Create Funscript objects (values already in 0-1 range, as expected by Funscript class)
+        alpha_funscript = Funscript(new_times.tolist(), alpha_values.tolist())
+        beta_funscript = Funscript(new_times.tolist(), beta_values.tolist())
+
+    else:  # standard - use the same circular algorithm as basic tab
+        # Import the basic circular conversion function
+        from processing.funscript_1d_to_2d import convert_funscript_radial
+
+        # Use the basic circular algorithm directly with the working funscript
+        # Set speed_at_edge_hz to a reasonable default and min_distance to 0.1 for basic circular motion
+        alpha_funscript, beta_funscript = convert_funscript_radial(
+            working_funscript,
+            points_per_second=points_per_second,
+            min_distance_from_center=0.1,  # Use basic algorithm default
+            speed_at_edge_hz=2.0  # Use basic algorithm default
+        )
 
     return alpha_funscript, beta_funscript
 
 
-def _convert_standard(funscript_positions):
-    """
-    Standard semicircular motion for prostate (0°-180°).
-    Simple semicircular motion with fixed radius for prostate stimulation.
-    """
-    # Map funscript positions to angles (0° to 180°)
-    theta = (1.0 - funscript_positions) * np.pi
-
-    # Use fixed radius of 1.0 for standard prostate motion
-    radius = 1.0
-
-    # Convert to cartesian coordinates
-    # Alpha (x): -1 to 1, Beta (y): 0 to 1
-    alpha = radius * np.cos(theta)
-    beta = radius * np.sin(theta)
-
-    # Normalize to 0-1 range
-    alpha_normalized = (alpha + 1.0) / 2.0
-    beta_normalized = np.maximum(beta, 0.0)  # Ensure beta is never negative
-
-    return alpha_normalized, beta_normalized
 
 
 def _find_local_extrema(positions):
