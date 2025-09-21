@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 import numpy as np
 
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent))
 
 from funscript import Funscript
 from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
@@ -16,7 +16,7 @@ def test_tear_shaped_simple():
     print("Testing tear-shaped algorithm (simple)...")
 
     # Use the real test funscript
-    test_file = Path(__file__).parent / "testdata" / "test.funscript"
+    test_file = Path(__file__).parent.parent / "testdata" / "test.funscript"
 
     if not test_file.exists():
         print(f"Error: Test file not found at {test_file}")

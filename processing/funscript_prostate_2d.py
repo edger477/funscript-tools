@@ -237,11 +237,13 @@ def _convert_tear_shaped(funscript_positions, min_distance_from_center):
             pos_in_range = np.clip(pos_in_range, 0.0, 1.0)
 
             if direction == 1:
-                # Moving up: map to first half of tear (0° to 180°)
+                # Moving up (toward max): map to first half of tear (0° to 180°)
                 angle = pos_in_range * np.pi
             else:
-                # Moving down: map to second half of tear (180° to 360°)
-                angle = np.pi + pos_in_range * np.pi
+                # Moving down (toward min): map to second half of tear (360° to 180°, backwards)
+                # When pos_in_range=0 (at min), we want 360° (top of right side)
+                # When pos_in_range=1 (at max), we want 180° (bottom)
+                angle = 2 * np.pi - pos_in_range * np.pi
 
         angle_deg = np.degrees(angle) % 360
 
