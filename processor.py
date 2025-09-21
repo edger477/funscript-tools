@@ -106,8 +106,14 @@ class RestimProcessor:
         # Generate alpha and beta files if they don't exist and auto-generation is enabled
         if (not alpha_exists or not beta_exists) and self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
             self._update_progress(progress_callback, 15, "Generating alpha and beta files from main funscript...")
-            points_per_second = self.params.get('alpha_beta_generation', {}).get('points_per_second', 25)
-            alpha_funscript, beta_funscript = generate_alpha_beta_from_main(main_funscript, points_per_second)
+            alpha_beta_config = self.params.get('alpha_beta_generation', {})
+            points_per_second = alpha_beta_config.get('points_per_second', 25)
+            algorithm = alpha_beta_config.get('algorithm', 'circular')
+            min_distance_from_center = alpha_beta_config.get('min_distance_from_center', 0.1)
+            speed_at_edge_hz = alpha_beta_config.get('speed_at_edge_hz', 2.0)
+            alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
+                main_funscript, points_per_second, algorithm, min_distance_from_center, speed_at_edge_hz
+            )
 
             if not alpha_exists:
                 alpha_funscript.save_to_path(self._get_temp_path("alpha"))

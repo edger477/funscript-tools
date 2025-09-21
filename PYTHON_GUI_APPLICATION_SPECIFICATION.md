@@ -43,6 +43,16 @@ restim_funscript_processor/
 ├─────────────────────────────────────────────────────────────┤
 │ Input File: [________________________] [Browse...]         │
 │                                                             │
+│ ┌─── 1D to 2D Conversion ────────────────────────────────┐ │
+│ │ Algorithm: ○ Circular (0°-180°)                        │ │
+│ │           ○ Top-Left-Right (0°-270°)                   │ │
+│ │           ○ Top-Right-Left (0°-90°)                    │ │
+│ │ Points Per Second: [25]                                │ │
+│ │ Min Distance From Center: [====|====] (0.1)           │ │
+│ │ Speed at Edge (Hz): [===|=====] (2.0)                 │ │
+│ │                     [Convert to 2D]                    │ │
+│ └───────────────────────────────────────────────────────┘ │
+│                                                             │
 │ ┌─── Processing Options ─────────────────────────────────┐ │
 │ │ ☐ Normalize Volume                                     │ │
 │ │ ☐ Delete Intermediary Files When Done                 │ │
@@ -255,7 +265,10 @@ Generate additional inverted files if enabled in Advanced tab:
   },
   "alpha_beta_generation": {
     "auto_generate": true,
-    "points_per_second": 25
+    "points_per_second": 25,
+    "algorithm": "circular",
+    "min_distance_from_center": 0.1,
+    "speed_at_edge_hz": 2.0
   },
   "frequency": {
     "alpha_freq_min": 0.30,
@@ -326,30 +339,46 @@ Generate additional inverted files if enabled in Advanced tab:
 
 ## 1D to 2D Conversion Algorithm
 
-### Radial Conversion Method
-The application includes an automatic 1D to 2D conversion system that generates alpha (x-axis) and beta (y-axis) funscripts from a single main funscript:
+### Multiple Conversion Algorithms
+The application includes a comprehensive 1D to 2D conversion system with three different algorithms for generating alpha (x-axis) and beta (y-axis) funscripts from a single main funscript:
+
+#### Algorithm Options
+1. **Circular (0°-180°)**: Original semicircular motion algorithm
+2. **Top-Left-Right (0°-270°)**: Oscillating arc motion counter-clockwise from top
+3. **Top-Right-Left (0°-90°)**: Oscillating arc motion clockwise from top
+
+### Speed-Responsive Radius Control
+All algorithms now include dynamic radius control based on movement speed:
 
 ```python
-def convert_funscript_radial(funscript, points_per_second=25):
+def convert_with_speed_control(funscript, algorithm, min_distance_from_center=0.1, speed_at_edge_hz=2.0):
     """
-    Convert 1D funscript to 2D using radial conversion.
+    Convert 1D funscript to 2D using speed-responsive radius.
 
-    For each consecutive pair of points:
-    1. Calculate time segment duration
-    2. Generate interpolated points at specified density
-    3. Create semicircular motion using parametric equations:
-       - center = (start_pos + end_pos) / 2
-       - radius = (start_pos - end_pos) / 2
-       - x(θ) = center + radius * cos(θ)  # Alpha channel
-       - y(θ) = radius * sin(θ) + 0.5     # Beta channel
-       - θ ranges from 0 to π
+    Speed Calculation:
+    - current_speed = position_change / time_duration
+    - max_speed_threshold = 1.0 / (1.0 / speed_at_edge_hz)
+    - radius_scale = min_distance + (1.0 - min_distance) * (speed / max_speed)
+
+    Algorithm-Specific Behavior:
+    - Circular: θ = 0° to 180°, radius varies with speed
+    - Top-Left-Right: funscript_pos maps to 0°-270°, radius varies with speed
+    - Top-Right-Left: funscript_pos maps to 0°-90°, radius varies with speed
     """
 ```
 
+### Configuration Parameters
+- **Algorithm Selection**: Radio buttons for choosing conversion method
+- **Points Per Second**: Interpolation density (1-100, default: 25)
+- **Min Distance From Center**: Minimum radius (0.1-0.9, default: 0.1)
+- **Speed at Edge (Hz)**: Speed threshold for maximum radius (1-5 Hz, default: 2.0)
+
 ### Benefits
+- **Multiple Motion Patterns**: Three distinct movement algorithms
+- **Speed-Responsive Motion**: Radius adapts to funscript speed intensity
+- **Position-Accurate Mapping**: Angular position corresponds to funscript values
+- **Configurable Behavior**: User control over movement characteristics
 - **Complete Processing**: Ensures all 10 output files are generated even with minimal input
-- **Smooth Motion**: Creates natural 2D movement patterns from 1D data
-- **Configurable Quality**: User-adjustable interpolation density
 - **Automatic Fallback**: Only generates when alpha/beta files are missing
 
 ## Implementation Priority

@@ -25,12 +25,16 @@ def write_funscript(path, funscript):
         json.dump(js, f)
 
 
-def convert_funscript_radial(funscript):
+def convert_funscript_radial(funscript, min_distance_from_center=0.1, speed_at_edge_hz=2.0):
     at, pos = funscript
 
     t_out = []
     x_out = []
     y_out = []
+
+    # Convert speed_at_edge_hz to time needed to go from 0 to 1
+    # If speed_at_edge_hz = 2Hz, then full range (0 to 1) takes 0.5 seconds
+    max_speed_threshold = abs(1.0) / (1.0 / speed_at_edge_hz)  # Speed for full range in 1/Hz seconds
 
     for i in range(len(pos)-1):
         start_t, end_t = at[i:i+2]
@@ -38,10 +42,23 @@ def convert_funscript_radial(funscript):
 
         points_per_second = 25
         n = int(np.clip(float((end_t - start_t) * points_per_second), 1, None))
+
+        # Calculate speed for this segment (position change per second)
+        segment_duration = end_t - start_t
+        position_change = abs(end_p - start_p)
+        current_speed = position_change / segment_duration if segment_duration > 0 else 0
+
+        # Map speed to radius (min_distance_from_center to 1.0)
+        speed_ratio = min(current_speed / max_speed_threshold, 1.0)  # Clamp to 1.0
+        radius_scale = min_distance_from_center + (1.0 - min_distance_from_center) * speed_ratio
+
         t = np.linspace(0.0, end_t - start_t, n, endpoint=False)
         theta = np.linspace(0, np.pi, n, endpoint=False)
         center = (end_p + start_p) / 2
         r = (start_p - end_p) / 2
+
+        # Apply speed-based radius scaling
+        r = r * radius_scale
 
         x = center + r * np.cos(theta)
         y = r * np.sin(theta) + 0.5

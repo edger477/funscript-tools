@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (Fixed Linux)
 
 on:
   push:
@@ -38,7 +38,6 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
-    continue-on-error: true  # Allow this job to fail without stopping the workflow
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -51,7 +50,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-tk fuse
+        sudo apt-get install -y python3-tk fuse libfuse2
 
     - name: Install Python dependencies
       run: |
@@ -64,14 +63,13 @@ jobs:
 
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4
-      if: success()  # Only upload if build succeeded
       with:
         name: linux-build
         path: dist/*.tar.gz
 
   create-release:
     needs: [build-windows, build-linux]
-    if: always() && startsWith(github.ref, 'refs/tags/')  # Run even if Linux build fails, but only on tags
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -89,28 +87,14 @@ jobs:
 
     - name: Download Linux artifacts
       uses: actions/download-artifact@v4
-      continue-on-error: true  # Don't fail if Linux artifacts don't exist
       with:
         name: linux-build
         path: ./artifacts/linux/
 
-    - name: Check available artifacts
-      id: check_artifacts
-      run: |
-        echo "WINDOWS_FILES=$(find ./artifacts/windows -name '*.zip' 2>/dev/null | tr '\n' ' ' || echo '')" >> $GITHUB_OUTPUT
-        echo "LINUX_FILES=$(find ./artifacts/linux -name '*.tar.gz' 2>/dev/null | tr '\n' ' ' || echo '')" >> $GITHUB_OUTPUT
-        # Create dynamic release body based on available platforms
-        if [ -n "$(find ./artifacts/linux -name '*.tar.gz' 2>/dev/null)" ]; then
-          echo "PLATFORMS=Windows and Linux" >> $GITHUB_OUTPUT
-          echo "LINUX_DOWNLOAD=- **Linux**: Download the \`.tar.gz\` file, extract, make executable, and run the \`.AppImage\`" >> $GITHUB_OUTPUT
-        else
-          echo "PLATFORMS=Windows only" >> $GITHUB_OUTPUT
-          echo "LINUX_DOWNLOAD=- **Linux**: Linux build currently unavailable" >> $GITHUB_OUTPUT
-        fi
-
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
         name: Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
         body: |
           ## Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
@@ -122,9 +106,9 @@ jobs:
           - **30+ Parameters**: Comprehensive control over processing with intuitive UI
           - **Real-time Feedback**: Progress tracking and percentage displays for ratio controls
 
-          ### Downloads (${{ steps.check_artifacts.outputs.PLATFORMS }})
+          ### Downloads
           - **Windows**: Download the `.zip` file, extract, and run `RestimFunscriptProcessor.exe`
-          ${{ steps.check_artifacts.outputs.LINUX_DOWNLOAD }}
+          - **Linux**: Download the `.tar.gz` file, extract, make executable, and run the `.AppImage`
 
           ### Generated Output Files
           The application processes a single input funscript and generates 10 output files:

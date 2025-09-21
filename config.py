@@ -16,7 +16,10 @@ DEFAULT_CONFIG = {
     },
     "alpha_beta_generation": {
         "points_per_second": 25,
-        "auto_generate": True
+        "auto_generate": True,
+        "algorithm": "circular",
+        "min_distance_from_center": 0.1,
+        "speed_at_edge_hz": 2.0
     },
     "frequency": {
         "alpha_freq_min": 0.30,
@@ -63,7 +66,9 @@ PARAMETER_RANGES = {
         "interpolation_interval": (0.01, 1.0)
     },
     "alpha_beta_generation": {
-        "points_per_second": (1, 100)
+        "points_per_second": (1, 100),
+        "min_distance_from_center": (0.1, 0.9),
+        "speed_at_edge_hz": (1.0, 5.0)
     },
     "frequency": {
         "alpha_freq_min": (0.0, 1.0),

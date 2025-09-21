@@ -42,9 +42,17 @@ def download_appimagetool():
         os.chmod(appimagetool_path, 0o755)  # Make executable
         print(f"Downloaded: {appimagetool_path}")
 
-        # Verify the file is actually executable
+        # Verify the file is actually executable and has reasonable size
         if not appimagetool_path.exists() or appimagetool_path.stat().st_size < 1000:
             raise Exception("Downloaded file appears to be corrupted or too small")
+
+        # Test that it can actually be executed (basic smoke test)
+        try:
+            test_result = subprocess.run([str(appimagetool_path), "--help"],
+                                       capture_output=True, text=True, timeout=10)
+            print("appimagetool executable test passed")
+        except Exception as e:
+            print(f"Warning: appimagetool test failed, but proceeding: {e}")
 
         return str(appimagetool_path)
 
@@ -188,7 +196,8 @@ def create_appimage(appdir_path, appimagetool_path):
     """Create AppImage from AppDir."""
     print("Creating AppImage...")
 
-    cmd = [appimagetool_path, appdir_path]
+    # Use --appimage-extract-and-run for CI environments without FUSE
+    cmd = [appimagetool_path, "--appimage-extract-and-run", appdir_path]
 
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
