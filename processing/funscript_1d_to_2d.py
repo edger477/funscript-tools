@@ -88,10 +88,24 @@ def generate_alpha_beta_from_main(main_funscript, points_per_second=25, algorith
     """
     if algorithm == "circular":
         return convert_funscript_radial(main_funscript, points_per_second, min_distance_from_center, speed_at_edge_hz)
-    elif algorithm in ["top-left-right", "top-right-left"]:
+    elif algorithm == "top-left-right":
         # Import the oscillating module
         from .funscript_oscillating_2d import generate_alpha_beta_oscillating
         return generate_alpha_beta_oscillating(main_funscript, points_per_second, algorithm, min_distance_from_center, speed_at_edge_hz)
+    elif algorithm == "top-right-left":
+        # Use top-left-right algorithm and then invert beta for vertical mirror
+        from .funscript_oscillating_2d import generate_alpha_beta_oscillating
+        from .basic_transforms import invert_funscript
+
+        # Generate using top-left-right algorithm
+        alpha_funscript, beta_funscript = generate_alpha_beta_oscillating(
+            main_funscript, points_per_second, "top-left-right", min_distance_from_center, speed_at_edge_hz
+        )
+
+        # Invert beta to create vertical mirror effect
+        beta_inverted = invert_funscript(beta_funscript)
+
+        return alpha_funscript, beta_inverted
     else:
         # Default to circular if unknown algorithm
         return convert_funscript_radial(main_funscript, points_per_second, min_distance_from_center, speed_at_edge_hz)

@@ -60,9 +60,9 @@ class ConversionTabs:
 
         ttk.Radiobutton(algo_frame, text="Circular (0°-180°)",
                        variable=self.basic_algorithm_var, value="circular").pack(anchor=tk.W, pady=1)
-        ttk.Radiobutton(algo_frame, text="Top-Right-Bottom-Left (0°-270°)",
-                       variable=self.basic_algorithm_var, value="top-left-right").pack(anchor=tk.W, pady=1)
         ttk.Radiobutton(algo_frame, text="Top-Left-Bottom-Right (0°-90°)",
+                       variable=self.basic_algorithm_var, value="top-left-right").pack(anchor=tk.W, pady=1)
+        ttk.Radiobutton(algo_frame, text="Top-Right-Bottom-Left (0°-270°)",
                        variable=self.basic_algorithm_var, value="top-right-left").pack(anchor=tk.W, pady=1)
 
         # Points per second
