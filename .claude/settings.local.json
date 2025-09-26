@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__serena__activate_project",
+      "mcp__serena__get_symbols_overview"
     ],
     "deny": [],
     "ask": []
