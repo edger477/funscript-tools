@@ -264,33 +264,19 @@ class RestimProcessor:
         # Phase 5: Pulse Parameters (70-90%)
         self._update_progress(progress_callback, 70, "Processing pulse parameters...")
 
-        if beta_exists:
-            beta_funscript = Funscript.from_file(self._get_temp_path("beta"))
-
-            # Beta mirror-up
-            beta_mirrored = mirror_up_funscript(
-                beta_funscript,
-                self.params['pulse']['beta_mirror_threshold']
-            )
-            beta_mirrored.save_to_path(self._get_temp_path("beta-mirror-up"))
-
-            # Pulse rise time (complex combination)
-            pulse_rise_time = combine_funscripts(
-                beta_mirrored,
-                speed_inverted,
-                self.params['pulse']['pulse_rise_combine_ratio']
-            )
-            pulse_rise_time = combine_funscripts(
-                ramp_inverted,
-                pulse_rise_time,
-                self.params['pulse']['pulse_rise_combine_ratio']
-            )
-            pulse_rise_time = map_funscript(
-                pulse_rise_time,
-                self.params['pulse']['pulse_rise_min'],
-                self.params['pulse']['pulse_rise_max']
-            )
-            pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
+        # Generate pulse rise time using ramp_inverted and speed_inverted directly
+        # Simplified approach without beta dependency
+        pulse_rise_time = combine_funscripts(
+            ramp_inverted,
+            speed_inverted,
+            self.params['pulse']['pulse_rise_combine_ratio']
+        )
+        pulse_rise_time = map_funscript(
+            pulse_rise_time,
+            self.params['pulse']['pulse_rise_min'],
+            self.params['pulse']['pulse_rise_max']
+        )
+        pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
 
         # Generate pulse width using inverted original funscript
         # Reuse main_inverted from alpha-prostate generation above
