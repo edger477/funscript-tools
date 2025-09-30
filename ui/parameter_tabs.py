@@ -93,6 +93,11 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars = {}
         self.combine_ratio_controls = {}  # Store custom ratio controls
 
+        # Store reference to root window for dialogs
+        self.root = parent
+        while hasattr(self.root, 'master') and self.root.master:
+            self.root = self.root.master
+
         self.setup_tabs()
 
     def set_mode_change_callback(self, callback):
@@ -718,9 +723,51 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 self.legacy_frame.grid()
 
     def _open_curve_editor(self, axis_name):
-        """Open curve editor modal dialog (placeholder)."""
-        import tkinter.messagebox as msgbox
-        msgbox.showinfo("Curve Editor", f"Curve editor for {axis_name.upper()} will be implemented in future version.\n\nCurrent curve: {self.config['positional_axes'][axis_name]['curve']['name']}")
+        """Open curve editor modal dialog."""
+        try:
+            from .curve_editor_dialog import edit_curve
+
+            # Get current curve configuration
+            current_curve = self.config['positional_axes'][axis_name]['curve']
+
+            # Open the curve editor dialog
+            result = edit_curve(self.root, axis_name, current_curve)
+
+            if result is not None:
+                # User saved changes - update configuration
+                self.config['positional_axes'][axis_name]['curve'] = result
+
+                # Update the curve visualization
+                self._update_curve_visualizations()
+
+                # Update the curve name display
+                self._update_curve_name_display(axis_name)
+
+        except ImportError as e:
+            # Fallback if curve editor is not available
+            import tkinter.messagebox as msgbox
+            msgbox.showerror("Curve Editor Error", f"Curve editor is not available: {str(e)}")
+        except Exception as e:
+            import tkinter.messagebox as msgbox
+            msgbox.showerror("Error", f"Failed to open curve editor: {str(e)}")
+
+    def _update_curve_name_display(self, axis_name):
+        """Update the curve name display for a specific axis."""
+        try:
+            # Find and update the curve name label for this axis
+            curve_name = self.config['positional_axes'][axis_name]['curve']['name']
+
+            # The curve name label was created in setup_motion_axis_section_internal
+            # We need to find it and update its text
+            for child in self.motion_config_frame.winfo_children():
+                if isinstance(child, ttk.LabelFrame) and axis_name.upper() in child.cget('text'):
+                    for subchild in child.winfo_children():
+                        if isinstance(subchild, ttk.Label) and 'Curve:' in subchild.cget('text'):
+                            subchild.config(text=f"Curve: {curve_name}")
+                            break
+                    break
+        except Exception as e:
+            print(f"Error updating curve name display: {e}")
 
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""
