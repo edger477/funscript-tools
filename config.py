@@ -28,8 +28,8 @@ DEFAULT_CONFIG = {
         "min_distance_from_center": 0.5
     },
     "frequency": {
-        "alpha_freq_min": 0.30,
-        "alpha_freq_max": 0.95,
+        "pulse_freq_min": 0.40,
+        "pulse_freq_max": 0.95,
         "frequency_ramp_combine_ratio": 2,
         "pulse_frequency_combine_ratio": 3
     },
@@ -82,8 +82,8 @@ PARAMETER_RANGES = {
         "min_distance_from_center": (0.3, 0.9)
     },
     "frequency": {
-        "alpha_freq_min": (0.0, 1.0),
-        "alpha_freq_max": (0.0, 1.0),
+        "pulse_freq_min": (0.0, 1.0),
+        "pulse_freq_max": (0.0, 1.0),
         "frequency_ramp_combine_ratio": (1, 10),
         "pulse_frequency_combine_ratio": (1, 10)
     },
@@ -172,9 +172,9 @@ class ConfigManager:
 
         # Additional validation
         freq_config = self.config.get('frequency', {})
-        if 'alpha_freq_min' in freq_config and 'alpha_freq_max' in freq_config:
-            if freq_config['alpha_freq_min'] >= freq_config['alpha_freq_max']:
-                raise ValueError("alpha_freq_min must be less than alpha_freq_max")
+        if 'pulse_freq_min' in freq_config and 'pulse_freq_max' in freq_config:
+            if freq_config['pulse_freq_min'] >= freq_config['pulse_freq_max']:
+                raise ValueError("pulse_freq_min must be less than pulse_freq_max")
 
         pulse_config = self.config.get('pulse', {})
         if 'pulse_width_min' in pulse_config and 'pulse_width_max' in pulse_config:

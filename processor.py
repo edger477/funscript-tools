@@ -196,29 +196,26 @@ class RestimProcessor:
         # Phase 3: Frequency Processing (40-50%)
         self._update_progress(progress_callback, 40, "Processing frequency data...")
 
-        if alpha_exists:
-            alpha_funscript = Funscript.from_file(self._get_temp_path("alpha"))
+        # Generate pulse frequency using original funscript instead of alpha
+        # Map original funscript to frequency range
+        main_freq = map_funscript(
+            main_funscript,
+            self.params['frequency']['pulse_freq_min'],
+            self.params['frequency']['pulse_freq_max']
+        )
+        main_freq.save_to_path(self._get_temp_path("pulse_frequency-mainbased"))
 
-            # Alpha-based frequency
-            alpha_freq = map_funscript(
-                alpha_funscript,
-                self.params['frequency']['alpha_freq_min'],
-                self.params['frequency']['alpha_freq_max']
-            )
-            alpha_freq.save_to_path(self._get_temp_path("pulse_frequency-alphabased"))
+        # Combine with speed
+        pulse_frequency = combine_funscripts(
+            speed_funscript,
+            main_freq,
+            self.params['frequency']['pulse_frequency_combine_ratio']
+        )
+        pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
 
-            # Combine with speed
-            pulse_frequency = combine_funscripts(
-                speed_funscript,
-                alpha_freq,
-                self.params['frequency']['pulse_frequency_combine_ratio']
-            )
-            pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
-
-            # Alpha inversion for prostate
-            alpha_inverted = invert_funscript(alpha_funscript)
-            alpha_inverted.save_to_path(self._get_temp_path("alpha_inverted"))
-            alpha_inverted.save_to_path(self._get_output_path("alpha-prostate"))
+        # Generate alpha-prostate output using inverted main funscript
+        main_inverted = invert_funscript(main_funscript)
+        main_inverted.save_to_path(self._get_output_path("alpha-prostate"))
 
         # Primary frequency generation
         frequency = combine_funscripts(
@@ -295,22 +292,22 @@ class RestimProcessor:
             )
             pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
 
-        if alpha_exists:
-            # Pulse width from limited inverted alpha
-            pulse_width_alpha = limit_funscript(
-                alpha_inverted,
-                self.params['pulse']['pulse_width_min'],
-                self.params['pulse']['pulse_width_max']
-            )
-            pulse_width_alpha.save_to_path(self._get_temp_path("pulse_width-alpha"))
+        # Generate pulse width using inverted original funscript
+        # Reuse main_inverted from alpha-prostate generation above
+        pulse_width_main = limit_funscript(
+            main_inverted,
+            self.params['pulse']['pulse_width_min'],
+            self.params['pulse']['pulse_width_max']
+        )
+        pulse_width_main.save_to_path(self._get_temp_path("pulse_width-main"))
 
-            # Combine with speed for final pulse width
-            pulse_width = combine_funscripts(
-                speed_funscript,
-                pulse_width_alpha,
-                self.params['pulse']['pulse_width_combine_ratio']
-            )
-            pulse_width.save_to_path(self._get_output_path("pulse_width"))
+        # Combine with speed for final pulse width
+        pulse_width = combine_funscripts(
+            speed_funscript,
+            pulse_width_main,
+            self.params['pulse']['pulse_width_combine_ratio']
+        )
+        pulse_width.save_to_path(self._get_output_path("pulse_width"))
 
         # Phase 6: Copy remaining outputs (90-95%)
         self._update_progress(progress_callback, 90, "Finalizing outputs...")
@@ -328,7 +325,7 @@ class RestimProcessor:
             shutil.copy2(self._get_temp_path("beta-prostate"), self._get_output_path("beta-prostate"))
 
         # Generate optional inverted files if enabled
-        if self.params['advanced']['enable_pulse_frequency_inversion'] and alpha_exists:
+        if self.params['advanced']['enable_pulse_frequency_inversion']:
             pulse_freq_inverted = invert_funscript(pulse_frequency)
             pulse_freq_inverted.save_to_path(self._get_output_path("pulse_frequency_inverted"))
 

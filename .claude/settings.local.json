@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "mcp__serena__activate_project",
-      "mcp__serena__get_symbols_overview"
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__list_dir"
     ],
     "deny": [],
     "ask": []

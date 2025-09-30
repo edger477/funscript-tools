@@ -212,23 +212,23 @@ class ParameterTabs(ttk.Notebook):
 
         row = 0
 
-        # Alpha Frequency Min
-        ttk.Label(frame, text="Alpha Frequency Min:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.DoubleVar(value=self.config['frequency']['alpha_freq_min'])
-        self.parameter_vars['frequency']['alpha_freq_min'] = var
+        # Pulse Frequency Min
+        ttk.Label(frame, text="Pulse Frequency Min:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.DoubleVar(value=self.config['frequency']['pulse_freq_min'])
+        self.parameter_vars['frequency']['pulse_freq_min'] = var
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(0.0-1.0) Minimum mapping for alpha to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
+        ttk.Label(frame, text="(0.0-1.0) Minimum mapping for main funscript to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
 
         row += 1
 
-        # Alpha Frequency Max
-        ttk.Label(frame, text="Alpha Frequency Max:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.DoubleVar(value=self.config['frequency']['alpha_freq_max'])
-        self.parameter_vars['frequency']['alpha_freq_max'] = var
+        # Pulse Frequency Max
+        ttk.Label(frame, text="Pulse Frequency Max:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.DoubleVar(value=self.config['frequency']['pulse_freq_max'])
+        self.parameter_vars['frequency']['pulse_freq_max'] = var
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(0.0-1.0) Maximum mapping for alpha to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
+        ttk.Label(frame, text="(0.0-1.0) Maximum mapping for main funscript to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
 
         row += 1
 
