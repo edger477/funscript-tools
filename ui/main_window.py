@@ -84,8 +84,11 @@ class MainWindow:
         buttons_frame = ttk.Frame(status_frame)
         buttons_frame.grid(row=2, column=0, columnspan=2, pady=10)
 
-        self.process_button = ttk.Button(buttons_frame, text="Process Files", command=self.start_processing)
+        self.process_button = ttk.Button(buttons_frame, text="Process All Files", command=self.start_processing)
         self.process_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.process_motion_button = ttk.Button(buttons_frame, text="Process Motion Files", command=self.start_motion_processing)
+        self.process_motion_button.pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Button(buttons_frame, text="Save Config", command=self.save_config).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT)
@@ -223,6 +226,57 @@ class MainWindow:
             # Re-enable the convert buttons
             self.root.after(100, lambda: self.conversion_tabs.set_button_state('normal'))
 
+    def _generate_motion_axis_files(self, input_path: Path):
+        """Generate motion axis files (E1-E4) based on current configuration."""
+        try:
+            self.update_progress(30, "Loading input file...")
+
+            # Import necessary modules
+            from funscript import Funscript
+            from processing.motion_axis_generation import generate_motion_axes
+
+            # Load main funscript
+            main_funscript = Funscript.from_file(input_path)
+
+            self.update_progress(50, "Generating motion axis files...")
+
+            # Get motion axis configuration
+            motion_config = self.current_config['positional_axes']
+
+            # Generate motion axis files
+            generated_files = generate_motion_axes(
+                main_funscript,
+                motion_config,
+                input_path.parent
+            )
+
+            self.update_progress(80, "Saving motion axis files...")
+
+            if generated_files:
+                # Create success message with list of generated files
+                files_list = "\n".join([f"• {path.name}" for path in generated_files.values()])
+                success_message = f"Motion axis generation complete! Created {len(generated_files)} files."
+
+                self.update_progress(100, success_message)
+
+                # Show success message
+                self.root.after(100, lambda: messagebox.showinfo("Success",
+                    f"Motion axis files generated successfully!\n\nCreated files:\n{files_list}"))
+
+            else:
+                # No files were generated (all axes disabled)
+                warning_message = "No motion axis files generated - all axes are disabled."
+                self.update_progress(100, warning_message)
+                self.root.after(100, lambda: messagebox.showwarning("No Files Generated",
+                    "No motion axis files were generated because all axes (E1-E4) are disabled.\n\n"
+                    "Enable at least one axis in the Motion Axis tab to generate files."))
+
+        except Exception as e:
+            error_msg = f"Motion axis generation failed: {str(e)}"
+            self.update_progress(-1, error_msg)
+            self.root.after(100, lambda: messagebox.showerror("Error", error_msg))
+            raise  # Re-raise to be caught by the calling method
+
     def update_config_from_ui(self):
         """Update configuration with current UI values."""
         # Update all parameters from parameter tabs (which now includes embedded conversion tabs)
@@ -285,12 +339,27 @@ class MainWindow:
         if not self.validate_inputs():
             return
 
-        # Disable the process button during processing
+        # Disable both process buttons during processing
         self.process_button.config(state='disabled')
+        self.process_motion_button.config(state='disabled')
         self.progress_var.set(0)
 
         # Start processing thread
         processing_thread = threading.Thread(target=self.process_files, daemon=True)
+        processing_thread.start()
+
+    def start_motion_processing(self):
+        """Start motion file processing in a separate thread."""
+        if not self.validate_inputs():
+            return
+
+        # Disable both process buttons during processing
+        self.process_button.config(state='disabled')
+        self.process_motion_button.config(state='disabled')
+        self.progress_var.set(0)
+
+        # Start motion processing thread
+        processing_thread = threading.Thread(target=self.process_motion_files, daemon=True)
         processing_thread.start()
 
     def process_files(self):
@@ -318,8 +387,43 @@ class MainWindow:
             self.root.after(100, lambda: messagebox.showerror("Error", error_msg))
 
         finally:
-            # Re-enable the process button
+            # Re-enable both process buttons
             self.root.after(100, lambda: self.process_button.config(state='normal'))
+            self.root.after(100, lambda: self.process_motion_button.config(state='normal'))
+
+    def process_motion_files(self):
+        """Process motion files in background thread based on current mode."""
+        try:
+            input_file = self.input_file_var.get().strip()
+            input_path = Path(input_file)
+
+            # Get current positional axis mode
+            mode = self.current_config['positional_axes']['mode']
+
+            self.update_progress(10, f"Processing in {mode} mode...")
+
+            if mode == 'legacy':
+                # Use existing 2D conversion logic (default to basic)
+                self.update_progress(20, "Converting to 2D (Legacy mode)...")
+                self._perform_2d_conversion('basic')
+
+            elif mode == 'motion_axis':
+                # Generate motion axis files
+                self.update_progress(20, "Generating motion axis files...")
+                self._generate_motion_axis_files(input_path)
+
+            else:
+                raise ValueError(f"Unknown positional axis mode: {mode}")
+
+        except Exception as e:
+            error_msg = f"Motion processing failed: {str(e)}"
+            self.update_progress(-1, error_msg)
+            self.root.after(100, lambda: messagebox.showerror("Error", error_msg))
+
+        finally:
+            # Re-enable both process buttons
+            self.root.after(100, lambda: self.process_button.config(state='normal'))
+            self.root.after(100, lambda: self.process_motion_button.config(state='normal'))
 
     def update_progress(self, percent: int, message: str):
         """Update progress bar and status message. Thread-safe."""

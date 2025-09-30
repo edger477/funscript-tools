@@ -75,8 +75,9 @@ class CurveEditorDialog:
         # Load presets
         self.load_presets()
 
-        # Initialize curve display
+        # Initialize curve display and points list
         self.update_curve_display()
+        self.update_points_list()
 
         # Handle window close
         self.dialog.protocol("WM_DELETE_WINDOW", self.on_cancel)

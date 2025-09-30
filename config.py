@@ -61,7 +61,7 @@ DEFAULT_CONFIG = {
         "delete_intermediary_files": True
     },
     "positional_axes": {
-        "mode": "legacy",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
+        "mode": "motion_axis",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
         "e1": {
             "enabled": True,
             "curve": {
