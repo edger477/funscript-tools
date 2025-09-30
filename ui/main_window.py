@@ -247,7 +247,8 @@ class MainWindow:
             generated_files = generate_motion_axes(
                 main_funscript,
                 motion_config,
-                input_path.parent
+                input_path.parent,
+                input_path.stem  # Use input filename without extension
             )
 
             self.update_progress(80, "Saving motion axis files...")

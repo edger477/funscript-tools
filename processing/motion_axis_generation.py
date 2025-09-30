@@ -18,7 +18,8 @@ from .linear_mapping import (
 def generate_motion_axes(
     main_funscript: Funscript,
     config: Dict[str, Any],
-    output_directory: Path
+    output_directory: Path,
+    filename_base: str = None
 ) -> Dict[str, Path]:
     """
     Generate all enabled motion axis files (E1-E4) from main funscript.
@@ -27,6 +28,7 @@ def generate_motion_axes(
         main_funscript: Source funscript for generation
         config: Motion axis configuration
         output_directory: Directory to save generated files
+        filename_base: Base filename (without extension) for output files
 
     Returns:
         Dictionary mapping axis names to generated file paths
@@ -56,7 +58,9 @@ def generate_motion_axes(
         )
 
         # Save to file
-        output_path = output_directory / f"{output_directory.stem}.{axis_name}.funscript"
+        if filename_base is None:
+            filename_base = output_directory.stem
+        output_path = output_directory / f"{filename_base}.{axis_name}.funscript"
         axis_funscript.save_to_path(output_path)
         generated_files[axis_name] = output_path
 
