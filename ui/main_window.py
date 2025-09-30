@@ -16,7 +16,7 @@ class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Restim Funscript Processor")
-        self.root.geometry("800x950")
+        self.root.geometry("850x1000")
         self.root.resizable(True, True)
 
         # Configuration
@@ -25,9 +25,6 @@ class MainWindow:
 
         # Variables
         self.input_file_var = tk.StringVar()
-        self.normalize_volume_var = tk.BooleanVar(value=self.current_config['options']['normalize_volume'])
-        self.delete_intermediary_var = tk.BooleanVar(value=self.current_config['options']['delete_intermediary_files'])
-
 
         # Progress tracking
         self.progress_var = tk.IntVar()
@@ -56,30 +53,7 @@ class MainWindow:
 
         row += 1
 
-        # 1D to 2D Conversion frame with tabs
-        conversion_frame = ttk.LabelFrame(main_frame, text="1D to 2D Conversion", padding="10")
-        conversion_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
-        conversion_frame.columnconfigure(0, weight=1)
-        conversion_frame.rowconfigure(0, weight=1)
-
-        # Create conversion tabs
-        self.conversion_tabs = ConversionTabs(conversion_frame, self.current_config)
-        self.conversion_tabs.set_conversion_callbacks(self.convert_basic_2d, self.convert_prostate_2d)
-
-
-        row += 1
-
-        # Processing options frame
-        options_frame = ttk.LabelFrame(main_frame, text="Processing Options", padding="10")
-        options_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
-        options_frame.columnconfigure(0, weight=1)
-
-        ttk.Checkbutton(options_frame, text="Normalize Volume", variable=self.normalize_volume_var).grid(row=0, column=0, sticky=tk.W)
-        ttk.Checkbutton(options_frame, text="Delete Intermediary Files When Done", variable=self.delete_intermediary_var).grid(row=1, column=0, sticky=tk.W)
-
-        row += 1
-
-        # Parameters frame
+        # Parameters frame (1D to 2D conversion is now in Motion Axis tab)
         params_frame = ttk.LabelFrame(main_frame, text="Parameters", padding="10")
         params_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
         params_frame.columnconfigure(0, weight=1)
@@ -88,6 +62,9 @@ class MainWindow:
         # Parameter tabs
         self.parameter_tabs = ParameterTabs(params_frame, self.current_config)
         self.parameter_tabs.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Set callback for mode changes (for future extensibility)
+        self.parameter_tabs.set_mode_change_callback(self.on_mode_change)
 
         row += 1
 
@@ -114,7 +91,17 @@ class MainWindow:
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT)
 
         # Configure main_frame row weights
-        main_frame.rowconfigure(row-1, weight=1)  # Parameters frame gets extra space
+        main_frame.rowconfigure(row-1, weight=1)  # Parameters frame gets extra space  # Parameters frame gets extra space  # Parameters frame gets extra space
+
+
+
+    def on_mode_change(self, mode):
+        """Called when positional axis mode changes."""
+        # Mode changes are now handled within the Motion Axis tab
+        pass
+
+
+
 
     def browse_input_file(self):
         """Open file dialog to select input funscript file."""
@@ -156,28 +143,6 @@ class MainWindow:
         conversion_thread = threading.Thread(target=self._perform_2d_conversion, args=(conversion_type,), daemon=True)
         conversion_thread.start()
 
-    def convert_to_2d(self):
-        """Convert 1D funscript to 2D alpha/beta files only."""
-        input_file = self.input_file_var.get().strip()
-
-        if not input_file:
-            messagebox.showerror("Error", "Please select an input file first.")
-            return
-
-        if not Path(input_file).exists():
-            messagebox.showerror("Error", "Input file does not exist.")
-            return
-
-        if not input_file.lower().endswith('.funscript'):
-            messagebox.showerror("Error", "Input file must be a .funscript file.")
-            return
-
-        # Disable the convert buttons during processing
-        self.conversion_tabs.set_button_state('disabled')
-
-        # Start conversion in background thread
-        conversion_thread = threading.Thread(target=self._perform_2d_conversion, args=(conversion_type,), daemon=True)
-        conversion_thread.start()
 
     def _perform_2d_conversion(self, conversion_type):
         """Perform 2D conversion in background thread."""
@@ -260,37 +225,15 @@ class MainWindow:
 
     def update_config_from_ui(self):
         """Update configuration with current UI values."""
-        # Update options
-        self.current_config['options']['normalize_volume'] = self.normalize_volume_var.get()
-        self.current_config['options']['delete_intermediary_files'] = self.delete_intermediary_var.get()
-
-        # Update 1D to 2D conversion settings from conversion tabs
-        basic_config = self.conversion_tabs.get_basic_config()
-        self.current_config['alpha_beta_generation']['algorithm'] = basic_config['algorithm']
-        self.current_config['alpha_beta_generation']['points_per_second'] = basic_config['points_per_second']
-        self.current_config['alpha_beta_generation']['min_distance_from_center'] = round(basic_config['min_distance_from_center'], 1)
-        self.current_config['alpha_beta_generation']['speed_at_edge_hz'] = round(basic_config['speed_at_edge_hz'], 1)
-
-        # Update prostate conversion settings
-        prostate_config = self.conversion_tabs.get_prostate_config()
-        if 'prostate_generation' not in self.current_config:
-            self.current_config['prostate_generation'] = {}
-        self.current_config['prostate_generation']['generate_from_inverted'] = prostate_config['generate_from_inverted']
-        self.current_config['prostate_generation']['algorithm'] = prostate_config['algorithm']
-        self.current_config['prostate_generation']['points_per_second'] = prostate_config['points_per_second']
-        self.current_config['prostate_generation']['min_distance_from_center'] = round(prostate_config['min_distance_from_center'], 1)
-
-        # Update parameters from tabs
+        # Update all parameters from parameter tabs (which now includes embedded conversion tabs)
         self.parameter_tabs.update_config(self.current_config)
 
     def update_config_display(self):
         """Update UI display with current configuration values."""
-        self.normalize_volume_var.set(self.current_config['options']['normalize_volume'])
-        self.delete_intermediary_var.set(self.current_config['options']['delete_intermediary_files'])
-
         # The conversion tabs will handle their own display updates
         # since they manage their own variables internally
 
+        # Parameter tabs now handle all parameters including processing options
         self.parameter_tabs.update_display(self.current_config)
 
     def save_config(self):

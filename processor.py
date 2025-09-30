@@ -13,6 +13,9 @@ from processing.combining import combine_funscripts
 from processing.special_generators import make_volume_ramp
 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
 from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
+from processing.motion_axis_generation import (
+    generate_motion_axes, copy_existing_axis_files, validate_motion_axis_config
+)
 
 
 class RestimProcessor:
@@ -150,6 +153,37 @@ class RestimProcessor:
                 if not beta_prostate_exists:
                     beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
                     beta_prostate_exists = True
+
+        # Motion Axis Generation (18-19%)
+        if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+            self._update_progress(progress_callback, 18, "Generating motion axis files...")
+            motion_config = self.params.get('positional_axes', {})
+
+            # Validate configuration
+            config_errors = validate_motion_axis_config(motion_config)
+            if config_errors:
+                print(f"Motion axis configuration errors: {config_errors}")
+            else:
+                # Copy existing axis files first
+                enabled_axes = [axis for axis in ['e1', 'e2', 'e3', 'e4']
+                              if motion_config.get(axis, {}).get('enabled', False)]
+
+                copied_files = copy_existing_axis_files(
+                    self.input_path.parent,
+                    self.temp_dir,
+                    self.filename_only,
+                    enabled_axes
+                )
+
+                # Generate any missing axis files
+                axes_to_generate = [axis for axis in enabled_axes if axis not in copied_files]
+                if axes_to_generate:
+                    generate_config = {axis: motion_config[axis] for axis in axes_to_generate}
+                    generated_files = generate_motion_axes(
+                        main_funscript,
+                        generate_config,
+                        self.temp_dir
+                    )
 
         # Phase 2: Core File Generation (20-40%)
         self._update_progress(progress_callback, 20, "Generating speed file...")
@@ -309,6 +343,15 @@ class RestimProcessor:
             shutil.copy2(self._get_temp_path("alpha-prostate"), self._get_output_path("alpha-prostate"))
         if 'beta_prostate_exists' in locals() and beta_prostate_exists:
             shutil.copy2(self._get_temp_path("beta-prostate"), self._get_output_path("beta-prostate"))
+
+        # Copy motion axis files to outputs if motion axis mode is enabled
+        if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+            motion_config = self.params.get('positional_axes', {})
+            for axis_name in ['e1', 'e2', 'e3', 'e4']:
+                if motion_config.get(axis_name, {}).get('enabled', False):
+                    temp_path = self._get_temp_path(axis_name)
+                    if temp_path.exists():
+                        shutil.copy2(temp_path, self._get_output_path(axis_name))
 
         # Generate optional inverted files if enabled
         if self.params['advanced']['enable_pulse_frequency_inversion']:

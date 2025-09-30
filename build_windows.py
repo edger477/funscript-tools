@@ -26,22 +26,39 @@ def build_windows_exe():
         print("Cleaning previous build folder...")
         shutil.rmtree(build_dir)
 
-    # PyInstaller command
-    cmd = [
-        "pyinstaller",
-        "--onefile",  # Single executable file
-        "--windowed",  # No console window (GUI app)
-        "--name", f"RestimFunscriptProcessor-v{__version__}",
-        "--paths", ".",  # Add current directory to Python path
-        "--collect-all", "ui",  # Collect entire ui package
-        "--collect-all", "processing",  # Collect entire processing package
-        "--hidden-import", "tkinter",
-        "--hidden-import", "numpy",
-        "--hidden-import", "json",
-        "--hidden-import", "pathlib",
-        "--distpath", "dist/windows",
-        "main.py"
-    ]
+    # Try spec file first, then fallback to command line
+    spec_file = Path("funscript_processor.spec")
+    use_spec_file = spec_file.exists()
+
+    if use_spec_file:
+        print("Using spec file for build...")
+        cmd = [
+            "pyinstaller",
+            "--clean",  # Clean PyInstaller cache
+            "--distpath", "dist/windows",
+            str(spec_file)
+        ]
+    else:
+        print("Using command line arguments for build...")
+        # PyInstaller command
+        cmd = [
+            "pyinstaller",
+            "--onefile",  # Single executable file
+            "--windowed",  # No console window (GUI app)
+            "--name", f"RestimFunscriptProcessor-v{__version__}",
+            "--paths", ".",  # Add current directory to Python path
+            "--collect-all", "ui",  # Collect entire ui package
+            "--collect-all", "processing",  # Collect entire processing package
+            "--hidden-import", "tkinter",
+            "--hidden-import", "numpy",
+            "--hidden-import", "json",
+            "--hidden-import", "pathlib",
+            "--hidden-import", "processing.linear_mapping",  # New motion axis module
+            "--hidden-import", "processing.motion_axis_generation",  # New motion axis module
+            "--clean",  # Clean PyInstaller cache
+            "--distpath", "dist/windows",
+            "main.py"
+        ]
 
     # Add config file if it exists
     if Path("restim_config.json").exists():

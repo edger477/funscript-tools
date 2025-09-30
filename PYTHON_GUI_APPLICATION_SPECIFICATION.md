@@ -1,7 +1,7 @@
 # Python GUI Application Specification for Restim Funscript Processing
 
 ## Overview
-This specification describes a Python GUI application that replaces the PowerShell-based funscript processing workflow with a user-friendly interface for generating electrostimulation device scripts. The application includes automatic 1D to 2D funscript conversion to ensure complete processing without requiring auxiliary files.
+This specification describes a Python GUI application that replaces the PowerShell-based funscript processing workflow with a user-friendly interface for generating electrostimulation device scripts. The application includes both traditional alpha/beta generation and the new Motion Axis Generation system for positional control.
 
 ## Application Architecture
 
@@ -25,11 +25,16 @@ restim_funscript_processor/
 │   ├── basic_transforms.py    # Invert, map, limit, normalize, mirror
 │   ├── combining.py
 │   ├── special_generators.py  # Volume ramp generation
-│   └── funscript_1d_to_2d.py  # Alpha/beta auto-generation
+│   ├── funscript_1d_to_2d.py  # Alpha/beta auto-generation
+│   ├── motion_axis_generation.py  # Motion axis (E1-E4) generation
+│   └── linear_mapping.py      # Linear interpolation for motion axes
 ├── ui/                        # UI components
 │   ├── __init__.py
 │   ├── main_window.py
 │   ├── parameter_tabs.py
+│   ├── positional_axes_tab.py     # Motion axis and legacy alpha/beta controls
+│   ├── curve_widgets.py           # Matplotlib chart components
+│   ├── curve_editor_dialog.py     # Modal curve editor for motion axes
 │   └── progress_dialog.py
 └── config.json               # Default parameters
 ```
@@ -43,39 +48,15 @@ restim_funscript_processor/
 ├─────────────────────────────────────────────────────────────┤
 │ Input File: [________________________] [Browse...]         │
 │                                                             │
-│ ┌─── 1D to 2D Conversion ────────────────────────────────┐ │
-│ │ [Basic] [Prostate]                                     │ │
-│ │ ┌─ Basic ───────────────────────────────────────────┐  │ │
-│ │ │ Algorithm: ○ Circular (0°-180°)                   │  │ │
-│ │ │           ○ Top-Left-Right (0°-270°)              │  │ │
-│ │ │           ○ Top-Right-Left (0°-90°)               │  │ │
-│ │ │ Points Per Second: [25]                           │  │ │
-│ │ │ Min Distance From Center: [====|====] (0.1)      │  │ │
-│ │ │ Speed at Edge (Hz): [===|=====] (2.0)            │  │ │
-│ │ │                     [Convert to 2D]               │  │ │
-│ │ └───────────────────────────────────────────────────┘  │ │
-│ │ ┌─ Prostate ────────────────────────────────────────┐  │ │
-│ │ │ ☑ Generate from inverted funscript                │  │ │
-│ │ │ Algorithm: ○ Standard (0°-180°)                   │  │ │
-│ │ │           ○ Tear-shaped (0°-180°)                 │  │ │
-│ │ │ Points Per Second: [25]                           │  │ │
-│ │ │ Min Distance From Center: [====|====] (0.5)      │  │ │
-│ │ │                     [Convert to 2D]               │  │ │
-│ │ └───────────────────────────────────────────────────┘  │ │
-│ └───────────────────────────────────────────────────────┘ │
-│                                                             │
-│ ┌─── Processing Options ─────────────────────────────────┐ │
-│ │ ☐ Normalize Volume                                     │ │
-│ │ ☐ Delete Intermediary Files When Done                 │ │
-│ └───────────────────────────────────────────────────────┘ │
-│                                                             │
 │ ┌─── Parameters ─────────────────────────────────────────┐ │
-│ │ [General] [Speed] [Frequency] [Volume] [Pulse] [Advanced] │
-│ │ ┌─ Volume ──────────────────────────────────────────────┐ │
-│ │ │ Ramp (% per hour): [===|====] (15%) = 0.25% per min │ │
-│ │ │ Current ramp value: 0.75 for 60 minute duration     │ │
-│ │ │ Volume Ramp Combine Ratio: [6.0  ] (1.0-10.0)      │ │
-│ │ │ Prostate Volume Multiplier: [1.5  ] (1.0-3.0)      │ │
+│ │ [General] [Speed] [Frequency] [Volume] [Pulse] [Motion Axis] [Advanced] │
+│ │ ┌─ General ─────────────────────────────────────────────┐ │
+│ │ │ Rest Level: [0.4    ] (0.0-1.0)                      │ │
+│ │ │ Speed Window Size: [5] (1-30 seconds)               │ │
+│ │ │ Acceleration Window Size: [3] (1-10 seconds)        │ │
+│ │ │ ── Processing Options ──                             │ │
+│ │ │ ☑ Normalize Volume                                   │ │
+│ │ │ ☑ Delete Intermediary Files When Done               │ │
 │ │ └─────────────────────────────────────────────────────┘ │
 │ └───────────────────────────────────────────────────────┘ │
 │                                                             │
@@ -92,18 +73,44 @@ restim_funscript_processor/
 - **Rest Level**: Float (0.0-1.0, default: 0.4) - Signal level when volume ramp or speed is 0
 - **Speed Window Size**: Integer (1-30 seconds, default: 5) - Window for speed calculation
 - **Acceleration Window Size**: Integer (1-10 seconds, default: 3) - Window for acceleration calculation
+- **Processing Options**:
+  - **Normalize Volume**: Checkbox (default: checked) - Apply volume normalization
+  - **Delete Intermediary Files**: Checkbox (default: checked) - Remove temp files when processing complete
+
+#### Motion Axis Tab
+**Generation Mode Selection**: Radio buttons for choosing positional axis generation method
+
+##### Legacy (Alpha/Beta) Mode
+When Legacy mode is selected, the tab displays embedded 1D to 2D conversion controls:
+- **Basic Tab**: Standard conversion algorithms
+  - Algorithm: Circular, Top-Left-Right, Top-Right-Left
+  - Points Per Second: Integer (1-100, default: 25)
+  - Min Distance From Center: Float (0.1-0.9, default: 0.1)
+  - Speed at Edge (Hz): Float (1.0-5.0, default: 2.0)
+- **Prostate Tab**: Specialized prostate conversion
+  - Generate from inverted: Checkbox (default: checked)
+  - Algorithm: Standard, Tear-shaped
+  - Min Distance From Center: Float (0.3-0.9, default: 0.5)
+
+##### Motion Axis Mode
+When Motion Axis mode is selected, the tab displays axis configuration controls:
+- **Axis Configuration Panels**: Four panels for E1-E4 axes, each containing:
+  - **Enable Checkbox**: Individual axis on/off control
+  - **Curve Name Display**: Shows current curve type (Linear, Ease In, etc.)
+  - **Matplotlib Preview Chart**: Visual representation of the response curve (500x100 pixels)
+  - **Edit Curve Button**: Opens modal dialog for curve editing (future implementation)
+- **Real-time Curve Visualization**: Each chart shows actual input→output mapping (0-100 coordinate system)
+- **Mathematical Accuracy**: Charts use the same linear interpolation function as the processing pipeline
 
 #### Speed Tab
 - **Speed Interpolation Interval**: Float (0.01-1.0 seconds, default: 0.1) - Interpolation granularity
 - **Speed Normalization Method**: Dropdown ["Max normalization", "RMS normalization"] (default: Max)
-- **Auto-generate Alpha/Beta**: Checkbox (default: checked) - Automatically create alpha/beta files when missing
-- **Alpha/Beta Points Per Second**: Integer (1-100, default: 25) - Interpolation density for 1D to 2D conversion
 
 #### Frequency Tab
-- **Alpha Frequency Min**: Float (0.0-1.0, default: 0.30) - Minimum mapping for alpha to pulse frequency
-- **Alpha Frequency Max**: Float (0.0-1.0, default: 0.95) - Maximum mapping for alpha to pulse frequency
+- **Pulse Frequency Min**: Float (0.0-1.0, default: 0.40) - Minimum mapping for main funscript to pulse frequency
+- **Pulse Frequency Max**: Float (0.0-1.0, default: 0.95) - Maximum mapping for main funscript to pulse frequency
 - **Frequency Ramp Combine Ratio**: Integer (1-10, default: 2) - Ratio for combining frequency and ramp
-- **Pulse Frequency Combine Ratio**: Integer (1-10, default: 3) - Ratio for combining speed with alpha-based frequency
+- **Pulse Frequency Combine Ratio**: Integer (1-10, default: 3) - Ratio for combining speed with main-based frequency
 
 #### Volume Tab
 - **Volume Ramp Combine Ratio**: Float (1.0-10.0, default: 6.0) - Ratio for combining volume and ramp
@@ -117,7 +124,6 @@ restim_funscript_processor/
 - **Pulse Width Limit Min**: Float (0.0-1.0, default: 0.1) - Minimum limit for pulse width
 - **Pulse Width Limit Max**: Float (0.0-1.0, default: 0.45) - Maximum limit for pulse width
 - **Pulse Width Combine Ratio**: Integer (1-10, default: 3) - Ratio for combining pulse width components
-- **Beta Mirror Threshold**: Float (0.0-0.5, default: 0.5) - Threshold for beta mirroring
 - **Pulse Rise Time Min**: Float (0.0-1.0, default: 0.00) - Minimum mapping for pulse rise time
 - **Pulse Rise Time Max**: Float (0.0-1.0, default: 0.80) - Maximum mapping for pulse rise time
 - **Pulse Rise Combine Ratio**: Integer (1-10, default: 2) - Ratio for pulse rise time combining
@@ -182,9 +188,9 @@ class RestimProcessor:
    - Formula: `ramp_value = 1.0 - (duration_seconds * ramp_per_second)`
 
 #### Phase 3: Frequency Processing
-1. **Alpha-based frequency**:
-   - Map alpha to frequency range
-   - Parameters: `alpha_freq_min`, `alpha_freq_max`
+1. **Pulse frequency generation**:
+   - Map main funscript to frequency range
+   - Parameters: `pulse_freq_min`, `pulse_freq_max`
    - Combine with speed using `pulse_frequency_combine_ratio`
 2. **Primary frequency**:
    - Combine ramp and speed
@@ -204,16 +210,13 @@ class RestimProcessor:
    - Parameters: `stereostim_volume_min`, `stereostim_volume_max`
 
 #### Phase 5: Pulse Parameters
-1. **Alpha processing**:
-   - Generate inverted alpha for prostate
-2. **Beta processing**:
-   - Apply mirror-up transformation
-   - Parameters: `beta_mirror_threshold`
-3. **Pulse width**:
-   - Limit inverted alpha to range
+1. **Alpha-prostate generation**:
+   - Generate inverted main funscript for prostate output
+2. **Pulse width**:
+   - Limit inverted main funscript to range
    - Parameters: `pulse_width_min`, `pulse_width_max`, `pulse_width_combine_ratio`
-4. **Pulse rise time**:
-   - Complex combination of multiple signals
+3. **Pulse rise time**:
+   - Combine ramp_inverted and speed_inverted directly
    - Parameters: `pulse_rise_min`, `pulse_rise_max`, `pulse_rise_combine_ratio`
 
 #### Phase 6: Optional Inversions
@@ -229,20 +232,16 @@ Generate additional inverted files if enabled in Advanced tab:
 /path/to/video.funscript              # Input file
 /path/to/funscript-temp/              # Intermediary files directory
 ├── video.speed.funscript
+├── video.speed_inverted.funscript
 ├── video.accel.funscript
 ├── video.ramp.funscript
-├── video.pulse_frequency-alphabased.funscript
-├── video.alpha_inverted.funscript
-├── video.speed_inverted.funscript
 ├── video.ramp_inverted.funscript
-├── video.beta-mirror-up.funscript
-├── video.pulse_width-alpha.funscript
-├── video.volume_normalized.funscript
-└── video.volume_not_normalized.funscript
+├── video.pulse_frequency-mainbased.funscript
+├── video.pulse_width-main.funscript
+├── video.volume_normalized.funscript (if normalization enabled)
+└── video.volume_not_normalized.funscript (if normalization enabled)
 
-/path/to/video.alpha.funscript         # Final outputs (10 files)
-/path/to/video.alpha-prostate.funscript
-/path/to/video.beta.funscript
+# Legacy Mode Outputs (8 core files + optional alpha/beta)
 /path/to/video.frequency.funscript
 /path/to/video.pulse_frequency.funscript
 /path/to/video.pulse_rise_time.funscript
@@ -250,6 +249,24 @@ Generate additional inverted files if enabled in Advanced tab:
 /path/to/video.volume.funscript
 /path/to/video.volume-prostate.funscript
 /path/to/video.volume-stereostim.funscript
+/path/to/video.alpha-prostate.funscript
+# Optional if alpha/beta files exist or auto-generated:
+/path/to/video.alpha.funscript
+/path/to/video.beta.funscript
+
+# Motion Axis Mode Outputs (8 core files + E-axes)
+/path/to/video.frequency.funscript
+/path/to/video.pulse_frequency.funscript
+/path/to/video.pulse_rise_time.funscript
+/path/to/video.pulse_width.funscript
+/path/to/video.volume.funscript
+/path/to/video.volume-prostate.funscript
+/path/to/video.volume-stereostim.funscript
+/path/to/video.alpha-prostate.funscript
+/path/to/video.e1.funscript
+/path/to/video.e2.funscript
+/path/to/video.e3.funscript
+/path/to/video.e4.funscript (if enabled)
 ```
 
 ### File Operations
@@ -278,22 +295,50 @@ Generate additional inverted files if enabled in Advanced tab:
     "interpolation_interval": 0.1,
     "normalization_method": "max"
   },
-  "alpha_beta_generation": {
-    "auto_generate": true,
-    "points_per_second": 25,
-    "algorithm": "circular",
-    "min_distance_from_center": 0.1,
-    "speed_at_edge_hz": 2.0
-  },
-  "prostate_generation": {
-    "generate_from_inverted": true,
-    "algorithm": "standard",
-    "points_per_second": 25,
-    "min_distance_from_center": 0.5
+  "positional_axes": {
+    "mode": "legacy",
+    "legacy_config": {
+      "auto_generate": true,
+      "points_per_second": 25,
+      "algorithm": "circular",
+      "min_distance_from_center": 0.1,
+      "speed_at_edge_hz": 2.0
+    },
+    "prostate_generation": {
+      "generate_from_inverted": true,
+      "algorithm": "standard",
+      "points_per_second": 25,
+      "min_distance_from_center": 0.5
+    },
+    "motion_axis_config": {
+      "algorithm": "linear_mapping",
+      "axis_configs": [
+        {
+          "name": "E1",
+          "enabled": true,
+          "control_points": [[0, 0], [100, 100]]
+        },
+        {
+          "name": "E2",
+          "enabled": true,
+          "control_points": [[0, 0], [50, 100], [100, 0]]
+        },
+        {
+          "name": "E3",
+          "enabled": true,
+          "control_points": [[0, 100], [100, 0]]
+        },
+        {
+          "name": "E4",
+          "enabled": false,
+          "control_points": [[0, 75], [100, 50]]
+        }
+      ]
+    }
   },
   "frequency": {
-    "alpha_freq_min": 0.30,
-    "alpha_freq_max": 0.95,
+    "pulse_freq_min": 0.40,
+    "pulse_freq_max": 0.95,
     "frequency_ramp_combine_ratio": 2,
     "pulse_frequency_combine_ratio": 3
   },
@@ -319,10 +364,6 @@ Generate additional inverted files if enabled in Advanced tab:
     "enable_volume_inversion": false,
     "enable_frequency_inversion": false,
     "custom_output_directory": ""
-  },
-  "options": {
-    "normalize_volume": true,
-    "delete_intermediary_files": true
   }
 }
 ```
@@ -359,7 +400,169 @@ Generate additional inverted files if enabled in Advanced tab:
 - **Batch processing**: Future extension for multiple file processing
 - **Threading**: UI responsiveness during long processing operations
 
-## 1D to 2D Conversion Algorithm
+## Motion Axis Generation System
+
+### Overview
+The Motion Axis Generation system provides an alternative to traditional alpha/beta generation through configurable response curves. When enabled, it replaces alpha/beta processing with a system that generates 3-4 independent motion axes (E1-E4) using linear interpolation mapping.
+
+### Core Concept
+- **Input**: Original funscript values (0-100)
+- **Processing**: Linear interpolation through user-defined control points
+- **Output**: Transformed motion axes as `filename.e1.funscript` through `filename.e4.funscript`
+
+### Mathematical Foundation
+
+#### Linear Mapping Algorithm
+```python
+def linear_interpolate(input_value, control_points):
+    """
+    Apply linear interpolation mapping to transform input values.
+
+    Args:
+        input_value: 0-100 from original funscript
+        control_points: [(input, output), ...] sorted by input value
+
+    Returns:
+        0-100 output value for motion axis
+    """
+    # Find bracketing control points
+    for i in range(len(control_points) - 1):
+        x1, y1 = control_points[i]
+        x2, y2 = control_points[i + 1]
+
+        if x1 <= input_value <= x2:
+            # Linear interpolation between points
+            ratio = (input_value - x1) / (x2 - x1)
+            return y1 + ratio * (y2 - y1)
+
+    return control_points[-1][1]  # Edge case handling
+```
+
+#### Response Curve Configuration
+Each motion axis (E1-E4) is defined by a set of control points that create a response curve:
+- **Control Points**: Array of (input, output) coordinates
+- **Mandatory Endpoints**: First point must have input=0, last point must have input=100
+- **Interpolation**: Linear interpolation between consecutive points
+- **Validation**: Points sorted by input value, no duplicate inputs, values within 0-100 range
+
+### Default Axis Configurations
+
+#### E1 - Linear Response
+- **Control Points**: `[(0.0, 0.0), (1.0, 1.0)]`
+- **Behavior**: Direct 1:1 mapping (identity function)
+- **Use Case**: Baseline motion, direct position mapping
+
+#### E2 - Ease In Response
+- **Control Points**: `[(0.0, 0.0), (0.5, 0.2), (1.0, 1.0)]`
+- **Behavior**: Gradual start, strong finish
+- **Use Case**: Smooth acceleration patterns
+
+#### E3 - Ease Out Response
+- **Control Points**: `[(0.0, 0.0), (0.5, 0.8), (1.0, 1.0)]`
+- **Behavior**: Strong start, gradual finish
+- **Use Case**: Smooth deceleration patterns
+
+#### E4 - Bell Curve Response
+- **Control Points**: `[(0.0, 0.0), (0.25, 0.3), (0.5, 1.0), (0.75, 0.3), (1.0, 0.0)]`
+- **Behavior**: Emphasis on middle range, returns to zero at edges
+- **Use Case**: Mid-range emphasis patterns
+
+### User Interface Components
+
+#### Motion Axis Tab Integration
+- **Mode Selection**: Radio buttons for "Legacy (Alpha/Beta)" vs "Motion Axis (E1-E4)"
+- **Dynamic Content**: Tab content switches based on selected mode
+  - **Legacy Mode**: Shows embedded 1D to 2D conversion tabs (Basic + Prostate)
+  - **Motion Axis Mode**: Shows axis configuration panels with matplotlib charts
+- **Embedded Conversion Controls**: Full ConversionTabs functionality within Motion Axis tab
+- **Real-time Mode Switching**: Immediate UI updates when mode selection changes
+
+#### Current Implementation Status
+- **Matplotlib Integration**: ✅ Working curve visualization with 5:1 aspect ratio
+- **Real-time Updates**: ✅ Charts update when configuration changes
+- **Mathematical Accuracy**: ✅ Uses actual processing pipeline functions
+- **Modal Curve Editor**: 🚧 Planned for future implementation
+- **Interactive Point Editing**: 🚧 Planned for future implementation
+
+#### Curve Presets
+```python
+CURVE_PRESETS = {
+    "linear": [(0,0), (100,100)],
+    "inverted": [(0,100), (100,0)],
+    "triangle": [(0,0), (50,100), (100,0)],
+    "bell": [(0,0), (25,50), (50,100), (75,50), (100,0)],
+    "flat_low": [(0,0), (100,0)],
+    "flat_high": [(0,100), (100,100)],
+    "step_up": [(0,0), (49,0), (51,100), (100,100)],
+    "s_curve": [(0,0), (25,10), (75,90), (100,100)]
+}
+```
+
+### Processing Integration
+
+#### Pipeline Routing
+```python
+def _execute_pipeline(self, main_funscript, progress_callback):
+    # Check positional axis mode
+    if self.params['positional_axes']['mode'] == 'motion_axis':
+        self._generate_motion_axes(main_funscript, progress_callback)
+    else:
+        self._generate_legacy_axes(main_funscript, progress_callback)
+```
+
+#### Motion Axis Generation
+1. **Configuration Reading**: Load axis configs from positional_axes.motion_axis_config
+2. **Mapping Application**: Apply linear interpolation to each enabled axis
+3. **File Generation**: Create e1.funscript through e4.funscript (based on enabled axes)
+4. **Integration**: Motion axes replace alpha/beta in downstream processing
+
+### Configuration Schema
+```python
+"positional_axes": {
+    "mode": "legacy",  # "legacy" | "motion_axis"
+    "e1": {
+        "enabled": True,
+        "curve": {
+            "name": "Linear",
+            "description": "Direct 1:1 mapping",
+            "control_points": [(0.0, 0.0), (1.0, 1.0)]
+        }
+    },
+    "e2": {
+        "enabled": True,
+        "curve": {
+            "name": "Ease In",
+            "description": "Gradual start, strong finish",
+            "control_points": [(0.0, 0.0), (0.5, 0.2), (1.0, 1.0)]
+        }
+    },
+    "e3": {
+        "enabled": True,
+        "curve": {
+            "name": "Ease Out",
+            "description": "Strong start, gradual finish",
+            "control_points": [(0.0, 0.0), (0.5, 0.8), (1.0, 1.0)]
+        }
+    },
+    "e4": {
+        "enabled": True,
+        "curve": {
+            "name": "Bell Curve",
+            "description": "Emphasis on middle range",
+            "control_points": [(0.0, 0.0), (0.25, 0.3), (0.5, 1.0), (0.75, 0.3), (1.0, 0.0)]
+        }
+    }
+}
+```
+
+### Benefits and Use Cases
+- **Customizable Motion Patterns**: Users can create exactly the motion characteristics they need
+- **Non-Destructive**: Completely separate from legacy alpha/beta system
+- **Extensible**: Easy to add new algorithms or axis types in the future
+- **Intuitive**: Visual curve editing makes configuration accessible
+- **Performance**: Simple linear interpolation is computationally efficient
+
+## 1D to 2D Conversion Algorithm (Legacy)
 
 ### Tabbed Conversion Interface
 The application includes a comprehensive 1D to 2D conversion system with dedicated tabs for different conversion purposes:

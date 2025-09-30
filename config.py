@@ -59,6 +59,41 @@ DEFAULT_CONFIG = {
     "options": {
         "normalize_volume": True,
         "delete_intermediary_files": True
+    },
+    "positional_axes": {
+        "mode": "legacy",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
+        "e1": {
+            "enabled": True,
+            "curve": {
+                "name": "Linear",
+                "description": "Direct 1:1 mapping",
+                "control_points": [(0.0, 0.0), (1.0, 1.0)]
+            }
+        },
+        "e2": {
+            "enabled": True,
+            "curve": {
+                "name": "Ease In",
+                "description": "Gradual start, strong finish",
+                "control_points": [(0.0, 0.0), (0.5, 0.2), (1.0, 1.0)]
+            }
+        },
+        "e3": {
+            "enabled": True,
+            "curve": {
+                "name": "Ease Out",
+                "description": "Strong start, gradual finish",
+                "control_points": [(0.0, 0.0), (0.5, 0.8), (1.0, 1.0)]
+            }
+        },
+        "e4": {
+            "enabled": True,
+            "curve": {
+                "name": "Bell Curve",
+                "description": "Emphasis on middle range",
+                "control_points": [(0.0, 0.0), (0.25, 0.3), (0.5, 1.0), (0.75, 0.3), (1.0, 0.0)]
+            }
+        }
     }
 }
 
@@ -103,6 +138,10 @@ PARAMETER_RANGES = {
         "pulse_rise_min": (0.0, 1.0),
         "pulse_rise_max": (0.0, 1.0),
         "pulse_rise_combine_ratio": (1, 10)
+    },
+    "positional_axes": {
+        # Note: Individual axis validation handled by motion_axis_generation module
+        # Basic positional axes validation
     }
 }
 

@@ -95,6 +95,24 @@ class ParameterTabs(ttk.Notebook):
 
         self.setup_tabs()
 
+    def set_mode_change_callback(self, callback):
+        """Set callback function to be called when mode changes."""
+        self.mode_change_callback = callback
+        
+        # Add trace to mode variable if it exists
+        if hasattr(self, 'parameter_vars') and 'positional_axes' in self.parameter_vars:
+            mode_var = self.parameter_vars['positional_axes']['mode']
+            mode_var.trace('w', lambda *args: self._on_mode_change())
+    
+    def _on_mode_change(self):
+        """Internal method called when mode changes."""
+        if hasattr(self, 'mode_change_callback'):
+            try:
+                mode = self.parameter_vars['positional_axes']['mode'].get()
+                self.mode_change_callback(mode)
+            except Exception:
+                pass  # Ignore errors during callback
+
     def setup_tabs(self):
         """Setup all parameter tabs."""
         # General tab
@@ -121,6 +139,11 @@ class ParameterTabs(ttk.Notebook):
         self.pulse_frame = ttk.Frame(self)
         self.add(self.pulse_frame, text="Pulse")
         self.setup_pulse_tab()
+
+        # Motion Axis tab
+        self.motion_axis_frame = ttk.Frame(self)
+        self.add(self.motion_axis_frame, text="Motion Axis")
+        self.setup_motion_axis_tab()
 
         # Advanced tab
         self.advanced_frame = ttk.Frame(self)
@@ -161,6 +184,28 @@ class ParameterTabs(ttk.Notebook):
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
         ttk.Label(frame, text="(1-10) Window size for acceleration calculation").grid(row=row, column=2, sticky=tk.W, padx=5)
+
+        row += 2
+
+        # Processing Options section
+        ttk.Label(frame, text="Processing Options:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
+
+        row += 1
+
+        # Initialize options parameter vars
+        self.parameter_vars['options'] = {}
+
+        # Normalize Volume
+        var = tk.BooleanVar(value=self.config['options']['normalize_volume'])
+        self.parameter_vars['options']['normalize_volume'] = var
+        ttk.Checkbutton(frame, text="Normalize Volume", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+
+        row += 1
+
+        # Delete Intermediary Files
+        var = tk.BooleanVar(value=self.config['options']['delete_intermediary_files'])
+        self.parameter_vars['options']['delete_intermediary_files'] = var
+        ttk.Checkbutton(frame, text="Delete Intermediary Files When Done", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
 
         row += 2
 
@@ -415,6 +460,268 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars['pulse']['pulse_rise_combine_ratio'] = pulse_rise_control.var
         self.combine_ratio_controls['pulse_rise_combine_ratio'] = pulse_rise_control
 
+    def setup_motion_axis_tab(self):
+        """Setup the Motion Axis parameters tab."""
+        frame = self.motion_axis_frame
+        self.parameter_vars['positional_axes'] = {}
+
+        row = 0
+
+        # Mode Selection
+        ttk.Label(frame, text="Positional Axis Mode:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(5, 10))
+
+        row += 1
+
+        # Mode selection radio buttons
+        mode_var = tk.StringVar(value=self.config['positional_axes']['mode'])
+        self.parameter_vars['positional_axes']['mode'] = mode_var
+
+        ttk.Radiobutton(frame, text="Legacy (Alpha/Beta)", variable=mode_var, value="legacy").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Radiobutton(frame, text="Motion Axis (E1-E4)", variable=mode_var, value="motion_axis").grid(row=row, column=1, sticky=tk.W, padx=5, pady=2)
+
+        row += 1
+
+        # Configure grid
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(row, weight=1)
+
+        # Create container for mode-specific content
+        self.content_container = ttk.Frame(frame)
+        self.content_container.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        self.content_container.columnconfigure(0, weight=1)
+        self.content_container.rowconfigure(0, weight=1)
+
+        # Setup both sections
+        self.setup_legacy_section()
+        self.setup_motion_axis_section_internal()
+
+        # Setup mode change callback
+        mode_var.trace('w', lambda *args: self._on_motion_axis_mode_change())
+        
+        # Initialize display
+        self._update_motion_axis_display()
+
+    def setup_legacy_section(self):
+        """Setup the legacy 1D to 2D conversion section within Motion Axis tab."""
+        self.legacy_frame = ttk.LabelFrame(self.content_container, text="1D to 2D Conversion", padding="10")
+        self.legacy_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.legacy_frame.columnconfigure(0, weight=1)
+        self.legacy_frame.rowconfigure(0, weight=1)
+
+        # Import ConversionTabs here to avoid circular import
+        from ui.conversion_tabs import ConversionTabs
+        
+        # Create conversion tabs within the legacy section
+        self.embedded_conversion_tabs = ConversionTabs(self.legacy_frame, self.config)
+        
+        # Initially hide
+        self.legacy_frame.grid_remove()
+
+    def setup_motion_axis_section_internal(self):
+        """Setup the Motion Axis configuration section within Motion Axis tab."""
+        self.motion_config_frame = ttk.LabelFrame(self.content_container, text="Motion Axis Configuration", padding="10")
+        self.motion_config_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.motion_config_frame.columnconfigure(0, weight=1)
+
+        row = 0
+
+        # Import matplotlib for curve visualization
+        try:
+            import matplotlib.pyplot as plt
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            from matplotlib.figure import Figure
+            import numpy as np
+            self.matplotlib_available = True
+        except ImportError:
+            self.matplotlib_available = False
+            # Show error message
+            error_label = ttk.Label(self.motion_config_frame, 
+                                  text="Matplotlib not available - install with: pip install matplotlib",
+                                  foreground="red")
+            error_label.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+            row += 1
+
+        # Axis enable/disable and curve visualization
+        for axis_name in ['e1', 'e2', 'e3', 'e4']:
+            axis_config = self.config['positional_axes'][axis_name]
+            
+            # Create frame for this axis
+            axis_frame = ttk.LabelFrame(self.motion_config_frame, text=f"Axis {axis_name.upper()}", padding="5")
+            axis_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
+            axis_frame.columnconfigure(1, weight=1)
+
+            # Initialize axis variables
+            self.parameter_vars['positional_axes'][axis_name] = {}
+
+            # Enable checkbox
+            enabled_var = tk.BooleanVar(value=axis_config['enabled'])
+            self.parameter_vars['positional_axes'][axis_name]['enabled'] = enabled_var
+            ttk.Checkbutton(axis_frame, text="Enabled", variable=enabled_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+
+            # Curve name display
+            curve_name = axis_config['curve']['name']
+            curve_label = ttk.Label(axis_frame, text=f"Curve: {curve_name}")
+            curve_label.grid(row=0, column=1, sticky=tk.W, padx=10, pady=2)
+
+            # Edit curve button
+            edit_button = ttk.Button(axis_frame, text="Edit Curve", 
+                                   command=lambda a=axis_name: self._open_curve_editor(a))
+            edit_button.grid(row=0, column=2, sticky=tk.E, padx=5, pady=2)
+
+            # Curve visualization
+            if self.matplotlib_available:
+                curve_frame = ttk.Frame(axis_frame)
+                curve_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=5)
+                
+                # Create matplotlib figure for this curve
+                fig = Figure(figsize=(5, 1), dpi=80)  # 5x wider than tall for 5:1 ratio
+                fig.patch.set_facecolor('white')
+                ax = fig.add_subplot(111)
+                
+                # Generate curve data
+                control_points = axis_config['curve']['control_points']
+                x_vals, y_vals = self._generate_curve_data(control_points)
+                
+                # Plot the curve
+                ax.plot(x_vals, y_vals, 'b-', linewidth=2)
+                ax.set_xlim(0, 100)
+                ax.set_ylim(0, 100)
+                ax.set_xlabel('Input Position', fontsize=8)
+                ax.set_ylabel('Output', fontsize=8)
+                ax.grid(True, alpha=0.3)
+                ax.tick_params(labelsize=7)
+                
+                # Remove extra margins
+                fig.tight_layout(pad=0.5)
+                
+                # Embed in tkinter
+                canvas = FigureCanvasTkAgg(fig, curve_frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+                
+                # Store reference for potential updates
+                setattr(self, f'{axis_name}_curve_canvas', canvas)
+                setattr(self, f'{axis_name}_curve_ax', ax)
+
+            row += 1
+
+        row += 1
+
+        # Information section
+        ttk.Label(self.motion_config_frame, text="Information:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, sticky=tk.W, padx=5, pady=(10, 5))
+
+        row += 1
+
+        info_text = """Motion Axis Generation creates E1-E4 files using configurable response curves.
+Each curve transforms the input position (0-100) to output position (0-100) based on the curve shape.
+Enable/disable individual axes and edit curves to customize the motion pattern."""
+
+        info_label = ttk.Label(self.motion_config_frame, text=info_text, wraplength=500, justify=tk.LEFT)
+        info_label.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+
+        # Initially hide
+        self.motion_config_frame.grid_remove()
+
+    def _generate_curve_data(self, control_points):
+        """Generate curve data from control points for visualization."""
+        try:
+            import numpy as np
+            from processing.linear_mapping import apply_linear_response_curve
+            
+            # Generate input values from 0 to 100
+            x_vals = np.linspace(0, 100, 101)  # 101 points for smooth curve
+            y_vals = np.zeros_like(x_vals)
+            
+            # Apply linear interpolation using the same logic as the processing module
+            for i, x in enumerate(x_vals):
+                normalized_input = x / 100.0  # Convert to 0-1 range
+                normalized_output = apply_linear_response_curve(normalized_input, control_points)
+                y_vals[i] = normalized_output * 100.0  # Convert back to 0-100 range
+            
+            return x_vals, y_vals
+            
+        except Exception as e:
+            # Fallback to simple linear curve if there's any error
+            x_vals = np.array([0, 100])
+            y_vals = np.array([0, 100])
+            return x_vals, y_vals
+
+    def _update_curve_visualizations(self):
+        """Update all curve visualizations with current config data."""
+        if not self.matplotlib_available:
+            return
+            
+        try:
+            for axis_name in ['e1', 'e2', 'e3', 'e4']:
+                canvas_attr = f'{axis_name}_curve_canvas'
+                ax_attr = f'{axis_name}_curve_ax'
+                
+                if hasattr(self, canvas_attr) and hasattr(self, ax_attr):
+                    canvas = getattr(self, canvas_attr)
+                    ax = getattr(self, ax_attr)
+                    
+                    # Get current curve config
+                    axis_config = self.config['positional_axes'][axis_name]
+                    control_points = axis_config['curve']['control_points']
+                    
+                    # Clear and redraw
+                    ax.clear()
+                    
+                    # Generate new curve data
+                    x_vals, y_vals = self._generate_curve_data(control_points)
+                    
+                    # Plot the curve
+                    ax.plot(x_vals, y_vals, 'b-', linewidth=2)
+                    ax.set_xlim(0, 100)
+                    ax.set_ylim(0, 100)
+                    ax.set_xlabel('Input Position', fontsize=8)
+                    ax.set_ylabel('Output', fontsize=8)
+                    ax.grid(True, alpha=0.3)
+                    ax.tick_params(labelsize=7)
+                    
+                    # Redraw canvas
+                    canvas.draw()
+                    
+        except Exception as e:
+            # Ignore visualization errors
+            print(f"Warning: Could not update curve visualization: {e}")
+
+    def _on_motion_axis_mode_change(self):
+        """Handle mode changes within the Motion Axis tab."""
+        self._update_motion_axis_display()
+        
+        # Also call the main window callback if it exists
+        if hasattr(self, 'mode_change_callback'):
+            try:
+                mode = self.parameter_vars['positional_axes']['mode'].get()
+                self.mode_change_callback(mode)
+            except Exception:
+                pass
+
+    def _update_motion_axis_display(self):
+        """Update the display within Motion Axis tab based on current mode."""
+        try:
+            current_mode = self.parameter_vars['positional_axes']['mode'].get()
+            
+            if current_mode == 'motion_axis':
+                # Show Motion Axis configuration, hide legacy
+                self.legacy_frame.grid_remove()
+                self.motion_config_frame.grid()
+            else:
+                # Show legacy conversion, hide Motion Axis configuration
+                self.motion_config_frame.grid_remove()
+                self.legacy_frame.grid()
+        except Exception:
+            # Default to legacy if there's any error
+            if hasattr(self, 'legacy_frame'):
+                self.motion_config_frame.grid_remove()
+                self.legacy_frame.grid()
+
+    def _open_curve_editor(self, axis_name):
+        """Open curve editor modal dialog (placeholder)."""
+        import tkinter.messagebox as msgbox
+        msgbox.showinfo("Curve Editor", f"Curve editor for {axis_name.upper()} will be implemented in future version.\n\nCurrent curve: {self.config['positional_axes'][axis_name]['curve']['name']}")
+
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""
         frame = self.advanced_frame
@@ -465,21 +772,71 @@ class ParameterTabs(ttk.Notebook):
         for section, variables in self.parameter_vars.items():
             if section not in config:
                 config[section] = {}
-            for param, var in variables.items():
-                config[section][param] = var.get()
+            
+            if section == 'positional_axes':
+                # Handle nested positional_axes structure
+                for param, var in variables.items():
+                    if param == 'mode':
+                        config[section][param] = var.get()
+                    elif param in ['e1', 'e2', 'e3', 'e4']:
+                        # Handle axis-specific parameters (only enabled now, no amplitude)
+                        if param not in config[section]:
+                            config[section][param] = {}
+                        for axis_param, axis_var in var.items():
+                            if axis_param == 'enabled':
+                                config[section][param][axis_param] = axis_var.get()
+            else:
+                # Handle regular flat structure
+                for param, var in variables.items():
+                    config[section][param] = var.get()
 
         # Update custom combine ratio controls
         for control_name, control in self.combine_ratio_controls.items():
             control._update_percentage_display()
+
+        # Update embedded conversion tabs if they exist
+        if hasattr(self, 'embedded_conversion_tabs'):
+            try:
+                # Update 1D to 2D conversion settings from embedded conversion tabs
+                basic_config = self.embedded_conversion_tabs.get_basic_config()
+                config['alpha_beta_generation']['algorithm'] = basic_config['algorithm']
+                config['alpha_beta_generation']['points_per_second'] = basic_config['points_per_second']
+                config['alpha_beta_generation']['min_distance_from_center'] = round(basic_config['min_distance_from_center'], 1)
+                config['alpha_beta_generation']['speed_at_edge_hz'] = round(basic_config['speed_at_edge_hz'], 1)
+
+                # Update prostate conversion settings
+                prostate_config = self.embedded_conversion_tabs.get_prostate_config()
+                if 'prostate_generation' not in config:
+                    config['prostate_generation'] = {}
+                config['prostate_generation']['generate_from_inverted'] = prostate_config['generate_from_inverted']
+                config['prostate_generation']['algorithm'] = prostate_config['algorithm']
+                config['prostate_generation']['points_per_second'] = prostate_config['points_per_second']
+                config['prostate_generation']['min_distance_from_center'] = round(prostate_config['min_distance_from_center'], 1)
+            except Exception:
+                # Ignore errors if conversion tabs not properly initialized
+                pass
 
     def update_display(self, config: Dict[str, Any]):
         """Update UI display with configuration values."""
         self.config = config
         for section, variables in self.parameter_vars.items():
             if section in config:
-                for param, var in variables.items():
-                    if param in config[section]:
-                        var.set(config[section][param])
+                if section == 'positional_axes':
+                    # Handle nested positional_axes structure
+                    for param, var in variables.items():
+                        if param == 'mode' and param in config[section]:
+                            var.set(config[section][param])
+                        elif param in ['e1', 'e2', 'e3', 'e4'] and param in config[section]:
+                            # Handle axis-specific parameters (only enabled now, no amplitude)
+                            axis_config = config[section][param]
+                            for axis_param, axis_var in var.items():
+                                if axis_param == 'enabled' and axis_param in axis_config:
+                                    axis_var.set(axis_config[axis_param])
+                else:
+                    # Handle regular flat structure
+                    for param, var in variables.items():
+                        if param in config[section]:
+                            var.set(config[section][param])
 
         # Update custom combine ratio controls display
         for control_name, control in self.combine_ratio_controls.items():
@@ -488,6 +845,23 @@ class ParameterTabs(ttk.Notebook):
         # Update ramp display if it exists
         if hasattr(self, 'ramp_value_label'):
             self._update_ramp_display()
+
+        # Update embedded conversion tabs if they exist
+        if hasattr(self, 'embedded_conversion_tabs'):
+            try:
+                # The conversion tabs will update themselves based on the config
+                # when they access the config values
+                pass
+            except Exception:
+                # Ignore errors if conversion tabs not properly initialized
+                pass
+
+        # Update Motion Axis display after config changes
+        if hasattr(self, '_update_motion_axis_display'):
+            self._update_motion_axis_display()
+
+        # Update curve visualizations if they exist
+        self._update_curve_visualizations()
 
     def _update_ramp_display(self, value=None):
         """Update the ramp value display with current value and per-minute calculation."""

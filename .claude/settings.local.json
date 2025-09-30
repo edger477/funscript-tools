@@ -4,7 +4,12 @@
       "Bash(python:*)",
       "mcp__serena__activate_project",
       "mcp__serena__get_symbols_overview",
-      "mcp__serena__list_dir"
+      "mcp__serena__list_dir",
+      "mcp__serena__find_symbol",
+      "mcp__serena__replace_symbol_body",
+      "mcp__serena__insert_after_symbol",
+      "Bash(del debug_simple.py test_motion_axis_ui.py)",
+      "mcp__serena__search_for_pattern"
     ],
     "deny": [],
     "ask": []
