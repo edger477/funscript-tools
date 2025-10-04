@@ -186,3 +186,4 @@ funscript-output/
 nul
 testdata/
 *.funscript
+RestimFunscriptProcessor.AppDir/

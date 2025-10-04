@@ -163,11 +163,18 @@ class MainWindow:
 
             self.update_progress(30, "Converting to 2D...")
 
+            # Determine which conversion_tabs to use (main window or embedded in parameter tabs)
+            mode = self.current_config['positional_axes']['mode']
+            if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+                conversion_tabs = self.parameter_tabs.embedded_conversion_tabs
+            else:
+                conversion_tabs = self.conversion_tabs
+
             if conversion_type == 'basic':
                 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
 
                 # Get basic conversion parameters
-                config = self.conversion_tabs.get_basic_config()
+                config = conversion_tabs.get_basic_config()
 
                 # Generate alpha and beta files
                 alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
@@ -190,7 +197,7 @@ class MainWindow:
                 from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
 
                 # Get prostate conversion parameters
-                config = self.conversion_tabs.get_prostate_config()
+                config = conversion_tabs.get_prostate_config()
 
                 # Generate alpha-prostate and beta-prostate files
                 alpha_prostate_funscript, beta_prostate_funscript = generate_alpha_beta_prostate_from_main(
@@ -224,7 +231,11 @@ class MainWindow:
 
         finally:
             # Re-enable the convert buttons
-            self.root.after(100, lambda: self.conversion_tabs.set_button_state('normal'))
+            mode = self.current_config['positional_axes']['mode']
+            if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+                self.root.after(100, lambda: self.parameter_tabs.embedded_conversion_tabs.set_button_state('normal'))
+            else:
+                self.root.after(100, lambda: self.conversion_tabs.set_button_state('normal'))
 
     def _generate_motion_axis_files(self, input_path: Path):
         """Generate motion axis files (E1-E4) based on current configuration."""
