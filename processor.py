@@ -138,8 +138,12 @@ class RestimProcessor:
                 beta_funscript.save_to_path(self._get_temp_path("beta"))
                 beta_exists = True
 
-        # Generate prostate alpha and beta files if auto-generation is enabled
-        if self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
+        # Generate prostate alpha and beta files if auto-generation is enabled AND prostate generation is enabled
+        alpha_prostate_exists = False
+        beta_prostate_exists = False
+
+        if (self.params.get('alpha_beta_generation', {}).get('auto_generate', True) and
+            self.params.get('prostate_generation', {}).get('generate_prostate_files', True)):
             # Check if prostate files already exist
             alpha_prostate_exists = self._copy_if_exists("alpha-prostate", "alpha-prostate")
             beta_prostate_exists = self._copy_if_exists("beta-prostate", "beta-prostate")
@@ -258,9 +262,12 @@ class RestimProcessor:
         )
         pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
 
-        # Generate alpha-prostate output using inverted main funscript
-        main_inverted = invert_funscript(main_funscript)
-        main_inverted.save_to_path(self._get_output_path("alpha-prostate"))
+        # Generate alpha-prostate output using inverted main funscript (only if enabled)
+        if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
+            main_inverted = invert_funscript(main_funscript)
+            main_inverted.save_to_path(self._get_output_path("alpha-prostate"))
+        else:
+            main_inverted = invert_funscript(main_funscript)
 
         # Primary frequency generation
         frequency = combine_funscripts(
@@ -289,14 +296,15 @@ class RestimProcessor:
 
         volume.save_to_path(self._get_output_path("volume"))
 
-        # Prostate volume
-        prostate_volume = combine_funscripts(
-            ramp_funscript,
-            speed_funscript,
-            self.params['volume']['volume_ramp_combine_ratio'] * self.params['volume']['prostate_volume_multiplier'],
-            self.params['volume']['prostate_rest_level']
-        )
-        prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
+        # Prostate volume (only if enabled)
+        if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
+            prostate_volume = combine_funscripts(
+                ramp_funscript,
+                speed_funscript,
+                self.params['volume']['volume_ramp_combine_ratio'] * self.params['volume']['prostate_volume_multiplier'],
+                self.params['volume']['prostate_rest_level']
+            )
+            prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
 
         # Stereostim volume
         stereostim_volume = map_funscript(
@@ -349,10 +357,12 @@ class RestimProcessor:
         if beta_exists:
             shutil.copy2(self._get_temp_path("beta"), self._get_output_path("beta"))
 
-        # Copy prostate alpha and beta to outputs if they exist
-        if 'alpha_prostate_exists' in locals() and alpha_prostate_exists:
+        # Copy prostate alpha and beta to outputs if they exist and prostate generation is enabled
+        if (self.params.get('prostate_generation', {}).get('generate_prostate_files', True) and
+            'alpha_prostate_exists' in locals() and alpha_prostate_exists):
             shutil.copy2(self._get_temp_path("alpha-prostate"), self._get_output_path("alpha-prostate"))
-        if 'beta_prostate_exists' in locals() and beta_prostate_exists:
+        if (self.params.get('prostate_generation', {}).get('generate_prostate_files', True) and
+            'beta_prostate_exists' in locals() and beta_prostate_exists):
             shutil.copy2(self._get_temp_path("beta-prostate"), self._get_output_path("beta-prostate"))
 
         # Copy motion axis files to outputs if motion axis mode is enabled

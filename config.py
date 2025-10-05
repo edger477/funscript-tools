@@ -22,6 +22,7 @@ DEFAULT_CONFIG = {
         "speed_at_edge_hz": 2.0
     },
     "prostate_generation": {
+        "generate_prostate_files": True,
         "generate_from_inverted": True,
         "algorithm": "tear-shaped",
         "points_per_second": 25,

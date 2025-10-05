@@ -23,6 +23,7 @@ class ConversionTabs:
 
         # Prostate tab variables
         prostate_config = config.get('prostate_generation', {})
+        self.prostate_generate_var = tk.BooleanVar(value=prostate_config.get('generate_prostate_files', True))
         self.prostate_invert_var = tk.BooleanVar(value=prostate_config.get('generate_from_inverted', True))
         prostate_algorithm = prostate_config.get('algorithm', 'standard')
         self.prostate_algorithm_var = tk.StringVar(value=prostate_algorithm)
@@ -94,16 +95,20 @@ class ConversionTabs:
 
     def setup_prostate_tab(self):
         """Setup the prostate conversion tab."""
+        # Generate prostate files checkbox
+        ttk.Checkbutton(self.prostate_frame, text="Generate prostate files",
+                       variable=self.prostate_generate_var).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(5, 10))
+
         # Generate from inverted checkbox
         ttk.Checkbutton(self.prostate_frame, text="Generate from inverted funscript",
-                       variable=self.prostate_invert_var).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=5, pady=5)
+                       variable=self.prostate_invert_var).grid(row=1, column=0, columnspan=3, sticky=tk.W, padx=5, pady=5)
 
         # Algorithm selection
-        ttk.Label(self.prostate_frame, text="Algorithm:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prostate_frame, text="Algorithm:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
 
         # Create frame for radio buttons arranged vertically
         algo_frame = ttk.Frame(self.prostate_frame)
-        algo_frame.grid(row=1, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
+        algo_frame.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
 
         ttk.Radiobutton(algo_frame, text="Standard (0°-180°)",
                        variable=self.prostate_algorithm_var, value="standard").pack(anchor=tk.W, pady=1)
@@ -111,21 +116,21 @@ class ConversionTabs:
                        variable=self.prostate_algorithm_var, value="tear-shaped").pack(anchor=tk.W, pady=1)
 
         # Points per second
-        ttk.Label(self.prostate_frame, text="Points Per Second:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prostate_frame, text="Points Per Second:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
         points_entry = ttk.Entry(self.prostate_frame, textvariable=self.prostate_points_var, width=10)
-        points_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Label(self.prostate_frame, text="(1-100) Interpolation density").grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
+        points_entry.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prostate_frame, text="(1-100) Interpolation density").grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Min Distance From Center
-        ttk.Label(self.prostate_frame, text="Min Distance From Center:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prostate_frame, text="Min Distance From Center:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
         min_distance_scale = ttk.Scale(self.prostate_frame, from_=0.3, to=0.9, variable=self.prostate_min_distance_var,
                                       orient=tk.HORIZONTAL, length=150)
-        min_distance_scale.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        ttk.Label(self.prostate_frame, text="(0.3-0.9) Distance for tear-shaped constant zone").grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+        min_distance_scale.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        ttk.Label(self.prostate_frame, text="(0.3-0.9) Distance for tear-shaped constant zone").grid(row=4, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Convert to 2D button
         self.prostate_convert_button = ttk.Button(self.prostate_frame, text="Convert to 2D", command=self.convert_prostate_2d)
-        self.prostate_convert_button.grid(row=4, column=0, columnspan=3, pady=10)
+        self.prostate_convert_button.grid(row=5, column=0, columnspan=3, pady=10)
 
         # Configure grid weights
         self.prostate_frame.columnconfigure(1, weight=1)
@@ -164,6 +169,7 @@ class ConversionTabs:
     def get_prostate_config(self):
         """Get current prostate conversion configuration."""
         return {
+            'generate_prostate_files': self.prostate_generate_var.get(),
             'generate_from_inverted': self.prostate_invert_var.get(),
             'algorithm': self.prostate_algorithm_var.get(),
             'points_per_second': self.prostate_points_var.get(),

@@ -880,6 +880,7 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 prostate_config = self.embedded_conversion_tabs.get_prostate_config()
                 if 'prostate_generation' not in config:
                     config['prostate_generation'] = {}
+                config['prostate_generation']['generate_prostate_files'] = prostate_config['generate_prostate_files']
                 config['prostate_generation']['generate_from_inverted'] = prostate_config['generate_from_inverted']
                 config['prostate_generation']['algorithm'] = prostate_config['algorithm']
                 config['prostate_generation']['points_per_second'] = prostate_config['points_per_second']
