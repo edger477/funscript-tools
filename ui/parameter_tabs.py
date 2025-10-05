@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from typing import Dict, Any
 
 
@@ -769,6 +769,22 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         except Exception as e:
             print(f"Error updating curve name display: {e}")
 
+    def _browse_output_directory(self):
+        """Open file dialog to browse for output directory."""
+        # Get current directory if set
+        current_dir = self.parameter_vars['advanced']['custom_output_directory'].get()
+        initial_dir = current_dir if current_dir else None
+        
+        # Open directory selection dialog
+        selected_dir = filedialog.askdirectory(
+            title="Select Output Directory",
+            initialdir=initial_dir
+        )
+        
+        # Update the variable if a directory was selected
+        if selected_dir:
+            self.parameter_vars['advanced']['custom_output_directory'].set(selected_dir)
+
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""
         frame = self.advanced_frame
@@ -810,8 +826,17 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         ttk.Label(frame, text="Output Directory:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
         var = tk.StringVar(value=self.config['advanced']['custom_output_directory'])
         self.parameter_vars['advanced']['custom_output_directory'] = var
-        entry = ttk.Entry(frame, textvariable=var, width=40)
-        entry.grid(row=row, column=1, padx=5, pady=5)
+
+        # Create frame for entry and browse button
+        dir_frame = ttk.Frame(frame)
+        dir_frame.grid(row=row, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+
+        entry = ttk.Entry(dir_frame, textvariable=var, width=40)
+        entry.pack(side=tk.LEFT, padx=(0, 5))
+
+        browse_button = ttk.Button(dir_frame, text="Browse", command=self._browse_output_directory)
+        browse_button.pack(side=tk.LEFT)
+
         ttk.Label(frame, text="(Leave empty to use input file directory)").grid(row=row, column=2, sticky=tk.W, padx=5)
 
     def update_config(self, config: Dict[str, Any]):

@@ -23,6 +23,7 @@ class RestimProcessor:
         self.params = parameters
         self.temp_dir: Optional[Path] = None
         self.input_path: Optional[Path] = None
+        self.output_dir: Optional[Path] = None
         self.filename_only: str = ""
 
     def process(self, input_file_path: str, progress_callback: Optional[Callable[[int, str], None]] = None) -> bool:
@@ -64,7 +65,17 @@ class RestimProcessor:
             return False
 
     def _setup_directories(self):
-        """Create the temporary directory for intermediary files."""
+        """Create the temporary directory for intermediary files and set output directory."""
+        # Set output directory - use custom if specified, otherwise use input file directory
+        custom_output = self.params.get('advanced', {}).get('custom_output_directory', '').strip()
+        if custom_output:
+            self.output_dir = Path(custom_output)
+            # Ensure the output directory exists
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.output_dir = self.input_path.parent
+
+        # Create temporary directory
         self.temp_dir = self.input_path.parent / "funscript-temp"
         self.temp_dir.mkdir(exist_ok=True)
 
@@ -84,7 +95,7 @@ class RestimProcessor:
 
     def _get_output_path(self, suffix: str) -> Path:
         """Get path for a final output file."""
-        return self.input_path.parent / f"{self.filename_only}.{suffix}.funscript"
+        return self.output_dir / f"{self.filename_only}.{suffix}.funscript"
 
     def _copy_if_exists(self, source_suffix: str, dest_suffix: str) -> bool:
         """Copy auxiliary file if it exists."""

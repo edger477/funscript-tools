@@ -170,6 +170,15 @@ class MainWindow:
             else:
                 conversion_tabs = self.conversion_tabs
 
+            # Determine output directory - use custom if specified, otherwise use input file directory
+            custom_output = self.current_config.get('advanced', {}).get('custom_output_directory', '').strip()
+            if custom_output:
+                output_dir = Path(custom_output)
+                # Ensure the output directory exists
+                output_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                output_dir = input_path.parent
+
             if conversion_type == 'basic':
                 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
 
@@ -184,8 +193,8 @@ class MainWindow:
 
                 # Save files
                 filename_only = input_path.stem
-                alpha_path = input_path.parent / f"{filename_only}.alpha.funscript"
-                beta_path = input_path.parent / f"{filename_only}.beta.funscript"
+                alpha_path = output_dir / f"{filename_only}.alpha.funscript"
+                beta_path = output_dir / f"{filename_only}.beta.funscript"
 
                 alpha_funscript.save_to_path(alpha_path)
                 beta_funscript.save_to_path(beta_path)
@@ -207,8 +216,8 @@ class MainWindow:
 
                 # Save files
                 filename_only = input_path.stem
-                alpha_prostate_path = input_path.parent / f"{filename_only}.alpha-prostate.funscript"
-                beta_prostate_path = input_path.parent / f"{filename_only}.beta-prostate.funscript"
+                alpha_prostate_path = output_dir / f"{filename_only}.alpha-prostate.funscript"
+                beta_prostate_path = output_dir / f"{filename_only}.beta-prostate.funscript"
 
                 alpha_prostate_funscript.save_to_path(alpha_prostate_path)
                 beta_prostate_funscript.save_to_path(beta_prostate_path)
@@ -254,11 +263,20 @@ class MainWindow:
             # Get motion axis configuration
             motion_config = self.current_config['positional_axes']
 
+            # Determine output directory - use custom if specified, otherwise use input file directory
+            custom_output = self.current_config.get('advanced', {}).get('custom_output_directory', '').strip()
+            if custom_output:
+                output_dir = Path(custom_output)
+                # Ensure the output directory exists
+                output_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                output_dir = input_path.parent
+
             # Generate motion axis files
             generated_files = generate_motion_axes(
                 main_funscript,
                 motion_config,
-                input_path.parent,
+                output_dir,
                 input_path.stem  # Use input filename without extension
             )
 
