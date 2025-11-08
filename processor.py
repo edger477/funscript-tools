@@ -1,5 +1,6 @@
 import os
 import shutil
+import zipfile
 from pathlib import Path
 from typing import Callable, Optional, Dict, Any
 
@@ -52,6 +53,10 @@ class RestimProcessor:
             # Execute processing pipeline
             self._execute_pipeline(main_funscript, progress_callback)
 
+            # Create zip archive if requested
+            if self.params.get('advanced', {}).get('pack_output_to_zip', False):
+                self._create_output_zip(progress_callback)
+
             # Cleanup if requested
             if self.params['options']['delete_intermediary_files']:
                 self._update_progress(progress_callback, 95, "Cleaning up intermediary files...")
@@ -83,6 +88,43 @@ class RestimProcessor:
         """Remove the temporary directory and all its contents."""
         if self.temp_dir and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
+
+    def _create_output_zip(self, progress_callback: Optional[Callable]):
+        """Create a zip file containing all output funscript files."""
+        try:
+            # Create zip filename based on input file
+            zip_path = self.output_dir / f"{self.filename_only}.zip"
+
+            self._update_progress(progress_callback, 97, "Creating zip archive...")
+
+            # Collect all output .funscript files
+            output_files = []
+            for file_path in self.output_dir.glob(f"{self.filename_only}.*.funscript"):
+                # Only include files that were created/modified during this processing
+                # Exclude the original input file
+                if file_path != self.input_path:
+                    output_files.append(file_path)
+
+            # Also include motion axis files (e1-e4) if they exist
+            for axis in ['e1', 'e2', 'e3', 'e4']:
+                axis_file = self.output_dir / f"{self.filename_only}.{axis}.funscript"
+                if axis_file.exists() and axis_file not in output_files:
+                    output_files.append(axis_file)
+
+            if not output_files:
+                return  # No output files to zip
+
+            # Create the zip file
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in output_files:
+                    # Add file to zip with just the filename (no path)
+                    zipf.write(file_path, file_path.name)
+
+            self._update_progress(progress_callback, 98, f"Created zip archive: {zip_path.name}")
+
+        except Exception as e:
+            # Log the error but don't fail the entire process
+            self._update_progress(progress_callback, -1, f"Warning: Failed to create zip archive: {str(e)}")
 
     def _update_progress(self, progress_callback: Optional[Callable], percent: int, message: str):
         """Update progress if callback is provided."""

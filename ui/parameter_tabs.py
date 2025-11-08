@@ -839,6 +839,18 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
 
         ttk.Label(frame, text="(Leave empty to use input file directory)").grid(row=row, column=2, sticky=tk.W, padx=5)
 
+        row += 2
+
+        # Output Packaging Options
+        ttk.Label(frame, text="Output Packaging:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
+
+        row += 1
+
+        # Pack Output Files to Zip
+        var = tk.BooleanVar(value=self.config['advanced'].get('pack_output_to_zip', False))
+        self.parameter_vars['advanced']['pack_output_to_zip'] = var
+        ttk.Checkbutton(frame, text="Pack Output Files to Zip Archive", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+
     def update_config(self, config: Dict[str, Any]):
         """Update configuration dictionary with current UI values."""
         for section, variables in self.parameter_vars.items():

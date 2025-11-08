@@ -12,10 +12,11 @@
     "points_per_second": 25,
     "auto_generate": true,
     "algorithm": "top-right-left",
-    "min_distance_from_center": 0.1,
+    "min_distance_from_center": 0.2,
     "speed_at_edge_hz": 2.0
   },
   "prostate_generation": {
+    "generate_prostate_files": true,
     "generate_from_inverted": true,
     "algorithm": "tear-shaped",
     "points_per_second": 25,
@@ -28,16 +29,16 @@
     "pulse_frequency_combine_ratio": 2.0
   },
   "volume": {
-    "volume_ramp_combine_ratio": 7.0,
+    "volume_ramp_combine_ratio": 10.0,
     "prostate_volume_multiplier": 1.5,
     "prostate_rest_level": 0.7,
     "stereostim_volume_min": 0.5,
     "stereostim_volume_max": 1.0,
-    "ramp_percent_per_hour": 15
+    "ramp_percent_per_hour": 12
   },
   "pulse": {
     "pulse_width_min": 0.1,
-    "pulse_width_max": 0.45,
+    "pulse_width_max": 0.55,
     "pulse_width_combine_ratio": 3.0,
     "beta_mirror_threshold": 0.5,
     "pulse_rise_min": 0.0,
@@ -48,14 +49,15 @@
     "enable_pulse_frequency_inversion": false,
     "enable_volume_inversion": false,
     "enable_frequency_inversion": false,
-    "custom_output_directory": ""
+    "custom_output_directory": "",
+    "pack_output_to_zip": false
   },
   "options": {
     "normalize_volume": true,
     "delete_intermediary_files": true
   },
   "positional_axes": {
-    "mode": "motion_axis",
+    "mode": "legacy",
     "e1": {
       "enabled": true,
       "curve": {
@@ -135,31 +137,15 @@
         "control_points": [
           [
             0.0,
-            0.8103896103896104
+            0.5142857142857142
           ],
           [
-            0.24035420619860848,
-            0.7376623376623377
+            0.003162555344718515,
+            0.5142857142857142
           ],
           [
-            0.39215686274509803,
-            0.40519480519480516
-          ],
-          [
-            0.48387096774193555,
-            0.4961038961038961
-          ],
-          [
-            0.5724225173940545,
-            0.40259740259740256
-          ],
-          [
-            0.8728652751423149,
-            0.40259740259740256
-          ],
-          [
-            0.9456040480708412,
-            0.4701298701298701
+            0.22454142947501582,
+            0.4805194805194805
           ],
           [
             1.0,

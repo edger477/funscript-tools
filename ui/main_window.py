@@ -25,6 +25,7 @@ class MainWindow:
 
         # Variables
         self.input_file_var = tk.StringVar()
+        self.input_files = []  # Store list of selected files for batch processing
 
         # Progress tracking
         self.progress_var = tk.IntVar()
@@ -107,13 +108,18 @@ class MainWindow:
 
 
     def browse_input_file(self):
-        """Open file dialog to select input funscript file."""
-        file_path = filedialog.askopenfilename(
-            title="Select Funscript File",
+        """Open file dialog to select input funscript file(s)."""
+        file_paths = filedialog.askopenfilenames(
+            title="Select Funscript File(s)",
             filetypes=[("Funscript files", "*.funscript"), ("All files", "*.*")]
         )
-        if file_path:
-            self.input_file_var.set(file_path)
+        if file_paths:
+            self.input_files = list(file_paths)
+            # Update display with count of selected files
+            if len(self.input_files) == 1:
+                self.input_file_var.set(self.input_files[0])
+            else:
+                self.input_file_var.set(f"{len(self.input_files)} files selected")
 
     def convert_basic_2d(self):
         """Convert 1D funscript to 2D alpha/beta files using basic algorithms."""
@@ -340,19 +346,20 @@ class MainWindow:
 
     def validate_inputs(self) -> bool:
         """Validate user inputs before processing."""
-        input_file = self.input_file_var.get().strip()
-
-        if not input_file:
-            messagebox.showerror("Error", "Please select an input file.")
+        # Check if files are selected
+        if not self.input_files:
+            messagebox.showerror("Error", "Please select at least one input file.")
             return False
 
-        if not Path(input_file).exists():
-            messagebox.showerror("Error", "Input file does not exist.")
-            return False
+        # Validate all selected files
+        for input_file in self.input_files:
+            if not Path(input_file).exists():
+                messagebox.showerror("Error", f"Input file does not exist:\n{input_file}")
+                return False
 
-        if not input_file.lower().endswith('.funscript'):
-            messagebox.showerror("Error", "Input file must be a .funscript file.")
-            return False
+            if not input_file.lower().endswith('.funscript'):
+                messagebox.showerror("Error", f"File must be a .funscript file:\n{input_file}")
+                return False
 
         # Update and validate configuration
         self.update_config_from_ui()
@@ -395,21 +402,40 @@ class MainWindow:
     def process_files(self):
         """Process files in background thread."""
         try:
-            input_file = self.input_file_var.get().strip()
+            total_files = len(self.input_files)
+            successful = 0
+            failed = 0
+            
+            for index, input_file in enumerate(self.input_files, 1):
+                # Update status for current file
+                file_name = Path(input_file).name
+                self.update_progress(0, f"Processing file {index}/{total_files}: {file_name}")
+                
+                # Create processor with current configuration
+                processor = RestimProcessor(self.current_config)
 
-            # Create processor with current configuration
-            processor = RestimProcessor(self.current_config)
+                # Process with progress callback that includes file index
+                def file_progress_callback(percent, message):
+                    status_msg = f"[{index}/{total_files}] {file_name}: {message}"
+                    self.update_progress(percent, status_msg)
 
-            # Process with progress callback
-            success = processor.process(input_file, self.update_progress)
+                success = processor.process(input_file, file_progress_callback)
 
-            if success:
-                self.update_progress(100, "Processing completed successfully!")
-                # Show completion message in main thread
-                self.root.after(100, lambda: messagebox.showinfo("Success", "Processing completed successfully!"))
+                if success:
+                    successful += 1
+                else:
+                    failed += 1
+
+            # Show final summary
+            if total_files == 1:
+                if successful:
+                    self.update_progress(100, "Processing completed successfully!")
+                    self.root.after(100, lambda: messagebox.showinfo("Success", "Processing completed successfully!"))
             else:
-                # Error message already shown in update_progress
-                pass
+                # Batch processing summary
+                summary = f"Batch processing complete!\n\nSuccessful: {successful}\nFailed: {failed}\nTotal: {total_files}"
+                self.update_progress(100, f"Batch complete: {successful}/{total_files} successful")
+                self.root.after(100, lambda: messagebox.showinfo("Batch Complete", summary))
 
         except Exception as e:
             error_msg = f"Unexpected error: {str(e)}"
@@ -424,26 +450,54 @@ class MainWindow:
     def process_motion_files(self):
         """Process motion files in background thread based on current mode."""
         try:
-            input_file = self.input_file_var.get().strip()
-            input_path = Path(input_file)
-
+            total_files = len(self.input_files)
+            successful = 0
+            failed = 0
+            
             # Get current positional axis mode
             mode = self.current_config['positional_axes']['mode']
+            
+            for index, input_file in enumerate(self.input_files, 1):
+                file_name = Path(input_file).name
+                self.update_progress(0, f"[{index}/{total_files}] Processing {file_name} in {mode} mode...")
+                
+                try:
+                    input_path = Path(input_file)
 
-            self.update_progress(10, f"Processing in {mode} mode...")
+                    if mode == 'legacy':
+                        # Use existing 2D conversion logic (default to basic)
+                        self.update_progress(20, f"[{index}/{total_files}] Converting to 2D (Legacy mode)...")
+                        # Note: _perform_2d_conversion uses self.input_file_var, so we need to temporarily set it
+                        original_value = self.input_file_var.get()
+                        self.input_file_var.set(input_file)
+                        self._perform_2d_conversion('basic')
+                        self.input_file_var.set(original_value)
 
-            if mode == 'legacy':
-                # Use existing 2D conversion logic (default to basic)
-                self.update_progress(20, "Converting to 2D (Legacy mode)...")
-                self._perform_2d_conversion('basic')
+                    elif mode == 'motion_axis':
+                        # Generate motion axis files
+                        self.update_progress(20, f"[{index}/{total_files}] Generating motion axis files...")
+                        self._generate_motion_axis_files(input_path)
 
-            elif mode == 'motion_axis':
-                # Generate motion axis files
-                self.update_progress(20, "Generating motion axis files...")
-                self._generate_motion_axis_files(input_path)
+                    else:
+                        raise ValueError(f"Unknown positional axis mode: {mode}")
+                    
+                    successful += 1
+                    
+                except Exception as file_error:
+                    failed += 1
+                    error_msg = f"Failed to process {file_name}: {str(file_error)}"
+                    self.update_progress(-1, error_msg)
 
+            # Show final summary
+            if total_files == 1:
+                if successful:
+                    self.update_progress(100, "Motion processing completed successfully!")
+                    self.root.after(100, lambda: messagebox.showinfo("Success", "Motion processing completed successfully!"))
             else:
-                raise ValueError(f"Unknown positional axis mode: {mode}")
+                # Batch processing summary
+                summary = f"Batch motion processing complete!\n\nSuccessful: {successful}\nFailed: {failed}\nTotal: {total_files}"
+                self.update_progress(100, f"Batch complete: {successful}/{total_files} successful")
+                self.root.after(100, lambda: messagebox.showinfo("Batch Complete", summary))
 
         except Exception as e:
             error_msg = f"Motion processing failed: {str(e)}"
