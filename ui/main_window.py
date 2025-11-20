@@ -192,7 +192,7 @@ class MainWindow:
                 config = conversion_tabs.get_basic_config()
 
                 # Generate speed funscript (required for radius scaling)
-                from processing.speed import convert_to_speed
+                from processing.speed_processing import convert_to_speed
                 from config import DEFAULT_PARAMETERS
                 speed_funscript = convert_to_speed(
                     main_funscript,
