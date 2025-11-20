@@ -5,15 +5,16 @@ sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
 
 
-def convert_funscript_radial(funscript, points_per_second=25, min_distance_from_center=0.1, speed_at_edge_hz=2.0):
+def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=25, min_distance_from_center=0.1, speed_threshold_percent=50):
     """
     Convert a 1D funscript into 2D (alpha/beta) using circular conversion.
 
     Args:
         funscript: Input Funscript object
+        speed_funscript: Speed funscript for radius scaling (optional, will calculate if None)
         points_per_second: Number of interpolated points per second
         min_distance_from_center: Minimum radius from center (0.1-0.9)
-        speed_at_edge_hz: Speed in Hz at which dot reaches maximum radius
+        speed_threshold_percent: Speed percentile threshold (0-100) for maximum radius
 
     Returns:
         tuple: (alpha_funscript, beta_funscript)
@@ -25,10 +26,6 @@ def convert_funscript_radial(funscript, points_per_second=25, min_distance_from_
     x_out = []  # Alpha (x-axis)
     y_out = []  # Beta (y-axis)
 
-    # Convert speed_at_edge_hz to time needed to go from 0 to 1
-    # If speed_at_edge_hz = 2Hz, then full range (0 to 1) takes 0.5 seconds
-    max_speed_threshold = abs(1.0) / (1.0 / speed_at_edge_hz)  # Speed for full range in 1/Hz seconds
-
     for i in range(len(pos) - 1):
         start_t, end_t = at[i:i+2]
         start_p, end_p = pos[i:i+2]
@@ -36,14 +33,26 @@ def convert_funscript_radial(funscript, points_per_second=25, min_distance_from_
         # Calculate number of points for this segment
         n = int(np.clip(float((end_t - start_t) * points_per_second), 1, None))
 
-        # Calculate speed for this segment (position change per second)
-        segment_duration = end_t - start_t
-        position_change = abs(end_p - start_p)
-        current_speed = position_change / segment_duration if segment_duration > 0 else 0
+        # Get speed value from speed funscript at segment start time
+        if speed_funscript is not None:
+            # Find closest timestamp in speed funscript
+            time_diffs = np.abs(speed_funscript.x - start_t)
+            closest_idx = np.argmin(time_diffs)
+            speed_value = speed_funscript.y[closest_idx] * 100  # Convert 0-1 to 0-100
+        else:
+            # Fallback: calculate speed from position change
+            segment_duration = end_t - start_t
+            position_change = abs(end_p - start_p)
+            current_speed = position_change / segment_duration if segment_duration > 0 else 0
+            # Map to 0-100 range (assume max speed of 2.0 pos/sec)
+            speed_value = min(current_speed / 2.0, 1.0) * 100
 
-        # Map speed to radius (min_distance_from_center to 1.0)
-        speed_ratio = min(current_speed / max_speed_threshold, 1.0)  # Clamp to 1.0
-        radius_scale = min_distance_from_center + (1.0 - min_distance_from_center) * speed_ratio
+        # Map speed to radius using threshold
+        if speed_value >= speed_threshold_percent:
+            radius_scale = 1.0
+        else:
+            ratio = speed_value / speed_threshold_percent if speed_threshold_percent > 0 else 0
+            radius_scale = min_distance_from_center + (1.0 - min_distance_from_center) * ratio
 
         # Create time and angle arrays
         t = np.linspace(0.0, end_t - start_t, n, endpoint=False)
@@ -51,14 +60,27 @@ def convert_funscript_radial(funscript, points_per_second=25, min_distance_from_
 
         # Calculate radial conversion parameters
         center = (end_p + start_p) / 2
-        r = (start_p - end_p) / 2
+        stroke_amplitude = abs(start_p - end_p) / 2
 
-        # Apply speed-based radius scaling
-        r = r * radius_scale
+        # Calculate base radius from global center (0.5, 0.5)
+        # The stroke's center position determines the base radius
+        base_radius = abs(center - 0.5)
 
-        # Generate alpha (x-axis) and beta (y-axis) coordinates
-        x = center + r * np.cos(theta)
-        y = r * np.sin(theta) + 0.5
+        # Scale radius based on speed: from min_distance to max (0.5 = edge of circle)
+        target_radius = 0.5 * radius_scale  # Scale within 0 to 0.5 (circle boundary)
+
+        # Generate positions on a circle from global center
+        # Map funscript position (start_p to end_p) to angle
+        progress = np.linspace(0, 1, n, endpoint=False)
+        current_positions = np.interp(progress, [0, 1], [start_p, end_p])
+
+        # Convert funscript position to angle (0-180 degrees for semicircle)
+        # Position 1.0 -> 0°, Position 0.0 -> 180°
+        position_angles = (1.0 - current_positions) * np.pi
+
+        # Generate alpha (x-axis) and beta (y-axis) from global center
+        x = 0.5 + target_radius * np.cos(position_angles)
+        y = 0.5 + target_radius * np.sin(position_angles)
 
         # Append to output arrays
         t_out += list(t + start_t)
@@ -72,26 +94,27 @@ def convert_funscript_radial(funscript, points_per_second=25, min_distance_from_
     return alpha_funscript, beta_funscript
 
 
-def generate_alpha_beta_from_main(main_funscript, points_per_second=25, algorithm="circular", min_distance_from_center=0.1, speed_at_edge_hz=2.0):
+def generate_alpha_beta_from_main(main_funscript, speed_funscript=None, points_per_second=25, algorithm="circular", min_distance_from_center=0.1, speed_threshold_percent=50):
     """
     Generate alpha and beta funscripts from a main 1D funscript.
 
     Args:
         main_funscript: Input Funscript object
+        speed_funscript: Speed funscript for radius scaling (optional)
         points_per_second: Number of interpolated points per second
         algorithm: Conversion algorithm - "circular", "top-left-right", "top-right-left"
         min_distance_from_center: Minimum radius from center (0.1-0.9)
-        speed_at_edge_hz: Speed in Hz at which dot reaches maximum radius
+        speed_threshold_percent: Speed percentile threshold (0-100) for maximum radius
 
     Returns:
         tuple: (alpha_funscript, beta_funscript)
     """
     if algorithm == "circular":
-        return convert_funscript_radial(main_funscript, points_per_second, min_distance_from_center, speed_at_edge_hz)
+        return convert_funscript_radial(main_funscript, speed_funscript, points_per_second, min_distance_from_center, speed_threshold_percent)
     elif algorithm == "top-left-right":
         # Import the oscillating module
         from .funscript_oscillating_2d import generate_alpha_beta_oscillating
-        return generate_alpha_beta_oscillating(main_funscript, points_per_second, algorithm, min_distance_from_center, speed_at_edge_hz)
+        return generate_alpha_beta_oscillating(main_funscript, speed_funscript, points_per_second, algorithm, min_distance_from_center, speed_threshold_percent)
     elif algorithm == "top-right-left":
         # Use top-left-right algorithm and then invert beta for vertical mirror
         from .funscript_oscillating_2d import generate_alpha_beta_oscillating
@@ -99,7 +122,7 @@ def generate_alpha_beta_from_main(main_funscript, points_per_second=25, algorith
 
         # Generate using top-left-right algorithm
         alpha_funscript, beta_funscript = generate_alpha_beta_oscillating(
-            main_funscript, points_per_second, "top-left-right", min_distance_from_center, speed_at_edge_hz
+            main_funscript, speed_funscript, points_per_second, "top-left-right", min_distance_from_center, speed_threshold_percent
         )
 
         # Invert beta to create vertical mirror effect
@@ -108,4 +131,4 @@ def generate_alpha_beta_from_main(main_funscript, points_per_second=25, algorith
         return alpha_funscript, beta_inverted
     else:
         # Default to circular if unknown algorithm
-        return convert_funscript_radial(main_funscript, points_per_second, min_distance_from_center, speed_at_edge_hz)
+        return convert_funscript_radial(main_funscript, speed_funscript, points_per_second, min_distance_from_center, speed_threshold_percent)

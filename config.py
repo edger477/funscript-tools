@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
         "auto_generate": True,
         "algorithm": "top-right-left",
         "min_distance_from_center": 0.1,
-        "speed_at_edge_hz": 2.0
+        "speed_threshold_percent": 50
     },
     "prostate_generation": {
         "generate_prostate_files": True,
@@ -111,7 +111,7 @@ PARAMETER_RANGES = {
     "alpha_beta_generation": {
         "points_per_second": (1, 100),
         "min_distance_from_center": (0.1, 0.9),
-        "speed_at_edge_hz": (1.0, 5.0)
+        "speed_threshold_percent": (0, 100)
     },
     "prostate_generation": {
         "points_per_second": (1, 100),

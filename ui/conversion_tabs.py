@@ -18,8 +18,8 @@ class ConversionTabs:
         self.basic_points_var = tk.IntVar(value=points_per_second)
         min_distance = config['alpha_beta_generation'].get('min_distance_from_center', 0.1)
         self.basic_min_distance_var = tk.DoubleVar(value=min_distance)
-        speed_at_edge = config['alpha_beta_generation'].get('speed_at_edge_hz', 2.0)
-        self.basic_speed_edge_var = tk.DoubleVar(value=speed_at_edge)
+        speed_threshold = config['alpha_beta_generation'].get('speed_threshold_percent', 50)
+        self.basic_speed_threshold_var = tk.IntVar(value=speed_threshold)
 
         # Prostate tab variables
         prostate_config = config.get('prostate_generation', {})
@@ -79,12 +79,12 @@ class ConversionTabs:
         min_distance_scale.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         ttk.Label(self.basic_frame, text="(0.1-0.9) Minimum radius from center").grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
 
-        # Speed at Edge (Hz)
-        ttk.Label(self.basic_frame, text="Speed at Edge (Hz):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
-        speed_edge_scale = ttk.Scale(self.basic_frame, from_=1.0, to=5.0, variable=self.basic_speed_edge_var,
+        # Speed Threshold (%)
+        ttk.Label(self.basic_frame, text="Speed Threshold (%):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        speed_threshold_scale = ttk.Scale(self.basic_frame, from_=0, to=100, variable=self.basic_speed_threshold_var,
                                     orient=tk.HORIZONTAL, length=150)
-        speed_edge_scale.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        ttk.Label(self.basic_frame, text="(1-5 Hz) Speed for maximum radius").grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+        speed_threshold_scale.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        ttk.Label(self.basic_frame, text="(0-100%) Speed percentile for maximum radius").grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Convert to 2D button
         self.basic_convert_button = ttk.Button(self.basic_frame, text="Convert to 2D", command=self.convert_basic_2d)
@@ -163,7 +163,7 @@ class ConversionTabs:
             'algorithm': self.basic_algorithm_var.get(),
             'points_per_second': self.basic_points_var.get(),
             'min_distance_from_center': self.basic_min_distance_var.get(),
-            'speed_at_edge_hz': self.basic_speed_edge_var.get()
+            'speed_threshold_percent': self.basic_speed_threshold_var.get()
         }
 
     def get_prostate_config(self):

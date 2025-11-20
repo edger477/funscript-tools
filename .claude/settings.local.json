@@ -10,7 +10,8 @@
       "mcp__serena__insert_after_symbol",
       "Bash(del debug_simple.py test_motion_axis_ui.py)",
       "mcp__serena__search_for_pattern",
-      "mcp__serena__find_file"
+      "mcp__serena__find_file",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

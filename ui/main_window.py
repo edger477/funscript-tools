@@ -191,10 +191,19 @@ class MainWindow:
                 # Get basic conversion parameters
                 config = conversion_tabs.get_basic_config()
 
+                # Generate speed funscript (required for radius scaling)
+                from processing.speed import convert_to_speed
+                from config import DEFAULT_PARAMETERS
+                speed_funscript = convert_to_speed(
+                    main_funscript,
+                    DEFAULT_PARAMETERS['general']['speed_window_size'],
+                    DEFAULT_PARAMETERS['speed']['interpolation_interval']
+                )
+
                 # Generate alpha and beta files
                 alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
-                    main_funscript, config['points_per_second'], config['algorithm'],
-                    config['min_distance_from_center'], config['speed_at_edge_hz']
+                    main_funscript, speed_funscript, config['points_per_second'], config['algorithm'],
+                    config['min_distance_from_center'], config['speed_threshold_percent']
                 )
 
                 # Save files

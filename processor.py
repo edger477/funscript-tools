@@ -160,6 +160,22 @@ class RestimProcessor:
         alpha_exists = self._copy_if_exists("alpha", "alpha")
         beta_exists = self._copy_if_exists("beta", "beta")
 
+        # Generate speed early if needed for alpha/beta generation
+        speed_funscript = None
+        if (not alpha_exists or not beta_exists) and self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
+            # Need speed funscript for alpha/beta generation
+            if not speed_exists:
+                self._update_progress(progress_callback, 12, "Generating speed file for alpha/beta...")
+                speed_funscript = convert_to_speed(
+                    main_funscript,
+                    self.params['general']['speed_window_size'],
+                    self.params['speed']['interpolation_interval']
+                )
+                speed_funscript.save_to_path(self._get_temp_path("speed"))
+                speed_exists = True
+            else:
+                speed_funscript = Funscript.from_file(self._get_temp_path("speed"))
+
         # Generate alpha and beta files if they don't exist and auto-generation is enabled
         if (not alpha_exists or not beta_exists) and self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
             self._update_progress(progress_callback, 15, "Generating alpha and beta files from main funscript...")
@@ -167,9 +183,9 @@ class RestimProcessor:
             points_per_second = alpha_beta_config.get('points_per_second', 25)
             algorithm = alpha_beta_config.get('algorithm', 'circular')
             min_distance_from_center = alpha_beta_config.get('min_distance_from_center', 0.1)
-            speed_at_edge_hz = alpha_beta_config.get('speed_at_edge_hz', 2.0)
+            speed_threshold_percent = alpha_beta_config.get('speed_threshold_percent', 50)
             alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
-                main_funscript, points_per_second, algorithm, min_distance_from_center, speed_at_edge_hz
+                main_funscript, speed_funscript, points_per_second, algorithm, min_distance_from_center, speed_threshold_percent
             )
 
             if not alpha_exists:
@@ -245,15 +261,15 @@ class RestimProcessor:
         # Phase 2: Core File Generation (20-40%)
         self._update_progress(progress_callback, 20, "Generating speed file...")
 
-        # Generate speed if not provided
-        if not speed_exists:
+        # Generate speed if not already generated earlier
+        if not speed_exists and speed_funscript is None:
             speed_funscript = convert_to_speed(
                 main_funscript,
                 self.params['general']['speed_window_size'],
                 self.params['speed']['interpolation_interval']
             )
             speed_funscript.save_to_path(self._get_temp_path("speed"))
-        else:
+        elif speed_funscript is None:
             speed_funscript = Funscript.from_file(self._get_temp_path("speed"))
 
         # Invert speed

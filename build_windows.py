@@ -128,6 +128,11 @@ def create_release_package():
             shutil.copy2(doc, release_dir / doc)
             print(f"Copied: {doc}")
 
+    # Copy config.json if it exists
+    if Path("config.json").exists():
+        shutil.copy2("config.json", release_dir / "config.json")
+        print(f"Copied: config.json")
+
     # Create a simple install guide
     install_guide = release_dir / "INSTALLATION.txt"
     with open(install_guide, 'w') as f:
