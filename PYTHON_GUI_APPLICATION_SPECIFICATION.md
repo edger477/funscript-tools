@@ -343,7 +343,7 @@ Generate additional inverted files if enabled in Advanced tab:
     "pulse_frequency_combine_ratio": 3
   },
   "volume": {
-    "volume_ramp_combine_ratio": 6.0,
+    "volume_ramp_combine_ratio": 10.0,
     "prostate_volume_multiplier": 1.5,
     "prostate_rest_level": 0.7,
     "stereostim_volume_min": 0.50,

@@ -1,7 +1,7 @@
 {
   "general": {
     "rest_level": 0.4,
-    "speed_window_size": 5,
+    "speed_window_size": 2,
     "accel_window_size": 3
   },
   "speed": {
@@ -13,6 +13,7 @@
     "auto_generate": true,
     "algorithm": "top-right-left",
     "min_distance_from_center": 0.2,
+    "speed_threshold_percent": 50,
     "speed_at_edge_hz": 2.0
   },
   "prostate_generation": {
