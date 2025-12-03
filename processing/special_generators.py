@@ -39,6 +39,6 @@ def make_volume_ramp(input_funscript, ramp_percent_per_hour=15):
 
     # Set timing and positions
     x = [start_time, second_time, peak_time, end_time]
-    y = [start_ramp_value, intermediate_value, 1.0, 0.0]
+    y = [0, start_ramp_value, 1.0, 0.0]
 
     return Funscript(x, y)
