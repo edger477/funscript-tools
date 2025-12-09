@@ -83,7 +83,7 @@ restim_funscript_processor/
 ##### Legacy (Alpha/Beta) Mode
 When Legacy mode is selected, the tab displays embedded 1D to 2D conversion controls:
 - **Basic Tab**: Standard conversion algorithms
-  - Algorithm: Circular, Top-Left-Right, Top-Right-Left
+  - Algorithm: Circular, Top-Left-Right, Top-Right-Left, 0-360 (restim original)
   - Points Per Second: Integer (1-100, default: 25)
   - Min Distance From Center: Float (0.1-0.9, default: 0.1)
   - Speed at Edge (Hz): Float (1.0-5.0, default: 2.0)
@@ -571,6 +571,7 @@ The application includes a comprehensive 1D to 2D conversion system with dedicat
 1. **Circular (0°-180°)**: Original semicircular motion algorithm
 2. **Top-Left-Right (0°-270°)**: Oscillating arc motion counter-clockwise from top
 3. **Top-Right-Left (0°-90°)**: Oscillating arc motion clockwise from top
+4. **0-360 (restim original)**: Original algorithm from diglet48's restim repository with stroke-relative circular motion and random direction changes (10% probability per segment)
 
 #### Prostate Tab - Specialized Prostate Conversion
 1. **Generate from inverted funscript**: Checkbox (default: checked) - Apply inversion before conversion

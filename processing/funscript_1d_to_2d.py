@@ -94,7 +94,79 @@ def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=
     return alpha_funscript, beta_funscript
 
 
-def generate_alpha_beta_from_main(main_funscript, speed_funscript=None, points_per_second=25, algorithm="circular", min_distance_from_center=0.1, speed_threshold_percent=50):
+def convert_funscript_restim_original(funscript, random_direction_change_probability=0.1):
+    """
+    Convert a 1D funscript into 2D (alpha/beta) using the original restim algorithm.
+
+    This is the original algorithm from diglet48's restim repository.
+    It uses stroke-relative circular motion with random direction changes.
+
+    Args:
+        funscript: Input Funscript object
+        random_direction_change_probability: Probability of direction flip (0.0-1.0)
+
+    Returns:
+        tuple: (alpha_funscript, beta_funscript)
+    """
+    at = funscript.x  # Time in seconds
+    pos = funscript.y  # Position 0.0-1.0
+
+    dir = 1  # Direction multiplier for y-axis
+
+    t_out = []
+    x_out = []  # Alpha (x-axis)
+    y_out = []  # Beta (y-axis)
+
+    for i in range(len(pos) - 1):
+        start_t, end_t = at[i:i + 2]
+        start_p, end_p = pos[i:i + 2]
+
+        duration = end_t - start_t
+
+        # Adaptive point density based on duration
+        if start_p == end_p:
+            n = 1
+        else:
+            if duration <= 0.100:
+                n = 2
+            elif duration <= 0.200:
+                n = 3
+            elif duration <= 0.300:
+                n = 4
+            elif duration <= 0.400:
+                n = 5
+            else:
+                n = 6
+
+        # Create time and angle arrays
+        t = np.linspace(0.0, duration, n, endpoint=False)
+        theta = np.linspace(0, np.pi, n, endpoint=False)
+
+        # Calculate stroke-relative center and radius
+        center = (end_p + start_p) / 2
+        r = (start_p - end_p) / 2
+
+        # Random direction change for alternating motion
+        if np.random.random() < random_direction_change_probability:
+            dir = dir * -1
+
+        # Generate circular motion relative to stroke center
+        x = center + r * np.cos(theta)
+        y = r * dir * np.sin(theta) + 0.5
+
+        # Append to output arrays
+        t_out += list(t + start_t)
+        x_out += list(x)
+        y_out += list(y)
+
+    # Create alpha and beta funscripts
+    alpha_funscript = Funscript(t_out, x_out)
+    beta_funscript = Funscript(t_out, y_out)
+
+    return alpha_funscript, beta_funscript
+
+
+def generate_alpha_beta_from_main(main_funscript, speed_funscript=None, points_per_second=25, algorithm="circular", min_distance_from_center=0.1, speed_threshold_percent=50, direction_change_probability=0.1):
     """
     Generate alpha and beta funscripts from a main 1D funscript.
 
@@ -102,9 +174,10 @@ def generate_alpha_beta_from_main(main_funscript, speed_funscript=None, points_p
         main_funscript: Input Funscript object
         speed_funscript: Speed funscript for radius scaling (optional)
         points_per_second: Number of interpolated points per second
-        algorithm: Conversion algorithm - "circular", "top-left-right", "top-right-left"
+        algorithm: Conversion algorithm - "circular", "top-left-right", "top-right-left", "restim-original"
         min_distance_from_center: Minimum radius from center (0.1-0.9)
         speed_threshold_percent: Speed percentile threshold (0-100) for maximum radius
+        direction_change_probability: Probability of direction flip per segment for restim-original (0.0-1.0)
 
     Returns:
         tuple: (alpha_funscript, beta_funscript)
@@ -129,6 +202,9 @@ def generate_alpha_beta_from_main(main_funscript, speed_funscript=None, points_p
         beta_inverted = invert_funscript(beta_funscript)
 
         return alpha_funscript, beta_inverted
+    elif algorithm == "restim-original":
+        # Use the original restim algorithm with random direction changes
+        return convert_funscript_restim_original(main_funscript, direction_change_probability)
     else:
         # Default to circular if unknown algorithm
         return convert_funscript_radial(main_funscript, speed_funscript, points_per_second, min_distance_from_center, speed_threshold_percent)

@@ -6,9 +6,10 @@ Version information for Restim Funscript Processor
 1.0.5 - added batch processing and zip packaging features
 1.0.6 - speed threshold redesign (Hz to %), global center algorithm for alpha/beta
 1.0.7 - change allowed range for volume ratio (combine of speed and ramp)
+1.0.8 - add restim-original algorithm with random direction changes to motion axis generation
 """
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

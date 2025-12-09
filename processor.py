@@ -184,8 +184,9 @@ class RestimProcessor:
             algorithm = alpha_beta_config.get('algorithm', 'circular')
             min_distance_from_center = alpha_beta_config.get('min_distance_from_center', 0.1)
             speed_threshold_percent = alpha_beta_config.get('speed_threshold_percent', 50)
+            direction_change_probability = alpha_beta_config.get('direction_change_probability', 0.1)
             alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
-                main_funscript, speed_funscript, points_per_second, algorithm, min_distance_from_center, speed_threshold_percent
+                main_funscript, speed_funscript, points_per_second, algorithm, min_distance_from_center, speed_threshold_percent, direction_change_probability
             )
 
             if not alpha_exists:

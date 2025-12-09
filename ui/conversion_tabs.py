@@ -20,6 +20,11 @@ class ConversionTabs:
         self.basic_min_distance_var = tk.DoubleVar(value=min_distance)
         speed_threshold = config['alpha_beta_generation'].get('speed_threshold_percent', 50)
         self.basic_speed_threshold_var = tk.IntVar(value=speed_threshold)
+        direction_prob = config['alpha_beta_generation'].get('direction_change_probability', 0.1)
+        self.basic_direction_prob_var = tk.DoubleVar(value=direction_prob)
+
+        # Widget references for enabling/disabling
+        self.basic_widgets = {}
 
         # Prostate tab variables
         prostate_config = config.get('prostate_generation', {})
@@ -60,38 +65,78 @@ class ConversionTabs:
         algo_frame.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
 
         ttk.Radiobutton(algo_frame, text="Circular (0°-180°)",
-                       variable=self.basic_algorithm_var, value="circular").pack(anchor=tk.W, pady=1)
+                       variable=self.basic_algorithm_var, value="circular",
+                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
         ttk.Radiobutton(algo_frame, text="Top-Left-Bottom-Right (0°-90°)",
-                       variable=self.basic_algorithm_var, value="top-left-right").pack(anchor=tk.W, pady=1)
+                       variable=self.basic_algorithm_var, value="top-left-right",
+                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
         ttk.Radiobutton(algo_frame, text="Top-Right-Bottom-Left (0°-270°)",
-                       variable=self.basic_algorithm_var, value="top-right-left").pack(anchor=tk.W, pady=1)
+                       variable=self.basic_algorithm_var, value="top-right-left",
+                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
+        ttk.Radiobutton(algo_frame, text="0-360 (restim original)",
+                       variable=self.basic_algorithm_var, value="restim-original",
+                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
 
         # Points per second
-        ttk.Label(self.basic_frame, text="Points Per Second:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        points_entry = ttk.Entry(self.basic_frame, textvariable=self.basic_points_var, width=10)
-        points_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Label(self.basic_frame, text="(1-100) Interpolation density").grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['points_label'] = ttk.Label(self.basic_frame, text="Points Per Second:")
+        self.basic_widgets['points_label'].grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['points_entry'] = ttk.Entry(self.basic_frame, textvariable=self.basic_points_var, width=10)
+        self.basic_widgets['points_entry'].grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['points_desc'] = ttk.Label(self.basic_frame, text="(1-100) Interpolation density")
+        self.basic_widgets['points_desc'].grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Min Distance From Center
-        ttk.Label(self.basic_frame, text="Min Distance From Center:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
-        min_distance_scale = ttk.Scale(self.basic_frame, from_=0.1, to=0.9, variable=self.basic_min_distance_var,
-                                      orient=tk.HORIZONTAL, length=150)
-        min_distance_scale.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        ttk.Label(self.basic_frame, text="(0.1-0.9) Minimum radius from center").grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['min_dist_label'] = ttk.Label(self.basic_frame, text="Min Distance From Center:")
+        self.basic_widgets['min_dist_label'].grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['min_dist_scale'] = ttk.Scale(self.basic_frame, from_=0.1, to=0.9,
+                                                          variable=self.basic_min_distance_var,
+                                                          orient=tk.HORIZONTAL, length=150)
+        self.basic_widgets['min_dist_scale'].grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        self.basic_widgets['min_dist_desc'] = ttk.Label(self.basic_frame, text="(0.1-0.9) Minimum radius from center")
+        self.basic_widgets['min_dist_desc'].grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Speed Threshold (%)
-        ttk.Label(self.basic_frame, text="Speed Threshold (%):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
-        speed_threshold_scale = ttk.Scale(self.basic_frame, from_=0, to=100, variable=self.basic_speed_threshold_var,
-                                    orient=tk.HORIZONTAL, length=150)
-        speed_threshold_scale.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
-        ttk.Label(self.basic_frame, text="(0-100%) Speed percentile for maximum radius").grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['speed_label'] = ttk.Label(self.basic_frame, text="Speed Threshold (%):")
+        self.basic_widgets['speed_label'].grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        self.basic_widgets['speed_scale'] = ttk.Scale(self.basic_frame, from_=0, to=100,
+                                                       variable=self.basic_speed_threshold_var,
+                                                       orient=tk.HORIZONTAL, length=150)
+        self.basic_widgets['speed_scale'].grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        self.basic_widgets['speed_desc'] = ttk.Label(self.basic_frame, text="(0-100%) Speed percentile for maximum radius")
+        self.basic_widgets['speed_desc'].grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Direction Change Probability (for restim-original only)
+        self.basic_widgets['direction_label'] = ttk.Label(self.basic_frame, text="Direction Change Probability:")
+        self.basic_widgets['direction_label'].grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
+
+        # Frame to hold slider and value display
+        direction_frame = ttk.Frame(self.basic_frame)
+        direction_frame.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        self.basic_widgets['direction_scale'] = ttk.Scale(direction_frame, from_=0.0, to=1.0,
+                                                            variable=self.basic_direction_prob_var,
+                                                            orient=tk.HORIZONTAL, length=120)
+        self.basic_widgets['direction_scale'].pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Value display label
+        self.basic_widgets['direction_value'] = ttk.Label(direction_frame, text=f"{self.basic_direction_prob_var.get():.2f}", width=5)
+        self.basic_widgets['direction_value'].pack(side=tk.LEFT, padx=(5, 0))
+
+        self.basic_widgets['direction_desc'] = ttk.Label(self.basic_frame, text="(0.0-1.0) Probability of direction flip per segment")
+        self.basic_widgets['direction_desc'].grid(row=4, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Add trace to update value display when slider changes
+        self.basic_direction_prob_var.trace_add('write', self._update_direction_value_display)
 
         # Convert to 2D button
         self.basic_convert_button = ttk.Button(self.basic_frame, text="Convert to 2D", command=self.convert_basic_2d)
-        self.basic_convert_button.grid(row=4, column=0, columnspan=3, pady=10)
+        self.basic_convert_button.grid(row=5, column=0, columnspan=3, pady=10)
 
         # Configure grid weights
         self.basic_frame.columnconfigure(1, weight=1)
+
+        # Initialize widget states based on current algorithm
+        self._on_algorithm_change()
 
     def setup_prostate_tab(self):
         """Setup the prostate conversion tab."""
@@ -157,13 +202,55 @@ class ConversionTabs:
         self.basic_convert_button.config(state=state)
         self.prostate_convert_button.config(state=state)
 
+    def _update_direction_value_display(self, *args):
+        """Update the direction change probability value display."""
+        if 'direction_value' in self.basic_widgets:
+            value = self.basic_direction_prob_var.get()
+            self.basic_widgets['direction_value'].config(text=f"{value:.2f}")
+
+    def _on_algorithm_change(self):
+        """Update widget states based on selected algorithm."""
+        algorithm = self.basic_algorithm_var.get()
+        is_restim = (algorithm == "restim-original")
+
+        # Widgets to disable for restim-original
+        standard_widgets = [
+            'points_label', 'points_entry', 'points_desc',
+            'min_dist_label', 'min_dist_scale', 'min_dist_desc',
+            'speed_label', 'speed_scale', 'speed_desc'
+        ]
+
+        # Widgets to enable only for restim-original
+        restim_widgets = [
+            'direction_label', 'direction_scale', 'direction_desc', 'direction_value'
+        ]
+
+        # Set state for standard algorithm widgets
+        state = 'disabled' if is_restim else 'normal'
+        for widget_name in standard_widgets:
+            if widget_name in self.basic_widgets:
+                widget = self.basic_widgets[widget_name]
+                if isinstance(widget, (ttk.Entry, ttk.Scale)):
+                    widget.config(state=state)
+                # Labels don't need state change but could be grayed out
+                # For now just disable interactive widgets
+
+        # Set state for restim-specific widgets
+        restim_state = 'normal' if is_restim else 'disabled'
+        for widget_name in restim_widgets:
+            if widget_name in self.basic_widgets:
+                widget = self.basic_widgets[widget_name]
+                if isinstance(widget, (ttk.Entry, ttk.Scale)):
+                    widget.config(state=restim_state)
+
     def get_basic_config(self):
         """Get current basic conversion configuration."""
         return {
             'algorithm': self.basic_algorithm_var.get(),
             'points_per_second': self.basic_points_var.get(),
             'min_distance_from_center': self.basic_min_distance_var.get(),
-            'speed_threshold_percent': self.basic_speed_threshold_var.get()
+            'speed_threshold_percent': self.basic_speed_threshold_var.get(),
+            'direction_change_probability': self.basic_direction_prob_var.get()
         }
 
     def get_prostate_config(self):

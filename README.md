@@ -96,6 +96,7 @@ The application features a sophisticated 1D to 2D conversion system with multipl
 - **Circular (0°-180°)**: Original semicircular motion algorithm
 - **Top-Left-Right (0°-270°)**: Oscillating arc motion counter-clockwise from top
 - **Top-Right-Left (0°-90°)**: Oscillating arc motion clockwise from top
+- **0-360 (restim original)**: Original algorithm from diglet48's restim with stroke-relative circular motion and random direction changes
 
 ### Speed-Responsive Radius Control
 
