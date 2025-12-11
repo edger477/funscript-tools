@@ -116,6 +116,11 @@ def build_linux_binary():
         cmd.insert(-1, "--add-data")
         cmd.insert(-1, "restim_config.json:.")
 
+    # Add event definitions if it exists
+    if Path("config.event_definitions.yml").exists():
+        cmd.insert(-1, "--add-data")
+        cmd.insert(-1, "config.event_definitions.yml:.")
+
     print("Running PyInstaller...")
     print(" ".join(cmd))
 
@@ -243,7 +248,9 @@ def create_release_package(appimage_path):
     docs_to_copy = [
         "README.md",
         "PYTHON_GUI_APPLICATION_SPECIFICATION.md",
-        "RESTIM_FUNSCRIPT_PROCESSING_REQUIREMENTS.md"
+        "RESTIM_FUNSCRIPT_PROCESSING_REQUIREMENTS.md",
+        "config.json",
+        "config.event_definitions.yml"
     ]
 
     for doc in docs_to_copy:

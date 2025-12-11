@@ -1,0 +1,35 @@
+# Sample Custom Events File (New Architecture)
+#
+# This file demonstrates how to use the data-driven event system.
+# The 'name' of each event must correspond to a definition in 'config.event_definitions.yml'.
+# All time values are in MILLISECONDS.
+
+events:
+
+  - time: 60000   # Event at 1 minute (60,000 ms)
+    name: edge
+    # This event will use all the default parameters for 'edge'
+    # as defined in event_definitions.yml.
+
+  - time: 120000  # Event at 2 minutes (120,000 ms)
+    name: tranquil
+    # This event overrides the default duration to make it shorter.
+    params:
+      duration_ms: 10000 # 10 seconds, instead of the default 20s
+
+  - time: 180000  # Event at 3 minutes (180,000 ms)
+    name: edge
+    # This event overrides multiple parameters to create a more intense effect.
+    params:
+      duration_ms: 30000      # Make it a long 30-second edge
+      buzz_freq: 75         # Increase the buzz frequency from 60 to 75 Hz
+      volume_boost: 0.05    # Increase the base volume by 5% instead of 3%
+      buzz_intensity: 0.5   # Use 50% of the available headroom for the buzz
+
+  - time: 240000 # Event at 4 minutes
+    name: tranquil
+    # This event creates a faster, wider oscillation
+    params:
+      osc_freq: 30          # Faster oscillation
+      osc_amplitude: 0.7    # Wider swing
+      osc_offset: -0.35     # Adjust offset to match new amplitude

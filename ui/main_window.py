@@ -10,6 +10,7 @@ from config import ConfigManager
 from processor import RestimProcessor
 from ui.parameter_tabs import ParameterTabs
 from ui.conversion_tabs import ConversionTabs
+from ui.custom_events_dialog import CustomEventsDialog
 
 
 class MainWindow:
@@ -91,12 +92,20 @@ class MainWindow:
         self.process_motion_button = ttk.Button(buttons_frame, text="Process Motion Files", command=self.start_motion_processing)
         self.process_motion_button.pack(side=tk.LEFT, padx=(0, 10))
 
+        ttk.Button(buttons_frame, text="Apply Custom Events...", command=self.open_custom_events_dialog).pack(side=tk.LEFT, padx=(0, 10))
+
         ttk.Button(buttons_frame, text="Save Config", command=self.save_config).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT)
 
         # Configure main_frame row weights
         main_frame.rowconfigure(row-1, weight=1)  # Parameters frame gets extra space  # Parameters frame gets extra space  # Parameters frame gets extra space
 
+
+
+    def open_custom_events_dialog(self):
+        """Open the dialog for applying custom events."""
+        dialog = CustomEventsDialog(self.root)
+        self.root.wait_window(dialog)
 
 
     def on_mode_change(self, mode):
@@ -540,7 +549,38 @@ class MainWindow:
 
 def main():
     """Entry point for the application."""
+    import traceback
+    from datetime import datetime
+
+    def log_exception(exc_type, exc_value, exc_traceback):
+        """Log uncaught exceptions to a file."""
+        with open("restimfunscriptprocessor.log", "a") as f:
+            f.write(f"--- {datetime.now()} ---\n")
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+            f.write("\n")
+        
+        # Also show a user-friendly error message
+        # Make sure this runs in the main thread if called from a background thread
+        def show_error():
+            messagebox.showerror("Unhandled Exception",
+                                 "An unexpected error occurred. Please check restimfunscriptprocessor.log for details.")
+        
+        # This check is crude. A better way would involve a cross-thread communication queue.
+        # But for this application, it's a reasonable starting point.
+        if isinstance(threading.current_thread(), threading._MainThread):
+            show_error()
+        else:
+            # If we are not in the main thread, we can't directly show a messagebox.
+            # The logging is the most important part.
+            print("ERROR: Unhandled exception in background thread. See log file.")
+
+
     app = MainWindow()
+    
+    # Set the global exception handlers
+    app.root.report_callback_exception = log_exception
+    threading.excepthook = log_exception
+
     app.run()
 
 

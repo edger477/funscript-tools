@@ -5,7 +5,7 @@
     "accel_window_size": 3
   },
   "speed": {
-    "interpolation_interval": 0.1,
+    "interpolation_interval": 0.01,
     "normalization_method": "max"
   },
   "alpha_beta_generation": {

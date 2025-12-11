@@ -1,0 +1,83 @@
+# This file defines the building blocks of custom events.
+# Each event is a sequence of fundamental operations.
+
+# Axis normalization settings
+# These define the maximum values used to normalize raw parameters to 0.0-1.0 range
+normalization:
+  pulse_frequency:
+    max: 200.0          # Maximum pulse frequency in Hz
+    unit: "Hz"
+  pulse_width:
+    max: 100.0          # Maximum pulse width (percentage)
+    unit: "%"
+  frequency:
+    max: 1200.0          # Maximum frequency (degrees for restim)
+    unit: "Hz"
+  volume:
+    max: 1.0            # Volume already normalized (0.0-1.0)
+    unit: "normalized"
+
+definitions:
+  edge:
+    default_params:
+      duration_ms: 15000
+      buzz_freq: 60
+      buzz_intensity: 0.1
+      volume_boost: 0.03
+      ramp_up_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive          
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: 10
+          end_value: 20
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $buzz_freq
+          amplitude: $buzz_intensity
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: sin
+          frequency: 3
+          amplitude: 0.5
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+
+  tranquil:
+    default_params:
+      duration_ms: 20000
+      osc_freq: 15
+      osc_amplitude: 0.5
+      osc_offset: -0.25
+
+    steps:
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $osc_freq
+          amplitude: $osc_amplitude
+          offset: $osc_offset
+          duration_ms: $duration_ms
+          ramp_in_ms: 1000
+          ramp_out_ms: 1000
+          mode: additive

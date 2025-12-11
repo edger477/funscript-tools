@@ -42,7 +42,7 @@ class Funscript:
         hash = sha1_hash(path)
         if hash in funscript_cache:
             logger.info(f'imported {path} from cache')
-            return funscript_cache[hash]
+            return funscript_cache[hash].copy() # Return a copy from cache to prevent shared data
 
         with path.open(encoding='utf-8') as f:
             js = json.load(f)
