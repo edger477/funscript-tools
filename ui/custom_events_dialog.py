@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import zipfile
 from pathlib import Path
 
 # Add parent directory to path to allow sibling imports
@@ -30,8 +31,10 @@ class CustomEventsDialog(tk.Toplevel):
         self.event_file_var = tk.StringVar()
         self.backup_var = tk.BooleanVar(value=True)
         self.headroom_var = tk.IntVar(value=10)  # Default 10 units of headroom
+        self.apply_to_linked_var = tk.BooleanVar(value=True)  # Default enabled for backward compatibility
         self.validated_user_events = []
         self.event_definitions = {} # To store loaded event definitions
+        self.backup_path = None  # Store the backup path after processing
 
         # Load event definitions on init
         try:
@@ -99,10 +102,11 @@ class CustomEventsDialog(tk.Toplevel):
             event_file = self.event_file_var.get()
             do_backup = self.backup_var.get()
             headroom = self.headroom_var.get()
+            apply_to_linked = self.apply_to_linked_var.get()
 
-            success_message, _ = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom)
-            
-            self.after(0, self.on_processing_success, success_message)
+            success_message, _, backup_path = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom, apply_to_linked)
+
+            self.after(0, self.on_processing_success, success_message, backup_path)
 
         except EventProcessorError as e:
             self.after(0, self.on_processing_error, str(e))
@@ -111,10 +115,18 @@ class CustomEventsDialog(tk.Toplevel):
         finally:
             self.after(10, self.on_processing_complete)
 
-    def on_processing_success(self, message: str):
+    def on_processing_success(self, message: str, backup_path):
         """Callback on successful processing."""
+        self.backup_path = backup_path
         messagebox.showinfo("Success", message, parent=self)
-        self.destroy()
+
+        # If backup was created, enable the restore button and don't close the dialog
+        if backup_path:
+            self.restore_button.config(state="normal", text=f"Restore Backup ({backup_path.name})")
+            self.apply_button.config(state="disabled")
+            self.status_label.config(text="Processing complete. You can restore the backup if needed.")
+        else:
+            self.destroy()
 
     def on_processing_error(self, error_message: str):
         """Callback on failed processing."""
@@ -126,6 +138,44 @@ class CustomEventsDialog(tk.Toplevel):
         if self.winfo_exists(): # Check if window was not already destroyed
             self.apply_button.config(state="normal")
             self.close_button.config(state="normal")
+
+    def restore_backup(self):
+        """Restore files from the backup archive."""
+        if not self.backup_path or not self.backup_path.exists():
+            messagebox.showerror("Error", "Backup file not found.", parent=self)
+            return
+
+        # Confirm restoration
+        confirm = messagebox.askyesno(
+            "Confirm Restore",
+            f"This will restore all files from the backup:\n{self.backup_path.name}\n\n"
+            "Current files will be overwritten. Continue?",
+            parent=self
+        )
+
+        if not confirm:
+            return
+
+        try:
+            # Extract all files from the backup to the same directory
+            target_dir = self.backup_path.parent
+
+            with zipfile.ZipFile(self.backup_path, 'r') as zipf:
+                file_list = zipf.namelist()
+                zipf.extractall(target_dir)
+
+            messagebox.showinfo(
+                "Restore Complete",
+                f"Successfully restored {len(file_list)} files from backup.",
+                parent=self
+            )
+
+            # Disable restore button after successful restore
+            self.restore_button.config(state="disabled")
+            self.status_label.config(text="Backup restored successfully.")
+
+        except Exception as e:
+            messagebox.showerror("Restore Error", f"Failed to restore backup: {e}", parent=self)
 
     def update_preview(self, content: str):
         """Updates the text in the preview box."""
@@ -179,9 +229,13 @@ class CustomEventsDialog(tk.Toplevel):
         self.backup_checkbox = ttk.Checkbutton(options_frame, text="Backup existing funscripts before applying changes", variable=self.backup_var)
         self.backup_checkbox.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
 
+        # Apply to linked axes option
+        self.linked_checkbox = ttk.Checkbutton(options_frame, text="Apply main axis events to linked axes (e.g., volume → volume-prostate)", variable=self.apply_to_linked_var)
+        self.linked_checkbox.grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+
         # Headroom option
         headroom_frame = ttk.Frame(options_frame)
-        headroom_frame.grid(row=1, column=0, sticky=tk.W)
+        headroom_frame.grid(row=2, column=0, sticky=tk.W)
 
         ttk.Label(headroom_frame, text="Create amount of headroom above highest point (volume axis):").pack(side=tk.LEFT, padx=(0, 5))
 
@@ -201,7 +255,10 @@ class CustomEventsDialog(tk.Toplevel):
 
         self.apply_button = ttk.Button(buttons_subframe, text="Apply Effects", state="disabled", command=self.start_processing_thread)
         self.apply_button.pack(side=tk.LEFT, padx=(0, 10))
-        
+
+        self.restore_button = ttk.Button(buttons_subframe, text="Restore Backup", state="disabled", command=self.restore_backup)
+        self.restore_button.pack(side=tk.LEFT, padx=(0, 10))
+
         self.close_button = ttk.Button(buttons_subframe, text="Close", command=self.destroy)
         self.close_button.pack(side=tk.LEFT)
 

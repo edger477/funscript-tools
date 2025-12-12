@@ -169,7 +169,7 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
     return sorted(validated_events, key=lambda x: x['time']) # Sort by time
 
 
-def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10) -> Tuple[str, List[str]]:
+def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, apply_to_linked: bool = True) -> Tuple[str, List[str], Path]:
     """
     Main entry point for processing custom events.
     Orchestrates finding files, backing up, parsing, and applying events using FunscriptEditor.
@@ -179,9 +179,10 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         perform_backup (bool): Whether to create a backup of original funscripts.
         definitions_path (Path): Path to the event_definitions.yml file.
         volume_headroom (int): Amount of headroom to create above highest volume point (0-20, default 10).
+        apply_to_linked (bool): Whether to apply operations on main axes to linked axes (default True).
 
     Returns:
-        Tuple[str, List[str]]: A success message and a list of names of modified files.
+        Tuple[str, List[str], Path]: A success message, list of names of modified files, and backup path (None if no backup).
     """
     event_file_path = Path(event_file_path_str)
 
@@ -201,7 +202,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         for axis_name, path in target_funscript_paths_by_axis.items()
     }
 
-    editor = FunscriptEditor(funscripts_for_editor, filename_stem, normalization_config)
+    editor = FunscriptEditor(funscripts_for_editor, filename_stem, normalization_config, apply_to_linked)
 
     # 4. Apply headroom adjustment to volume funscript if present
     if 'volume' in funscripts_for_editor and volume_headroom > 0:
@@ -220,7 +221,9 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     # 5. Backup files if requested
     backup_path = None
     if perform_backup:
-        backup_path = _backup_files(list(target_funscript_paths_by_axis.values()))
+        # Include the event file in the backup
+        files_to_backup = list(target_funscript_paths_by_axis.values()) + [event_file_path]
+        backup_path = _backup_files(files_to_backup)
         print(f"Backup created at: {backup_path}")
 
     # 6. Parse and validate user events
@@ -272,10 +275,10 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
 
     # 9. Save modified funscripts
     editor.save_funscripts(event_file_path.parent)
-    
+
     modified_files = [path.name for path in target_funscript_paths_by_axis.values()]
     success_message = f"Successfully applied {len(user_events)} events to {len(modified_files)} files."
     if perform_backup and backup_path:
         success_message += f"\nBackup created at {backup_path.name}."
-        
-    return success_message, modified_files
+
+    return success_message, modified_files, backup_path

@@ -18,7 +18,7 @@ class FunscriptEditor:
     A class to perform complex, layered editing operations on a set of funscripts.
     All time-based parameters (duration, start_time, ramp_in, ramp_out) are expected in milliseconds.
     """
-    def __init__(self, funscripts_by_axis: Dict[str, Funscript], filename_stem: str, normalization_config: Dict[str, Dict[str, float]] = None):
+    def __init__(self, funscripts_by_axis: Dict[str, Funscript], filename_stem: str, normalization_config: Dict[str, Dict[str, float]] = None, apply_to_linked: bool = True):
         """
         Initializes the editor with a dictionary of funscript objects mapped by their axis name.
         e.g., {'volume': FunscriptObject, 'pulse_frequency': FunscriptObject}
@@ -27,10 +27,12 @@ class FunscriptEditor:
             funscripts_by_axis: Dictionary mapping axis names to Funscript objects
             filename_stem: Base filename for saving
             normalization_config: Dictionary with normalization max values per axis
+            apply_to_linked: Whether to apply operations to linked axes (default True)
         """
         self.funscripts = funscripts_by_axis
         self.filename_stem = filename_stem
         self.history = [] # For potential undo/redo functionality later
+        self.apply_to_linked = apply_to_linked
 
         # Set normalization config with defaults if not provided
         self.normalization_config = normalization_config or {
@@ -60,8 +62,8 @@ class FunscriptEditor:
         """
         target_axes = [axis] if axis in self.funscripts else []
 
-        # Add linked axes if they exist
-        if axis in self.linked_axes:
+        # Add linked axes if they exist and apply_to_linked is enabled
+        if self.apply_to_linked and axis in self.linked_axes:
             for linked_axis in self.linked_axes[axis]:
                 if linked_axis in self.funscripts:
                     target_axes.append(linked_axis)
