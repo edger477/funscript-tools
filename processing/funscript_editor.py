@@ -40,6 +40,34 @@ class FunscriptEditor:
             'volume': {'max': 1.0}
         }
 
+        # Define linked axes - operations on the primary axis also apply to linked axes
+        self.linked_axes = {
+            'volume': ['volume-prostate'],
+            'alpha': ['alpha-prostate'],
+            'beta': ['beta-prostate']
+        }
+
+    def _get_target_axes(self, axis: str) -> List[str]:
+        """
+        Returns a list of all axes that should be affected by an operation on the given axis.
+        Includes the primary axis and any linked axes that exist in the loaded funscripts.
+
+        Args:
+            axis: The primary axis name
+
+        Returns:
+            List of axis names to apply the operation to
+        """
+        target_axes = [axis] if axis in self.funscripts else []
+
+        # Add linked axes if they exist
+        if axis in self.linked_axes:
+            for linked_axis in self.linked_axes[axis]:
+                if linked_axis in self.funscripts:
+                    target_axes.append(linked_axis)
+
+        return target_axes
+
     def _get_indices_for_range(self, fs: Funscript, start_time_ms: int, duration_ms: int) -> np.ndarray:
         """Returns the numpy array indices for a given time window (in ms)."""
         start_time_s = start_time_ms / 1000.0
@@ -80,7 +108,7 @@ class FunscriptEditor:
                               ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                               mode: str = 'additive'):
         """
-        Applies a linear change to the specified axis.
+        Applies a linear change to the specified axis and any linked axes.
 
         Args:
             axis (str): The funscript axis to target (e.g., 'volume', 'pulse_frequency').
@@ -92,10 +120,23 @@ class FunscriptEditor:
             ramp_out_ms (int): Duration in milliseconds for a linear fade-out of the effect's intensity.
             mode (str): How to apply the effect: 'additive' or 'overwrite'.
         """
-        if axis not in self.funscripts:
+        # Get all target axes (primary + linked)
+        target_axes = self._get_target_axes(axis)
+
+        if not target_axes:
             print(f"WARNING: Axis '{axis}' not found. Skipping linear change operation.")
             return
 
+        # Apply operation to all target axes
+        for target_axis in target_axes:
+            self._apply_linear_change_single(target_axis, start_time_ms, duration_ms,
+                                            start_value, end_value, ramp_in_ms, ramp_out_ms, mode)
+
+    def _apply_linear_change_single(self, axis: str, start_time_ms: int, duration_ms: int,
+                                      start_value: float, end_value: float,
+                                      ramp_in_ms: int = 0, ramp_out_ms: int = 0,
+                                      mode: str = 'additive'):
+        """Internal method to apply linear change to a single axis."""
         fs = self.funscripts[axis]
         indices = self._get_indices_for_range(fs, start_time_ms, duration_ms)
 
@@ -155,7 +196,7 @@ class FunscriptEditor:
                          ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                          mode: str = 'additive'):
         """
-        Applies a modulation (e.g., sine wave) to the specified axis.
+        Applies a modulation (e.g., sine wave) to the specified axis and any linked axes.
 
         Args:
             axis (str): The funscript axis to target.
@@ -174,13 +215,28 @@ class FunscriptEditor:
                        'additive': final = original + offset + amplitude*sin(...)
                        'overwrite': final = offset + amplitude*sin(...)
         """
-        if axis not in self.funscripts:
+        # Get all target axes (primary + linked)
+        target_axes = self._get_target_axes(axis)
+
+        if not target_axes:
             print(f"WARNING: Axis '{axis}' not found. Skipping modulation operation.")
             return
         if waveform.lower() != 'sin':
             print(f"WARNING: Waveform '{waveform}' not supported. Skipping modulation.")
             return
 
+        # Apply operation to all target axes
+        for target_axis in target_axes:
+            self._apply_modulation_single(target_axis, start_time_ms, duration_ms,
+                                         waveform, frequency, amplitude, offset, phase,
+                                         ramp_in_ms, ramp_out_ms, mode)
+
+    def _apply_modulation_single(self, axis: str, start_time_ms: int, duration_ms: int,
+                                  waveform: str, frequency: float, amplitude: float,
+                                  offset: float = 0.0, phase: float = 0.0,
+                                  ramp_in_ms: int = 0, ramp_out_ms: int = 0,
+                                  mode: str = 'additive'):
+        """Internal method to apply modulation to a single axis."""
         fs = self.funscripts[axis]
         indices = self._get_indices_for_range(fs, start_time_ms, duration_ms)
 
