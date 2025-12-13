@@ -93,6 +93,7 @@ definitions:
       pulse_rate: 21           # 20 Hz in SC, avoid aliasing
       pulse_width: 75          # 0.5 in SC = 50%
       ramp_ms: 250
+      volume_boost: 0.01
 
     steps:
       - operation: apply_linear_change
@@ -114,6 +115,15 @@ definitions:
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
           mode: overwrite
+          
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive          
 
   # === EDGE EFFECT ===
   # Sinusoidal volume modulation with high pulse frequency

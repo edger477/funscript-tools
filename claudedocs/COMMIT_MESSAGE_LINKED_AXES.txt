@@ -1,0 +1,45 @@
+Add linked axes feature and alpha/beta axis support
+
+Implements automatic propagation of effects to related funscript axes,
+enabling operations on primary axes to also affect their linked counterparts.
+
+Major changes:
+- Added linked_axes system: operations on primary axes automatically apply to linked axes
+  - volume → volume-prostate
+  - alpha → alpha-prostate
+  - beta → beta-prostate
+- Refactored apply_linear_change() to support multi-axis operations
+- Refactored apply_modulation() to support multi-axis operations
+- Added _get_target_axes() method to resolve primary + linked axes
+- Extracted _apply_linear_change_single() for per-axis implementation
+- Extracted _apply_modulation_single() for per-axis implementation
+
+Benefits:
+- Simplifies event definitions (no need to duplicate operations for -prostate files)
+- Ensures consistent effects across related axes
+- Alpha/beta axes now fully functional for MCB-style events
+- Backward compatible: linked axes only affected if files exist
+
+Documentation updates:
+- Updated FUNDAMENTAL_OPERATIONS.md with comprehensive guide:
+  - Documented linked axes behavior
+  - Added value normalization section with examples
+  - Corrected parameter descriptions to match implementation
+  - Added sampling aliasing warnings (avoid 10, 20, 30 Hz frequencies)
+  - Included complete examples with alpha/beta axis usage
+  - Added best practices and troubleshooting sections
+
+Event definitions:
+- Added MCB (Mistress & the Box) event collection to config.event_definitions.yml
+- Added Clutch event collection to config.event_definitions.yml
+- Changed pulse_frequency normalization max from 200 to 120 Hz
+
+Technical details:
+- Linked axes are resolved at operation time based on loaded funscripts
+- Operations only apply to linked axes if corresponding .funscript files exist
+- No performance impact when linked axes don't exist
+- All existing events continue to work without changes
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
