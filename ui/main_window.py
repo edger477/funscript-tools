@@ -202,11 +202,11 @@ class MainWindow:
 
                 # Generate speed funscript (required for radius scaling)
                 from processing.speed_processing import convert_to_speed
-                from config import DEFAULT_PARAMETERS
+                from config import DEFAULT_CONFIG
                 speed_funscript = convert_to_speed(
                     main_funscript,
-                    DEFAULT_PARAMETERS['general']['speed_window_size'],
-                    DEFAULT_PARAMETERS['speed']['interpolation_interval']
+                    DEFAULT_CONFIG['general']['speed_window_size'],
+                    DEFAULT_CONFIG['speed']['interpolation_interval']
                 )
 
                 # Generate alpha and beta files
