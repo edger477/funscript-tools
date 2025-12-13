@@ -17,6 +17,21 @@ normalization:
     max: 1.0            # Volume already normalized (0.0-1.0)
     unit: "normalized"
 
+# Event groups for organization in the UI
+# Each group can contain multiple event definitions with matching prefix
+groups:
+  - name: "General"
+    prefix: ""
+    description: "Mostly work in progress"
+
+  - name: "MCB (credit: AquariumParrot)"
+    prefix: "mcb_"
+    description: "Events reverse-engineered from the Mistress and Control Box by AquariumParrot"
+
+  - name: "Clutch (credit: AquariumParrot)"
+    prefix: "clutch_"
+    description: "Events reverse-engineered from the Clutch by AquariumParrot"
+
 definitions:
   edge:
     default_params:

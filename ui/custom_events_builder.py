@@ -27,9 +27,10 @@ EVENT_DEFINITIONS_PATH = Path(__file__).parent.parent / "config.event_definition
 class EventLibraryPanel(ttk.Frame):
     """Panel for browsing and selecting event definitions"""
 
-    def __init__(self, parent, event_definitions: Dict[str, Any], on_select_callback):
+    def __init__(self, parent, event_definitions: Dict[str, Any], groups: List[Dict[str, str]], on_select_callback):
         super().__init__(parent)
         self.event_definitions = event_definitions
+        self.groups = groups
         self.on_select_callback = on_select_callback
 
         self.setup_ui()
@@ -77,39 +78,93 @@ class EventLibraryPanel(ttk.Frame):
                                               command=self.on_add_to_timeline, state='disabled')
         self.add_to_timeline_btn.pack(fill=tk.X)
 
-    def categorize_events(self) -> Dict[str, List[str]]:
-        """Group events by category based on naming conventions"""
-        categories = {
-            'General': [],
-            'MCB': [],
-            'Clutch': []
-        }
+    def categorize_events(self) -> List[Dict[str, Any]]:
+        """Group events by category based on groups configuration"""
+        categorized = []
 
-        for event_name in sorted(self.event_definitions.keys()):
-            if event_name.startswith('mcb_'):
-                categories['MCB'].append(event_name)
-            elif event_name.startswith('clutch_'):
-                categories['Clutch'].append(event_name)
-            else:
-                categories['General'].append(event_name)
+        for group in self.groups:
+            group_name = group['name']
+            prefix = group['prefix']
+            description = group['description']
+            events = []
 
-        # Remove empty categories
-        return {k: v for k, v in categories.items() if v}
+            for event_name in sorted(self.event_definitions.keys()):
+                # Match events by prefix
+                if prefix == "":
+                    # General category - events without known prefixes
+                    if not any(event_name.startswith(g['prefix']) for g in self.groups if g['prefix'] != ""):
+                        events.append(event_name)
+                else:
+                    # Specific category - events with matching prefix
+                    if event_name.startswith(prefix):
+                        events.append(event_name)
+
+            if events:  # Only include groups with events
+                categorized.append({
+                    'name': group_name,
+                    'description': description,
+                    'events': events
+                })
+
+        return categorized
 
     def populate_events(self):
         """Populate the event tree with categorized events"""
         categories = self.categorize_events()
+        self.category_tooltips = {}  # Store category descriptions for tooltips
 
-        for category, events in categories.items():
+        for category_info in categories:
             # Add category as parent
-            category_id = self.event_tree.insert('', 'end', text=category, open=True)
+            category_id = self.event_tree.insert('', 'end', text=category_info['name'], open=True)
+            self.category_tooltips[category_id] = category_info['description']
 
             # Add events as children
-            for event_name in events:
+            for event_name in category_info['events']:
                 # Create display name (remove prefix, replace _ with space, title case)
                 display_name = event_name.replace('mcb_', '').replace('clutch_', '').replace('_', ' ').title()
                 self.event_tree.insert(category_id, 'end', text=display_name,
                                        values=(event_name,), tags=('event',))
+
+        # Add tooltip support
+        self.create_tooltip_support()
+
+    def create_tooltip_support(self):
+        """Add tooltip support for category items"""
+        self.tooltip_label = None
+
+        def on_motion(event):
+            # Get item under mouse
+            item = self.event_tree.identify_row(event.y)
+            if item and item in self.category_tooltips:
+                # Show tooltip for category
+                if self.tooltip_label is None:
+                    self.tooltip_label = tk.Toplevel(self)
+                    self.tooltip_label.wm_overrideredirect(True)
+                    label = tk.Label(self.tooltip_label, text=self.category_tooltips[item],
+                                   background="lightyellow", relief=tk.SOLID, borderwidth=1,
+                                   font=('TkDefaultFont', 9), wraplength=300, justify=tk.LEFT,
+                                   padx=5, pady=3)
+                    label.pack()
+
+                # Position tooltip near mouse
+                x = event.x_root + 15
+                y = event.y_root + 10
+                self.tooltip_label.wm_geometry(f"+{x}+{y}")
+            else:
+                # Hide tooltip
+                self.hide_tooltip()
+
+        def on_leave(event):
+            self.hide_tooltip()
+
+        self.event_tree.bind('<Motion>', on_motion)
+        self.event_tree.bind('<Leave>', on_leave)
+
+    def hide_tooltip(self):
+        """Hide the tooltip if it exists"""
+        if self.tooltip_label:
+            self.tooltip_label.destroy()
+            self.tooltip_label = None
 
     def on_search_changed(self, *args):
         """Filter events based on search text"""
@@ -749,6 +804,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # State
         self.event_file_path = None
         self.event_definitions = {}
+        self.event_groups = []
         self.normalization_config = {}
         self.backup_path = None
         self.current_event_for_params = None
@@ -759,7 +815,16 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             with open(EVENT_DEFINITIONS_PATH, 'r') as f:
                 config_data = yaml.safe_load(f)
             self.event_definitions = config_data.get('definitions', {})
+            self.event_groups = config_data.get('groups', [])
             self.normalization_config = config_data.get('normalization', {})
+
+            # Fallback to default groups if not defined in YAML
+            if not self.event_groups:
+                self.event_groups = [
+                    {'name': 'General', 'prefix': '', 'description': 'General-purpose events'},
+                    {'name': 'MCB', 'prefix': 'mcb_', 'description': 'MCB audio events'},
+                    {'name': 'Clutch', 'prefix': 'clutch_', 'description': 'Clutch conditioning events'}
+                ]
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load event definitions: {e}", parent=self)
             self.destroy()
@@ -785,7 +850,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # Left panel - Event Library
         library_frame = ttk.LabelFrame(main_paned, text="Event Library", padding=5)
         self.library_panel = EventLibraryPanel(library_frame, self.event_definitions,
-                                               self.on_library_event_selected)
+                                               self.event_groups, self.on_library_event_selected)
         self.library_panel.pack(fill=tk.BOTH, expand=True)
         main_paned.add(library_frame, weight=1)
 
