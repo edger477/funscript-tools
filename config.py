@@ -35,7 +35,7 @@ DEFAULT_CONFIG = {
         "pulse_frequency_combine_ratio": 3
     },
     "volume": {
-        "volume_ramp_combine_ratio": 10.0,
+        "volume_ramp_combine_ratio": 20.0,
         "prostate_volume_multiplier": 1.5,
         "prostate_rest_level": 0.7,
         "stereostim_volume_min": 0.50,
@@ -124,7 +124,7 @@ PARAMETER_RANGES = {
         "pulse_frequency_combine_ratio": (1, 10)
     },
     "volume": {
-        "volume_ramp_combine_ratio": (6.0, 20.0),
+        "volume_ramp_combine_ratio": (10.0, 40.0),
         "prostate_volume_multiplier": (1.0, 3.0),
         "prostate_rest_level": (0.0, 1.0),
         "stereostim_volume_min": (0.0, 1.0),

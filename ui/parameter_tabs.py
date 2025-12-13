@@ -322,7 +322,7 @@ class ParameterTabs(ttk.Notebook):
             frame, "Volume Combine Ratio (Ramp | Speed):",
             "Ramp", "Speed",
             self.config['volume']['volume_ramp_combine_ratio'],
-            min_val=6.0, max_val=20.0, row=row
+            min_val=10.0, max_val=40.0, row=row
         )
         self.parameter_vars['volume']['volume_ramp_combine_ratio'] = volume_ramp_control.var
         self.combine_ratio_controls['volume_ramp_combine_ratio'] = volume_ramp_control
