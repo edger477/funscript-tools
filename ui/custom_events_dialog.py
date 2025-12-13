@@ -19,13 +19,16 @@ class CustomEventsDialog(tk.Toplevel):
     """
     A dialog window for applying custom events from a YAML file to funscripts.
     """
-    def __init__(self, parent):
+    def __init__(self, parent, config=None):
         super().__init__(parent)
         self.title("Custom Event Processor")
         self.geometry("600x500")
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
+
+        # Store config
+        self.config = config if config is not None else {}
 
         # Variables
         self.event_file_var = tk.StringVar()
@@ -104,7 +107,7 @@ class CustomEventsDialog(tk.Toplevel):
             headroom = self.headroom_var.get()
             apply_to_linked = self.apply_to_linked_var.get()
 
-            success_message, _, backup_path = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom, apply_to_linked)
+            success_message, _, backup_path = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom, apply_to_linked, self.config)
 
             self.after(0, self.on_processing_success, success_message, backup_path)
 

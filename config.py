@@ -54,8 +54,12 @@ DEFAULT_CONFIG = {
     "advanced": {
         "enable_pulse_frequency_inversion": False,
         "enable_volume_inversion": False,
-        "enable_frequency_inversion": False,
-        "custom_output_directory": ""
+        "enable_frequency_inversion": False
+    },
+    "file_management": {
+        "mode": "local",  # "local" or "central"
+        "central_folder_path": "",
+        "create_backups": True
     },
     "options": {
         "normalize_volume": True,

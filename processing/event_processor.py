@@ -42,10 +42,14 @@ def _load_event_definitions(definitions_path: Path) -> tuple[Dict[str, Any], Dic
         raise EventProcessorError(f"Failed to load event definitions from {definitions_path}: {e}")
 
 
-def _find_target_funscripts(event_file_path: Path) -> Dict[str, Path]:
+def _find_target_funscripts(event_file_path: Path, config: dict = None) -> Dict[str, Path]:
     """
     Finds funscript files related to the event file and returns them as a dict
     { 'axis_name': Path_to_funscript }.
+
+    Args:
+        event_file_path: Path to the events YAML file
+        config: Optional configuration dict with file_management settings
     """
     if not event_file_path.name.endswith(('.yml', '.yaml')):
         raise EventProcessorError(f"Event file must be a .yml or .yaml file: {event_file_path.name}")
@@ -55,10 +59,20 @@ def _find_target_funscripts(event_file_path: Path) -> Dict[str, Path]:
     if not base_name:
         raise EventProcessorError(f"Could not determine base name from event file: {event_file_path.name}")
 
+    # Determine search directory based on file management mode
+    search_dir = event_file_path.parent  # Default: local mode (same dir as YAML)
+
+    if config:
+        file_mgmt = config.get('file_management', {})
+        if file_mgmt.get('mode') == 'central':
+            central_path = file_mgmt.get('central_folder_path', '').strip()
+            if central_path:
+                search_dir = Path(central_path)
+
     # Search for funscripts like 'my_video.volume.funscript'
-    target_files_paths = list(event_file_path.parent.glob(f"{base_name}.*.funscript"))
+    target_files_paths = list(search_dir.glob(f"{base_name}.*.funscript"))
     if not target_files_paths:
-        raise EventProcessorError(f"No funscript files found for base name '{base_name}' in '{event_file_path.parent}'.")
+        raise EventProcessorError(f"No funscript files found for base name '{base_name}' in '{search_dir}'.")
 
     funscripts_by_axis = {}
     for fp in target_files_paths:
@@ -70,7 +84,7 @@ def _find_target_funscripts(event_file_path: Path) -> Dict[str, Path]:
             print(f"WARNING: Could not determine axis name for {fp.name}. Skipping.")
 
     if not funscripts_by_axis:
-        raise EventProcessorError(f"No valid funscript axes found for processing in '{event_file_path.parent}'.")
+        raise EventProcessorError(f"No valid funscript axes found for processing in '{search_dir}'.")
 
     return funscripts_by_axis
 
@@ -169,7 +183,7 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
     return sorted(validated_events, key=lambda x: x['time']) # Sort by time
 
 
-def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, apply_to_linked: bool = True) -> Tuple[str, List[str], Path]:
+def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, apply_to_linked: bool = True, config: dict = None) -> Tuple[str, List[str], Path]:
     """
     Main entry point for processing custom events.
     Orchestrates finding files, backing up, parsing, and applying events using FunscriptEditor.
@@ -180,6 +194,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         definitions_path (Path): Path to the event_definitions.yml file.
         volume_headroom (int): Amount of headroom to create above highest volume point (0-20, default 10).
         apply_to_linked (bool): Whether to apply operations on main axes to linked axes (default True).
+        config (dict): Optional configuration dict with file_management settings.
 
     Returns:
         Tuple[str, List[str], Path]: A success message, list of names of modified files, and backup path (None if no backup).
@@ -189,8 +204,8 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     # 1. Load event definitions and normalization config
     event_definitions, normalization_config = _load_event_definitions(definitions_path)
 
-    # 2. Find target funscripts
-    target_funscript_paths_by_axis = _find_target_funscripts(event_file_path)
+    # 2. Find target funscripts (using config to determine search location)
+    target_funscript_paths_by_axis = _find_target_funscripts(event_file_path, config)
     
     # Get base filename stem for the FunscriptEditor
     first_path = next(iter(target_funscript_paths_by_axis.values()))

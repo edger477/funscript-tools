@@ -106,12 +106,12 @@ class MainWindow:
 
     def open_custom_events_builder(self):
         """Open the new visual custom events builder."""
-        dialog = CustomEventsBuilderDialog(self.root)
+        dialog = CustomEventsBuilderDialog(self.root, self.current_config)
         self.root.wait_window(dialog)
 
     def open_custom_events_dialog(self):
         """Open the classic text-based custom events dialog."""
-        dialog = CustomEventsDialog(self.root)
+        dialog = CustomEventsDialog(self.root, self.current_config)
         self.root.wait_window(dialog)
 
 

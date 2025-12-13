@@ -793,13 +793,16 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     Main dialog for visual custom events timeline building
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, config=None):
         super().__init__(parent)
         self.title("Custom Event Builder")
         self.geometry("1200x950")
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
+
+        # Store config
+        self.config = config if config is not None else {}
 
         # State
         self.event_file_path = None
@@ -1169,7 +1172,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
                 self.backup_var.get(),
                 EVENT_DEFINITIONS_PATH,
                 self.headroom_var.get(),
-                self.apply_to_linked_var.get()
+                self.apply_to_linked_var.get(),
+                self.config
             )
 
             self.after(0, self.on_processing_success, success_message, backup_path)
