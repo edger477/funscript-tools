@@ -176,6 +176,7 @@ class ParameterPanel(ttk.Frame):
     def __init__(self, parent, apply_callback=None, reset_callback=None):
         super().__init__(parent)
         self.current_event_name = None
+        self.current_event_definition = None
         self.current_params = {}
         self.param_widgets = {}
         self.param_vars = {}  # Store variable objects
@@ -215,6 +216,19 @@ class ParameterPanel(ttk.Frame):
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Event steps preview section
+        preview_frame = ttk.LabelFrame(self, text="Event Steps Preview", padding=5)
+        preview_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+        self.steps_text = tk.Text(preview_frame, height=20, wrap=tk.WORD,
+                                  font=('Courier', 9), bg='#f5f5f5',
+                                  relief=tk.FLAT, state=tk.DISABLED)
+        steps_scrollbar = ttk.Scrollbar(preview_frame, orient='vertical', command=self.steps_text.yview)
+        self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
+
+        self.steps_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        steps_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
         # Buttons frame
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill=tk.X, pady=5)
@@ -232,6 +246,12 @@ class ParameterPanel(ttk.Frame):
         label = ttk.Label(self.params_frame, text="Select an event to edit parameters",
                          foreground='gray')
         label.pack(pady=20)
+
+        # Clear steps preview
+        self.steps_text.config(state=tk.NORMAL)
+        self.steps_text.delete('1.0', tk.END)
+        self.steps_text.insert('1.0', "Select an event to see what it does...")
+        self.steps_text.config(state=tk.DISABLED)
 
     @staticmethod
     def format_event_display_name(event_name: str) -> str:
@@ -254,6 +274,7 @@ class ParameterPanel(ttk.Frame):
                              event_number: Optional[int] = None):
         """Load and display parameters for an event"""
         self.current_event_name = event_name
+        self.current_event_definition = event_definition
         default_params = event_definition.get('default_params', {})
         self.current_params = current_params if current_params else default_params.copy()
         self.current_time_ms = event_time_ms
@@ -281,6 +302,9 @@ class ParameterPanel(ttk.Frame):
         # Create parameter controls
         for param_name, default_value in default_params.items():
             self.create_parameter_control(param_name, default_value, self.current_params.get(param_name, default_value))
+
+        # Update steps preview
+        self.update_steps_preview()
 
     def create_time_control(self):
         """Create the time input control with quick adjustment buttons"""
@@ -382,6 +406,9 @@ class ParameterPanel(ttk.Frame):
         self.param_widgets[param_name] = widget
         self.param_vars[param_name] = var  # Store the variable object
 
+        # Add trace to update preview when parameter changes
+        var.trace('w', lambda *args: self.update_steps_preview())
+
     def create_widget_for_parameter(self, parent, param_name: str, value):
         """Create appropriate widget based on parameter name and value, returns (widget, var, unit)"""
         # Time parameters
@@ -466,6 +493,54 @@ class ParameterPanel(ttk.Frame):
         if self.current_event_name and hasattr(self, 'current_event_definition'):
             default_params = self.current_event_definition.get('default_params', {})
             self.load_event_parameters(self.current_event_name, self.current_event_definition, default_params)
+
+    def update_steps_preview(self):
+        """Update the event steps preview with current parameter values"""
+        if not self.current_event_name or not hasattr(self, 'current_event_definition'):
+            self.steps_text.config(state=tk.NORMAL)
+            self.steps_text.delete('1.0', tk.END)
+            self.steps_text.insert('1.0', "Select an event to see what it does...")
+            self.steps_text.config(state=tk.DISABLED)
+            return
+
+        # Get current parameter values
+        try:
+            current_values = self.get_parameter_values()
+        except:
+            current_values = self.current_params.copy()
+
+        # Get event steps
+        steps = self.current_event_definition.get('steps', [])
+
+        # Build preview text
+        preview_lines = []
+        for idx, step in enumerate(steps, start=1):
+            operation = step.get('operation', 'unknown')
+            axis = step.get('axis', 'unknown')
+            params = step.get('params', {})
+
+            preview_lines.append(f"Step {idx}: {operation} on {axis}")
+
+            # Show parameters with substituted values
+            for param_name, param_value in params.items():
+                # Substitute parameter references like $buzz_freq
+                if isinstance(param_value, str) and param_value.startswith('$'):
+                    var_name = param_value[1:]  # Remove $
+                    if var_name in current_values:
+                        actual_value = current_values[var_name]
+                        preview_lines.append(f"  • {param_name}: {actual_value} (from ${var_name})")
+                    else:
+                        preview_lines.append(f"  • {param_name}: {param_value}")
+                else:
+                    preview_lines.append(f"  • {param_name}: {param_value}")
+
+            preview_lines.append("")  # Blank line between steps
+
+        # Update text widget
+        self.steps_text.config(state=tk.NORMAL)
+        self.steps_text.delete('1.0', tk.END)
+        self.steps_text.insert('1.0', '\n'.join(preview_lines))
+        self.steps_text.config(state=tk.DISABLED)
 
     def apply_parameters(self):
         """Apply current parameters - calls parent callback"""
@@ -666,7 +741,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Custom Event Builder")
-        self.geometry("1200x700")
+        self.geometry("1200x950")
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
@@ -744,7 +819,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def create_file_bar(self):
         """Create file operations bar"""
         file_frame = ttk.Frame(self)
-        file_frame.pack(fill=tk.X, padx=5, pady=(5, 0))
+        file_frame.pack(fill=tk.X, expand=False, padx=5, pady=(5, 0))
 
         ttk.Label(file_frame, text="Event File:").pack(side=tk.LEFT, padx=(0, 5))
 
@@ -758,7 +833,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def create_options_bar(self):
         """Create options bar"""
         options_frame = ttk.LabelFrame(self, text="Options", padding=5)
-        options_frame.pack(fill=tk.X, padx=5, pady=5)
+        options_frame.pack(fill=tk.X, expand=False, padx=5, pady=5)
 
         ttk.Checkbutton(options_frame, text="Backup files",
                        variable=self.backup_var).pack(side=tk.LEFT, padx=5)
@@ -773,7 +848,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def create_action_bar(self):
         """Create action buttons bar"""
         action_frame = ttk.Frame(self)
-        action_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        action_frame.pack(fill=tk.X, expand=False, padx=5, pady=(0, 5))
 
         ttk.Button(action_frame, text="View YAML", command=self.on_view_yaml).pack(side=tk.LEFT, padx=2)
         ttk.Button(action_frame, text="Apply Effects", command=self.on_apply_effects).pack(side=tk.LEFT, padx=2)
