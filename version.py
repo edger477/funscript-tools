@@ -8,9 +8,12 @@ Version information for Restim Funscript Processor
 1.0.7 - change allowed range for volume ratio (combine of speed and ramp)
 1.0.8 - add restim-original algorithm with random direction changes to motion axis generation
 1.1.0 - add custom events system with YAML-based event definitions, configurable axis normalization, and volume headroom control
+2.0.0 - major custom events upgrade: visual timeline editor with event library, parameter editing UI with real-time preview,
+        file management modes (Local/Central with backups), additional waveforms (square/triangle/sawtooth with duty cycle),
+        formalized event groups, max_level_offset API for intuitive peak control
 """
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
