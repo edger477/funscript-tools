@@ -70,24 +70,32 @@ This is the most powerful operation for creating dynamic effects. It adds or ove
 | :--- | :--- | :--- | :--- |
 | `axis` | `string`| **(Required)** | The funscript axis to target (e.g., `volume`, `pulse_frequency`, `alpha`, `beta`). Operations also apply to linked axes automatically. |
 | `duration_ms`| `int` | **(Required)** | The duration of the effect in milliseconds. |
-| `waveform`| `string` | **(Required)** | The shape of the wave. **Currently only `sin` is supported.** Other waveforms (`saw`, `square`, `triangle`) are not yet implemented. |
+| `waveform`| `string` | **(Required)** | The shape of the wave. Supported waveforms: <br>• `sin` - Smooth sinusoidal oscillation <br>• `square` - Square wave (use with `duty_cycle`) <br>• `triangle` - Linear ramp up and down <br>• `sawtooth` - Linear ramp up with instant drop |
 | `frequency` | `float` | **(Required)** | The frequency of the wave in Hz. **Avoid multiples of 10 Hz** (10, 20, 30...) to prevent sampling aliasing issues. Use values like 9, 11, 15, 21, 23, 65 Hz instead. |
-| `amplitude` | `float` | **(Required)** | The swing amplitude of the wave in axis-specific units (will be normalized). The sine wave oscillates ±amplitude around the center point. For example, `amplitude: 0.35` on volume creates oscillations from -0.35 to +0.35 relative to the baseline. |
+| `amplitude` | `float` | **(Required)** | The swing amplitude of the wave in axis-specific units (will be normalized). The wave oscillates ±amplitude around the center point. For example, `amplitude: 0.35` on volume creates oscillations from -0.35 to +0.35 relative to the baseline. |
 | `offset` | `float` | `0.0` | Additive shift to the baseline in axis-specific units (will be normalized). <br>• In `additive` mode: shifts the center point of oscillation relative to original values. <br>• In `overwrite` mode: sets the baseline value around which the wave oscillates. |
 | `phase` | `float` | `0.0` | The starting phase of the wave, in degrees (0-360). Use this to offset the waveform's starting position. |
-| `mode` | `string` | `additive` | How to apply the effect: <br>• `additive`: `final = original + offset + amplitude*sin(...)` <br>• `overwrite`: `final = offset + amplitude*sin(...)` |
+| `duty_cycle` | `float` | `0.5` | For `square` waveform only: the percentage of time at maximum value (0.01-0.99). Default 0.5 is 50% duty cycle (equal high/low time). Higher values = more time at max, lower values = more time at min. Ignored for other waveforms. |
+| `mode` | `string` | `additive` | How to apply the effect: <br>• `additive`: `final = original + offset + amplitude*waveform(...)` <br>• `overwrite`: `final = offset + amplitude*waveform(...)` |
 | `ramp_in_ms` | `int` | `0` | Duration in milliseconds for a linear fade-in of the wave's amplitude envelope. |
 | `ramp_out_ms`| `int` | `0` | Duration in milliseconds for a linear fade-out of the wave's amplitude envelope. |
 
-**Mathematical Formula:**
-- **Additive mode**: `final = original_value + normalized_offset + normalized_amplitude * sin(2π * frequency * time + phase)`
-- **Overwrite mode**: `final = normalized_offset + normalized_amplitude * sin(2π * frequency * time + phase)`
+**Mathematical Formulas:**
+- **Additive mode**: `final = original_value + normalized_offset + normalized_amplitude * waveform(frequency, time, phase)`
+- **Overwrite mode**: `final = normalized_offset + normalized_amplitude * waveform(frequency, time, phase)`
+
+Where `waveform()` generates values in the range [-1, +1] based on the selected waveform type:
+- **sin**: `sin(2π * frequency * time + phase)` - smooth sinusoidal oscillation
+- **square**: `+1` for duty_cycle% of period, `-1` for remainder - sharp on/off transitions
+- **triangle**: linear ramp from -1 to +1 (first half), then +1 to -1 (second half)
+- **sawtooth**: linear ramp from -1 to +1, then instant reset
 
 **Important Notes:**
-1. The sine wave is **bipolar** (ranges from -1 to +1), creating true oscillations above and below the center point.
+1. All waveforms are **bipolar** (range from -1 to +1), creating true oscillations above and below the center point.
 2. Final values are **clipped to 0.0-1.0** range after all operations to prevent out-of-bounds values.
 3. Ramp envelopes are applied to the entire generated wave, creating smooth fade-in/fade-out effects.
 4. **Sampling aliasing**: If your modulation frequency matches or is a multiple of the funscript sample rate (~10 Hz), you may get no oscillation because all samples land at the same phase. Use frequencies like 9, 11, 15, 21, 23, 65 Hz instead of 10, 20, 30, 60 Hz.
+5. **Square wave duty cycle**: Use duty_cycle < 0.5 for short pulses (more time at min), > 0.5 for wide pulses (more time at max).
 
 ---
 

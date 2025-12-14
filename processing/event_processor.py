@@ -279,7 +279,8 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
                     phase=step_params.get('phase', 0.0),
                     ramp_in_ms=step_params.get('ramp_in_ms', 0),
                     ramp_out_ms=step_params.get('ramp_out_ms', 0),
-                    mode=step_params.get('mode', 'additive')
+                    mode=step_params.get('mode', 'additive'),
+                    duty_cycle=step_params.get('duty_cycle', 0.5)
                 )
             else:
                 print(f"WARNING: Unknown operation '{operation}'. Skipping.")

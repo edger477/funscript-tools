@@ -196,7 +196,7 @@ class FunscriptEditor:
                          waveform: str, frequency: float, amplitude: float,
                          offset: float = 0.0, phase: float = 0.0,
                          ramp_in_ms: int = 0, ramp_out_ms: int = 0,
-                         mode: str = 'additive'):
+                         mode: str = 'additive', duty_cycle: float = 0.5):
         """
         Applies a modulation (e.g., sine wave) to the specified axis and any linked axes.
 
@@ -204,7 +204,7 @@ class FunscriptEditor:
             axis (str): The funscript axis to target.
             start_time_ms (int): The timestamp to start the effect, in milliseconds.
             duration_ms (int): The duration of the effect, in milliseconds.
-            waveform (str): The shape of the wave. Currently supports 'sin'.
+            waveform (str): The shape of the wave. Supports 'sin', 'square', 'triangle', 'sawtooth'.
             frequency (float): The frequency of the wave in Hz.
             amplitude (float): The swing amplitude of the wave (direct value in axis units).
                                The wave oscillates ±amplitude around the baseline.
@@ -216,6 +216,8 @@ class FunscriptEditor:
             mode (str): How to apply the effect:
                        'additive': final = original + offset + amplitude*sin(...)
                        'overwrite': final = offset + amplitude*sin(...)
+            duty_cycle (float): For square wave, the percentage of time at max value (0.01-0.99).
+                               Default 0.5 (50% duty cycle). Ignored for other waveforms.
         """
         # Get all target axes (primary + linked)
         target_axes = self._get_target_axes(axis)
@@ -223,21 +225,24 @@ class FunscriptEditor:
         if not target_axes:
             print(f"WARNING: Axis '{axis}' not found. Skipping modulation operation.")
             return
-        if waveform.lower() != 'sin':
-            print(f"WARNING: Waveform '{waveform}' not supported. Skipping modulation.")
+
+        # Validate waveform
+        supported_waveforms = ['sin', 'square', 'triangle', 'sawtooth']
+        if waveform.lower() not in supported_waveforms:
+            print(f"WARNING: Waveform '{waveform}' not supported. Supported: {supported_waveforms}. Skipping modulation.")
             return
 
         # Apply operation to all target axes
         for target_axis in target_axes:
             self._apply_modulation_single(target_axis, start_time_ms, duration_ms,
                                          waveform, frequency, amplitude, offset, phase,
-                                         ramp_in_ms, ramp_out_ms, mode)
+                                         ramp_in_ms, ramp_out_ms, mode, duty_cycle)
 
     def _apply_modulation_single(self, axis: str, start_time_ms: int, duration_ms: int,
                                   waveform: str, frequency: float, amplitude: float,
                                   offset: float = 0.0, phase: float = 0.0,
                                   ramp_in_ms: int = 0, ramp_out_ms: int = 0,
-                                  mode: str = 'additive'):
+                                  mode: str = 'additive', duty_cycle: float = 0.5):
         """Internal method to apply modulation to a single axis."""
         fs = self.funscripts[axis]
         indices = self._get_indices_for_range(fs, start_time_ms, duration_ms)
@@ -252,27 +257,52 @@ class FunscriptEditor:
 
         relative_time_s = fs.x[indices] - start_time_s
 
-        # Convert phase from degrees to radians
+        # Convert phase from degrees to radians and normalize to [0, 1]
         phase_rad = np.deg2rad(phase)
+        phase_normalized = (phase / 360.0) % 1.0  # Phase as fraction of period
+
+        # Calculate the phase of each point in the waveform (0 to 1 for each period)
+        waveform_phase = (frequency * relative_time_s + phase_normalized) % 1.0
+
+        # Generate base wave [-1, 1] (bipolar for true oscillations) based on waveform type
+        waveform_lower = waveform.lower()
+
+        if waveform_lower == 'sin':
+            # Sine wave: classic sinusoidal oscillation
+            sin_arg = 2 * np.pi * frequency * relative_time_s + phase_rad
+            base_wave = np.sin(sin_arg)
+
+        elif waveform_lower == 'square':
+            # Square wave with duty cycle
+            # duty_cycle = fraction of period at +1 (high), remainder at -1 (low)
+            duty_cycle = np.clip(duty_cycle, 0.01, 0.99)  # Ensure valid range
+            base_wave = np.where(waveform_phase < duty_cycle, 1.0, -1.0)
+
+        elif waveform_lower == 'triangle':
+            # Triangle wave: linear ramp up and down
+            # 0 to 0.5: ramp from -1 to +1
+            # 0.5 to 1.0: ramp from +1 to -1
+            base_wave = np.where(
+                waveform_phase < 0.5,
+                -1.0 + 4.0 * waveform_phase,  # Rising: -1 to +1
+                3.0 - 4.0 * waveform_phase    # Falling: +1 to -1
+            )
+
+        elif waveform_lower == 'sawtooth':
+            # Sawtooth wave: linear ramp up, instant drop
+            # 0 to 1.0: ramp from -1 to +1, then instant reset
+            base_wave = -1.0 + 2.0 * waveform_phase
+
+        else:
+            print(f"ERROR: Unsupported waveform '{waveform}'. This should have been caught earlier.")
+            return
 
         # DEBUG: Check array shapes
         print(f"DEBUG shapes:")
+        print(f"  - waveform: {waveform}")
         print(f"  - frequency type: {type(frequency)}, value: {frequency}")
-        print(f"  - phase_rad type: {type(phase_rad)}, value: {phase_rad}")
+        print(f"  - duty_cycle: {duty_cycle if waveform_lower == 'square' else 'N/A'}")
         print(f"  - relative_time_s type: {type(relative_time_s)}, shape: {relative_time_s.shape if hasattr(relative_time_s, 'shape') else 'no shape'}")
-
-        # Manual calculation test
-        sin_arg = 2 * np.pi * frequency * relative_time_s + phase_rad
-        print(f"  - sin_arg type: {type(sin_arg)}, shape: {sin_arg.shape if hasattr(sin_arg, 'shape') else 'no shape'}")
-        print(f"  - sin_arg first 5: {sin_arg[:5]}")
-        print(f"  - sin_arg last 5: {sin_arg[-5:]}")
-
-        # Generate base sine wave [-1, 1] (bipolar for true oscillations)
-        base_wave = np.sin(sin_arg)
-        print(f"  - base_wave calculated from sin_arg")
-        print(f"  - Manually: sin({sin_arg[0]:.3f}) = {np.sin(sin_arg[0]):.10f}")
-        print(f"  - Manually: sin({sin_arg[1]:.3f}) = {np.sin(sin_arg[1]):.10f}")
-        print(f"  - Manually: sin({sin_arg[2]:.3f}) = {np.sin(sin_arg[2]):.10f}")
 
         # Normalize amplitude and offset to funscript range
         normalized_amplitude = self._normalize_value(axis, amplitude)
