@@ -31,6 +31,10 @@ groups:
   - name: "Clutch (credit: AquariumParrot)"
     prefix: "clutch_"
     description: "Events reverse-engineered from the Clutch by AquariumParrot"
+    
+  - name: "Test events - use with care"
+    prefix: "test_"
+    description: "These events are for testing features of the app"
 
 definitions:
   edge:
@@ -82,7 +86,7 @@ definitions:
       duration_ms: 20000
       osc_freq: 15
       osc_amplitude: 0.5
-      osc_offset: -0.25
+      max_volume: -0.01
 
     steps:
       - operation: apply_modulation
@@ -91,7 +95,7 @@ definitions:
           waveform: sin
           frequency: $osc_freq
           amplitude: $osc_amplitude
-          offset: $osc_offset
+          max_level_offset: $max_volume
           duration_ms: $duration_ms
           ramp_in_ms: 1000
           ramp_out_ms: 1000
@@ -101,6 +105,28 @@ definitions:
   # Based on SuperCollider scripts 
   # === SUBMIT EFFECT ===
   # Brief pulse frequency drop to 20 Hz with wide pulse
+
+  test_slaps:
+    default_params:
+      duration_ms: 3000
+      max_volume_increase: 0.2
+      amplitude: 0.6
+      frequency: 1
+      
+    steps:
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: square
+          duty_cycle: 0.05
+          frequency: $frequency
+          amplitude: $amplitude
+          max_level_offset: $max_volume_increase
+          duration_ms: $duration_ms
+          ramp_in_ms: 0
+          ramp_out_ms: 0
+          mode: additive
+            
 
   mcb_submit:
     default_params:
@@ -149,7 +175,7 @@ definitions:
       pulse_rate: 100          # Increase pulse frequency
       mod_freq: 9              # 8 Hz in SC, avoid aliasing
       mod_amplitude: 0.35      # Amplitude of sine modulation
-      mod_offset: -0.55         # Bias (sustain level)
+      intensity: 0.02         # Bias (sustain level)
       ramp_ms: 6000
 
     steps:
@@ -171,7 +197,7 @@ definitions:
           waveform: sin
           frequency: $mod_freq
           amplitude: $mod_amplitude
-          offset: $mod_offset
+          max_level_offset: $intensity
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -222,7 +248,7 @@ definitions:
           waveform: sin
           frequency: $alpha_freq
           amplitude: $alpha_amplitude
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -234,7 +260,7 @@ definitions:
           waveform: sin
           frequency: $beta_freq
           amplitude: $beta_amplitude
-          offset: 0
+          max_level_offset: 0
           phase: $beta_phase
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
@@ -275,7 +301,7 @@ definitions:
           waveform: sin
           frequency: $alpha_freq
           amplitude: $alpha_amplitude
-          offset: $alpha_offset
+          max_level_offset: $alpha_offset
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -340,7 +366,7 @@ definitions:
           waveform: sin
           frequency: $tease_freq
           amplitude: $tease_amplitude
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -426,7 +452,7 @@ definitions:
           waveform: sin
           frequency: $throb_freq
           amplitude: $throb_amplitude
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -441,7 +467,7 @@ definitions:
       calm_freq: 2             # Very slow oscillation
       calm_amplitude: 0.15     # Gentle swaying
       pulse_rate: 35           # Low pulse rate
-      offset: -0.1             # Slightly below baseline
+      offset: -0.02             # Slightly below baseline
       ramp_ms: 1000
 
     steps:
@@ -461,7 +487,7 @@ definitions:
           waveform: sin
           frequency: $calm_freq
           amplitude: $calm_amplitude
-          offset: $offset
+          max_level_offset: $offset
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -690,7 +716,7 @@ definitions:
           waveform: sin
           frequency: $buzz_freq
           amplitude: $buzz_intensity
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -726,7 +752,7 @@ definitions:
           waveform: sin
           frequency: $spike_freq
           amplitude: $spike_amplitude
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -737,7 +763,7 @@ definitions:
       duration_ms: 10000
       tease_freq: 23          # Low, teasing frequency (avoid 20 Hz aliasing)
       tease_amplitude: 0.05   # Gentle teasing sensation
-      volume_level: -0.05       # Lower power ceiling for teasing
+      volume_level: 0.01       # Lower power ceiling for teasing
       ramp_ms: 500
 
     steps:
@@ -748,7 +774,7 @@ definitions:
           waveform: sin
           frequency: $tease_freq
           amplitude: $tease_amplitude
-          offset: $volume_level
+          max_level_offset: $volume_level
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -759,7 +785,7 @@ definitions:
       duration_ms: 20000
       calm_freq: 17           # Very slow, calming oscillation
       calm_amplitude: 0.3     # Gentle swaying sensation
-      offset: -0.15           # Slight reduction from baseline
+      level: -0.01           # Slight reduction from baseline
       ramp_ms: 1000
 
     steps:
@@ -769,7 +795,7 @@ definitions:
           waveform: sin
           frequency: $calm_freq
           amplitude: $calm_amplitude
-          offset: $offset
+          max_level_offset: $level
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
@@ -829,7 +855,7 @@ definitions:
           waveform: sin
           frequency: $wobble_freq
           amplitude: $wobble_amplitude
-          offset: 0
+          max_level_offset: 0
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_ms
           ramp_out_ms: $ramp_ms
