@@ -275,7 +275,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
                     waveform=step_params['waveform'],
                     frequency=step_params['frequency'],
                     amplitude=step_params['amplitude'],
-                    offset=step_params.get('offset', 0.0),
+                    max_level_offset=step_params.get('max_level_offset', 0.0),
                     phase=step_params.get('phase', 0.0),
                     ramp_in_ms=step_params.get('ramp_in_ms', 0),
                     ramp_out_ms=step_params.get('ramp_out_ms', 0),

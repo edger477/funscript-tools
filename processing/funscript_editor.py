@@ -194,7 +194,7 @@ class FunscriptEditor:
 
     def apply_modulation(self, axis: str, start_time_ms: int, duration_ms: int,
                          waveform: str, frequency: float, amplitude: float,
-                         offset: float = 0.0, phase: float = 0.0,
+                         max_level_offset: float = 0.0, phase: float = 0.0,
                          ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                          mode: str = 'additive', duty_cycle: float = 0.5):
         """
@@ -207,15 +207,17 @@ class FunscriptEditor:
             waveform (str): The shape of the wave. Supports 'sin', 'square', 'triangle', 'sawtooth'.
             frequency (float): The frequency of the wave in Hz.
             amplitude (float): The swing amplitude of the wave (direct value in axis units).
-                               The wave oscillates ±amplitude around the baseline.
-            offset (float): Additive shift to the baseline. In additive mode, shifts the center
-                           point of oscillation. In overwrite mode, sets the baseline value.
+                               The wave oscillates ±amplitude around the center point.
+            max_level_offset (float): Offset for the maximum level of the waveform in axis units.
+                                     In additive mode, this is relative to the original values.
+                                     In overwrite mode, this sets the absolute maximum level.
+                                     The center point is calculated as: max_level_offset - amplitude.
             phase (float): The starting phase of the wave, in degrees (0-360).
             ramp_in_ms (int): Duration in milliseconds for a linear fade-in of the wave's amplitude.
             ramp_out_ms (int): Duration in milliseconds for a linear fade-out of the wave's amplitude.
             mode (str): How to apply the effect:
-                       'additive': final = original + offset + amplitude*sin(...)
-                       'overwrite': final = offset + amplitude*sin(...)
+                       'additive': final = original + (max_level_offset - amplitude) + amplitude*waveform(...)
+                       'overwrite': final = (max_level_offset - amplitude) + amplitude*waveform(...)
             duty_cycle (float): For square wave, the percentage of time at max value (0.01-0.99).
                                Default 0.5 (50% duty cycle). Ignored for other waveforms.
         """
@@ -235,12 +237,12 @@ class FunscriptEditor:
         # Apply operation to all target axes
         for target_axis in target_axes:
             self._apply_modulation_single(target_axis, start_time_ms, duration_ms,
-                                         waveform, frequency, amplitude, offset, phase,
+                                         waveform, frequency, amplitude, max_level_offset, phase,
                                          ramp_in_ms, ramp_out_ms, mode, duty_cycle)
 
     def _apply_modulation_single(self, axis: str, start_time_ms: int, duration_ms: int,
                                   waveform: str, frequency: float, amplitude: float,
-                                  offset: float = 0.0, phase: float = 0.0,
+                                  max_level_offset: float = 0.0, phase: float = 0.0,
                                   ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                                   mode: str = 'additive', duty_cycle: float = 0.5):
         """Internal method to apply modulation to a single axis."""
@@ -249,6 +251,10 @@ class FunscriptEditor:
 
         if indices.size == 0:
             return # No points in range
+
+        # Calculate offset from max_level_offset
+        # max_level = offset + amplitude, so offset = max_level_offset - amplitude
+        offset = max_level_offset - amplitude
 
         duration_s = duration_ms / 1000.0
         start_time_s = start_time_ms / 1000.0

@@ -72,15 +72,20 @@ This is the most powerful operation for creating dynamic effects. It adds or ove
 | `duration_ms`| `int` | **(Required)** | The duration of the effect in milliseconds. |
 | `waveform`| `string` | **(Required)** | The shape of the wave. Supported waveforms: <br>• `sin` - Smooth sinusoidal oscillation <br>• `square` - Square wave (use with `duty_cycle`) <br>• `triangle` - Linear ramp up and down <br>• `sawtooth` - Linear ramp up with instant drop |
 | `frequency` | `float` | **(Required)** | The frequency of the wave in Hz. **Avoid multiples of 10 Hz** (10, 20, 30...) to prevent sampling aliasing issues. Use values like 9, 11, 15, 21, 23, 65 Hz instead. |
-| `amplitude` | `float` | **(Required)** | The swing amplitude of the wave in axis-specific units (will be normalized). The wave oscillates ±amplitude around the center point. For example, `amplitude: 0.35` on volume creates oscillations from -0.35 to +0.35 relative to the baseline. |
-| `offset` | `float` | `0.0` | Additive shift to the baseline in axis-specific units (will be normalized). <br>• In `additive` mode: shifts the center point of oscillation relative to original values. <br>• In `overwrite` mode: sets the baseline value around which the wave oscillates. |
+| `amplitude` | `float` | **(Required)** | The swing amplitude of the wave in axis-specific units (will be normalized). The wave oscillates ±amplitude around the center point. For example, `amplitude: 0.35` on volume creates oscillations from -0.35 to +0.35 relative to the center. |
+| `max_level_offset` | `float` | `0.0` | Offset for the **maximum level** of the waveform in axis-specific units (will be normalized). <br>• In `additive` mode: relative to the original values. Example: `max_level_offset: 0.0` means peaks reach the original level, `-0.1` means peaks are 0.1 below original. <br>• In `overwrite` mode: sets the absolute maximum level. <br>• The center point is automatically calculated as: `max_level_offset - amplitude`. This makes it easy to keep peaks at a desired level without manual offset calculations. |
 | `phase` | `float` | `0.0` | The starting phase of the wave, in degrees (0-360). Use this to offset the waveform's starting position. |
 | `duty_cycle` | `float` | `0.5` | For `square` waveform only: the percentage of time at maximum value (0.01-0.99). Default 0.5 is 50% duty cycle (equal high/low time). Higher values = more time at max, lower values = more time at min. Ignored for other waveforms. |
-| `mode` | `string` | `additive` | How to apply the effect: <br>• `additive`: `final = original + offset + amplitude*waveform(...)` <br>• `overwrite`: `final = offset + amplitude*waveform(...)` |
+| `mode` | `string` | `additive` | How to apply the effect: <br>• `additive`: `final = original + (max_level_offset - amplitude) + amplitude*waveform(...)` <br>• `overwrite`: `final = (max_level_offset - amplitude) + amplitude*waveform(...)` |
 | `ramp_in_ms` | `int` | `0` | Duration in milliseconds for a linear fade-in of the wave's amplitude envelope. |
 | `ramp_out_ms`| `int` | `0` | Duration in milliseconds for a linear fade-out of the wave's amplitude envelope. |
 
 **Mathematical Formulas:**
+
+First, the center offset is calculated:
+- `offset = max_level_offset - amplitude`
+
+Then applied:
 - **Additive mode**: `final = original_value + normalized_offset + normalized_amplitude * waveform(frequency, time, phase)`
 - **Overwrite mode**: `final = normalized_offset + normalized_amplitude * waveform(frequency, time, phase)`
 
@@ -237,8 +242,8 @@ intense_edge:
       params:
         waveform: sin
         frequency: $buzz_freq         # 11 Hz (avoid 10 Hz aliasing)
-        amplitude: $buzz_amplitude    # ±0.08 oscillation
-        offset: 0
+        amplitude: $buzz_amplitude    # ±0.08 oscillation, e.g., 0.08
+        max_level_offset: 0.08        # Peaks reach 0.08 above original (same as amplitude for centered oscillation)
         duration_ms: $duration_ms
         ramp_in_ms: $ramp_ms
         ramp_out_ms: $ramp_ms
@@ -252,7 +257,7 @@ intense_edge:
         waveform: sin
         frequency: $alpha_freq        # 9 Hz (avoid 10 Hz aliasing)
         amplitude: $alpha_amp         # ±0.35 oscillation
-        offset: 0.55                  # Center point at 0.55
+        max_level_offset: 0.90        # Peaks reach 0.90 (center at 0.55)
         duration_ms: $duration_ms
         ramp_in_ms: $ramp_ms
         ramp_out_ms: $ramp_ms
