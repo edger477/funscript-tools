@@ -1,0 +1,862 @@
+# This file defines the building blocks of custom events.
+# Each event is a sequence of fundamental operations.
+
+# Axis normalization settings
+# These define the maximum values used to normalize raw parameters to 0.0-1.0 range
+normalization:
+  pulse_frequency:
+    max: 120.0          # Maximum pulse frequency in Hz
+    unit: "Hz"
+  pulse_width:
+    max: 100.0          # Maximum pulse width (percentage)
+    unit: "%"
+  frequency:
+    max: 1200.0          # Maximum frequency (degrees for restim)
+    unit: "Hz"
+  volume:
+    max: 1.0            # Volume already normalized (0.0-1.0)
+    unit: "normalized"
+
+# Event groups for organization in the UI
+# Each group can contain multiple event definitions with matching prefix
+groups:
+  - name: "General"
+    prefix: ""
+    description: "Mostly work in progress"
+
+  - name: "MCB (credit: AquariumParrot)"
+    prefix: "mcb_"
+    description: "Events reverse-engineered from the Mistress and Control Box by AquariumParrot"
+
+  - name: "Clutch (credit: AquariumParrot)"
+    prefix: "clutch_"
+    description: "Events reverse-engineered from the Clutch by AquariumParrot"
+    
+  - name: "Test events - use with care"
+    prefix: "test_"
+    description: "These events are for testing features of the app"
+
+definitions:
+  edge:
+    default_params:
+      duration_ms: 15000
+      buzz_freq: 60
+      buzz_intensity: 0.1
+      volume_boost: 0.03
+      ramp_up_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive          
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: 10
+          end_value: 20
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $buzz_freq
+          amplitude: $buzz_intensity
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: sin
+          frequency: 3
+          amplitude: 0.5
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+
+  tranquil:
+    default_params:
+      duration_ms: 20000
+      osc_freq: 15
+      osc_amplitude: 0.5
+      max_volume: -0.01
+
+    steps:
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $osc_freq
+          amplitude: $osc_amplitude
+          max_level_offset: $max_volume
+          duration_ms: $duration_ms
+          ramp_in_ms: 1000
+          ramp_out_ms: 1000
+          mode: additive
+
+  # Event Definitions from AquariumParrot's MCB 
+  # Based on SuperCollider scripts 
+  # === SUBMIT EFFECT ===
+  # Brief pulse frequency drop to 20 Hz with wide pulse
+
+  test_slaps:
+    default_params:
+      duration_ms: 3000
+      max_volume_increase: 0.2
+      amplitude: 0.6
+      frequency: 1
+      
+    steps:
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: square
+          duty_cycle: 0.05
+          frequency: $frequency
+          amplitude: $amplitude
+          max_level_offset: $max_volume_increase
+          duration_ms: $duration_ms
+          ramp_in_ms: 0
+          ramp_out_ms: 0
+          mode: additive
+            
+
+  mcb_submit:
+    default_params:
+      duration_ms: 5000
+      pulse_rate: 21           # 20 Hz in SC, avoid aliasing
+      pulse_width: 75          # 0.5 in SC = 50%
+      ramp_ms: 250
+      volume_boost: 0.01
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+          
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive          
+
+  # === EDGE EFFECT ===
+  # Sinusoidal volume modulation with high pulse frequency
+
+  mcb_edge:
+    default_params:
+      duration_ms: 18000       # 6s attack + 12s sustain
+      pulse_rate: 100          # Increase pulse frequency
+      mod_freq: 9              # 8 Hz in SC, avoid aliasing
+      mod_amplitude: 0.35      # Amplitude of sine modulation
+      intensity: 0.02         # Bias (sustain level)
+      ramp_ms: 6000
+
+    steps:
+      # Set pulse frequency
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      # Apply sinusoidal volume modulation
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $mod_freq
+          amplitude: $mod_amplitude
+          max_level_offset: $intensity
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === EDGE CE (Cock Enslavement) ===
+  # Intense edging with dual modulation on alpha and beta
+
+  mcb_edge_ce:
+    default_params:
+      volume: 0.05
+      duration_ms: 15000
+      pulse_rate: 160          # Very high pulse frequency
+      alpha_freq: 7            # Avoid aliasing (SC has varying trill)
+      alpha_amplitude: 0.85    # Strong alpha modulation
+      beta_freq: 4             # Lower frequency for beta
+      beta_amplitude: 0.8      # Strong beta modulation
+      beta_phase: 90           # pi/2 phase shift in degrees
+      ramp_ms: 1500
+
+    steps:
+      # Apply sinusoidal volume modulation
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume
+          end_value: $volume
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      # Set very high pulse frequency
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      # Alpha modulation (uses edgeCtrl with trill in SC)
+      - operation: apply_modulation
+        axis: alpha
+        params:
+          waveform: sin
+          frequency: $alpha_freq
+          amplitude: $alpha_amplitude
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+      # Beta modulation 
+      - operation: apply_modulation
+        axis: beta
+        params:
+          waveform: sin
+          frequency: $beta_freq
+          amplitude: $beta_amplitude
+          max_level_offset: 0
+          phase: $beta_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === OBEY EFFECT ===
+  # Dual sinusoidal modulation with moderate pulse frequency
+
+  mcb_obey:
+    default_params:
+      duration_ms: 10000
+      pulse_rate: 27           # Low pulse rate for smooth feeling
+      alpha_freq: 9            # 8 Hz in SC, avoid aliasing
+      alpha_amplitude: 0.4     # Moderate alpha modulation
+      alpha_offset: 0.6        # Bias for alpha
+      beta_freq: 7             # Slightly different from alpha
+      beta_amplitude: 0.7      # Stronger beta modulation
+      beta_phase: 90           # pi/2 phase shift
+      ramp_ms: 500
+
+    steps:
+      # Set pulse frequency
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      # Alpha modulation with bias
+      - operation: apply_modulation
+        axis: alpha
+        params:
+          waveform: sin
+          frequency: $alpha_freq
+          amplitude: $alpha_amplitude
+          max_level_offset: $alpha_offset
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === DENIAL EFFECT ===
+  # Temporary reduction of stimulation
+
+  mcb_denial:
+    default_params:
+      duration_ms: 8000
+      volume_reduction: -0.3   # Drop power significantly
+      pulse_rate: 60           # Moderate pulse rate
+      ramp_ms: 1000
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_reduction
+          end_value: $volume_reduction
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+  # === TEASE EFFECT ===
+  # Gentle teasing sensation with low-frequency modulation
+
+  mcb_tease:
+    default_params:
+      duration_ms: 12000
+      tease_freq: 5            # Slow teasing oscillation
+      tease_amplitude: 0.25    # Gentle modulation
+      pulse_rate: 45           # Moderate pulse rate
+      ramp_ms: 1000
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $tease_freq
+          amplitude: $tease_amplitude
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === INTENSITY BUILD ===
+  # Gradual volume increase for building arousal
+
+  mcb_intensity_build:
+    default_params:
+      duration_ms: 10000
+      start_boost: 0.0         # Start from current level
+      end_boost: 0.15          # Build up to +15%
+      ramp_ms: 2000
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $start_boost
+          end_value: $end_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === RELEASE ===
+  # Gradual reduction after intense stimulation
+
+  mcb_release:
+    default_params:
+      duration_ms: 8000
+      volume_drop: -0.2        # Reduce power
+      pulse_rate: 40           # Lower pulse rate
+      ramp_ms: 2000
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_drop
+          end_value: $volume_drop
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+  # === THROB EFFECT ===
+  # Pulsating sensation with medium frequency
+
+  mcb_throb:
+    default_params:
+      duration_ms: 10000
+      throb_freq: 3            # Slow throbbing
+      throb_amplitude: 0.4     # Noticeable pulsation
+      pulse_rate: 55           # Medium pulse rate
+      ramp_ms: 500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $throb_freq
+          amplitude: $throb_amplitude
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === CALM EFFECT ===
+  # Soothing, gentle stimulation
+
+  mcb_calm:
+    default_params:
+      duration_ms: 15000
+      calm_freq: 2             # Very slow oscillation
+      calm_amplitude: 0.15     # Gentle swaying
+      pulse_rate: 35           # Low pulse rate
+      offset: -0.02             # Slightly below baseline
+      ramp_ms: 1000
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $calm_freq
+          amplitude: $calm_amplitude
+          max_level_offset: $offset
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+
+
+  # Event Definitions from AquariumParrot's Clutch 
+  # Based on SuperCollider scripts 
+  #
+  # These events recreate the effects from the original Clutch hypno-estim project
+  # using our YAML-based custom events system.
+
+  # === REWARD EFFECTS ===
+  # These create pleasurable sensations through lower pulse rates and volume boosts
+
+  clutch_good_slave:
+    default_params:
+      duration_ms: 5000
+      pulse_rate: 27          
+      pulse_width: 45         
+      volume_boost: 0.01      
+      ramp_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+  clutch_reward:
+    default_params:
+      duration_ms: 5000
+      pulse_rate: 35          
+      pulse_width: 45
+      volume_boost: 0.01
+      ramp_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+  # === PUSH EFFECTS ===
+  # Short, sharp sensations with higher rates
+
+  clutch_push:
+    default_params:
+      duration_ms: 3000
+      pulse_rate: 60          
+      pulse_width: 40
+      volume_boost: 0.005     
+      ramp_ms: 200
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+  clutch_push_2:
+    default_params:
+      duration_ms: 3000
+      pulse_rate: 35          # Slower than push
+      pulse_width: 40
+      volume_boost: 0.005
+      ramp_ms: 200
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+  # === INTENSE/EDGE EFFECTS ===
+  # Building sensations for edging
+
+  clutch_higher_rate:
+    default_params:
+      duration_ms: 8000
+      pulse_rate: 120         
+      pulse_width: 40
+      volume_boost: 0.01
+      ramp_ms: 500
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: $pulse_width
+          end_value: $pulse_width
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: overwrite
+
+  clutch_edge:
+    default_params:
+      duration_ms: 15000
+      volume_boost: 0.01      
+      buzz_freq: 65           
+      buzz_intensity: 0.08    
+      ramp_ms: 500
+
+    steps:
+      # Base volume increase for edging
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          mode: additive
+
+      # High-frequency buzz creates the edging sensation
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $buzz_freq
+          amplitude: $buzz_intensity
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === PULSAR/SPIKE EFFECTS ===
+  # Buzzing sensations from high-frequency modulation
+
+  clutch_spike:
+    default_params:
+      duration_ms: 8000
+      spike_freq: 65          # High buzz frequency (spikePulseFreq)
+      spike_amplitude: 0.15   # Strong buzzing sensation (spikePulseAmp)
+      volume_level: 0.05      # Sus level for spike
+      ramp_ms: 250
+
+    steps:
+      # Set base volume level during spike
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: $volume_level
+          end_value: $volume_level
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      # High-frequency modulation creates buzzing
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $spike_freq
+          amplitude: $spike_amplitude
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  clutch_tantalize:
+    default_params:
+      duration_ms: 10000
+      tease_freq: 23          # Low, teasing frequency (avoid 20 Hz aliasing)
+      tease_amplitude: 0.05   # Gentle teasing sensation
+      volume_level: 0.01       # Lower power ceiling for teasing
+      ramp_ms: 500
+
+    steps:
+      # Low-frequency modulation creates teasing sensation
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $tease_freq
+          amplitude: $tease_amplitude
+          max_level_offset: $volume_level
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  clutch_tranquil:
+    default_params:
+      duration_ms: 20000
+      calm_freq: 17           # Very slow, calming oscillation
+      calm_amplitude: 0.3     # Gentle swaying sensation
+      level: -0.01           # Slight reduction from baseline
+      ramp_ms: 1000
+
+    steps:
+      - operation: apply_modulation
+        axis: volume
+        params:
+          waveform: sin
+          frequency: $calm_freq
+          amplitude: $calm_amplitude
+          max_level_offset: $level
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === FREQUENCY SHIFTS ===
+  # Temporary carrier frequency changes (freq_change in SC)
+
+  clutch_freq_shift_up:
+    default_params:
+      duration_ms: 5000
+      freq_shift: 50          # Shift carrier up by 50 Hz
+      ramp_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: frequency
+        params:
+          start_value: $freq_shift
+          end_value: $freq_shift
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  clutch_freq_shift_down:
+    default_params:
+      duration_ms: 5000
+      freq_shift: -50         # Shift carrier down by 50 Hz
+      ramp_ms: 250
+
+    steps:
+      - operation: apply_linear_change
+        axis: frequency
+        params:
+          start_value: $freq_shift
+          end_value: $freq_shift
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === PULSE MODULATION ===
+  # Modulate pulse width for textural changes
+
+  clutch_pulse_wobble:
+    default_params:
+      duration_ms: 10000
+      wobble_freq: 3          # Slow wobble
+      wobble_amplitude: 5     # ±5% pulse width variation
+      ramp_ms: 500
+
+    steps:
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: sin
+          frequency: $wobble_freq
+          amplitude: $wobble_amplitude
+          max_level_offset: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive

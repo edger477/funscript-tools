@@ -46,16 +46,17 @@ class RestimProcessor:
             self.filename_only = self.input_path.stem
             self._setup_directories()
 
+            # Create backup if in central mode with backups enabled
+            file_mgmt = self.params.get('file_management', {})
+            if file_mgmt.get('mode') == 'central' and file_mgmt.get('create_backups', False):
+                self._create_backup(progress_callback)
+
             # Load main funscript
             self._update_progress(progress_callback, 5, "Loading input file...")
             main_funscript = Funscript.from_file(self.input_path)
 
             # Execute processing pipeline
             self._execute_pipeline(main_funscript, progress_callback)
-
-            # Create zip archive if requested
-            if self.params.get('advanced', {}).get('pack_output_to_zip', False):
-                self._create_output_zip(progress_callback)
 
             # Cleanup if requested
             if self.params['options']['delete_intermediary_files']:
@@ -71,13 +72,22 @@ class RestimProcessor:
 
     def _setup_directories(self):
         """Create the temporary directory for intermediary files and set output directory."""
-        # Set output directory - use custom if specified, otherwise use input file directory
-        custom_output = self.params.get('advanced', {}).get('custom_output_directory', '').strip()
-        if custom_output:
-            self.output_dir = Path(custom_output)
-            # Ensure the output directory exists
-            self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Set output directory based on file management mode
+        file_mgmt = self.params.get('file_management', {})
+        mode = file_mgmt.get('mode', 'local')
+
+        if mode == 'central':
+            # Use central folder if specified
+            central_path = file_mgmt.get('central_folder_path', '').strip()
+            if central_path:
+                self.output_dir = Path(central_path)
+                # Ensure the output directory exists
+                self.output_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                # Fallback to local mode if central path not set
+                self.output_dir = self.input_path.parent
         else:
+            # Local mode: use input file directory
             self.output_dir = self.input_path.parent
 
         # Create temporary directory
@@ -89,42 +99,36 @@ class RestimProcessor:
         if self.temp_dir and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    def _create_output_zip(self, progress_callback: Optional[Callable]):
-        """Create a zip file containing all output funscript files."""
+    def _create_backup(self, progress_callback: Optional[Callable]):
+        """Create backup zip of existing restim files in central mode before overwriting."""
         try:
-            # Create zip filename based on input file
-            zip_path = self.output_dir / f"{self.filename_only}.zip"
+            from datetime import datetime
 
-            self._update_progress(progress_callback, 97, "Creating zip archive...")
-
-            # Collect all output .funscript files
-            output_files = []
+            # Collect all existing restim files for this input
+            backup_files = []
             for file_path in self.output_dir.glob(f"{self.filename_only}.*.funscript"):
-                # Only include files that were created/modified during this processing
-                # Exclude the original input file
-                if file_path != self.input_path:
-                    output_files.append(file_path)
+                backup_files.append(file_path)
 
-            # Also include motion axis files (e1-e4) if they exist
-            for axis in ['e1', 'e2', 'e3', 'e4']:
-                axis_file = self.output_dir / f"{self.filename_only}.{axis}.funscript"
-                if axis_file.exists() and axis_file not in output_files:
-                    output_files.append(axis_file)
+            if not backup_files:
+                return  # No existing files to backup
 
-            if not output_files:
-                return  # No output files to zip
+            # Create backup filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_zip_path = self.output_dir / f"{self.filename_only}.backup-{timestamp}.zip"
 
-            # Create the zip file
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for file_path in output_files:
+            self._update_progress(progress_callback, 3, f"Creating backup: {backup_zip_path.name}")
+
+            # Create the backup zip file
+            with zipfile.ZipFile(backup_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in backup_files:
                     # Add file to zip with just the filename (no path)
                     zipf.write(file_path, file_path.name)
 
-            self._update_progress(progress_callback, 98, f"Created zip archive: {zip_path.name}")
+            self._update_progress(progress_callback, 4, f"Backup created with {len(backup_files)} files")
 
         except Exception as e:
             # Log the error but don't fail the entire process
-            self._update_progress(progress_callback, -1, f"Warning: Failed to create zip archive: {str(e)}")
+            self._update_progress(progress_callback, -1, f"Warning: Failed to create backup: {str(e)}")
 
     def _update_progress(self, progress_callback: Optional[Callable], percent: int, message: str):
         """Update progress if callback is provided."""

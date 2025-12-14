@@ -225,6 +225,65 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars['alpha_beta_generation']['auto_generate'] = var
         ttk.Checkbutton(frame, text="Auto-generate alpha/beta files when missing", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
 
+        row += 2
+
+        # File Management section
+        ttk.Label(frame, text="File Management:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
+
+        row += 1
+
+        # Initialize file_management parameter vars
+        self.parameter_vars['file_management'] = {}
+
+        # Mode selection
+        ttk.Label(frame, text="Output Mode:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.StringVar(value=self.config['file_management']['mode'])
+        self.parameter_vars['file_management']['mode'] = var
+
+        mode_frame = ttk.Frame(frame)
+        mode_frame.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=5)
+
+        ttk.Radiobutton(mode_frame, text="Local", variable=var, value="local").pack(side=tk.LEFT, padx=(0, 15))
+        ttk.Radiobutton(mode_frame, text="Central Restim funscripts folder", variable=var, value="central").pack(side=tk.LEFT)
+
+        row += 1
+
+        # Mode description (dynamically updated based on selection)
+        self.mode_desc_label = ttk.Label(frame, text="Local mode:", font=('TkDefaultFont', 9))
+        self.mode_desc_label.grid(row=row, column=0, sticky=tk.W, padx=20, pady=2)
+
+        self.mode_desc_text = ttk.Label(frame, text="All outputs are saved to same folder where the source funscript is found",
+                  font=('TkDefaultFont', 9, 'italic'))
+        self.mode_desc_text.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=2)
+
+        # Add trace to update description when mode changes
+        var.trace('w', lambda *args: self._update_mode_description())
+
+        row += 1
+
+        # Central folder path
+        ttk.Label(frame, text="Central folder:").grid(row=row, column=0, sticky=tk.W, padx=20, pady=5)
+
+        central_frame = ttk.Frame(frame)
+        central_frame.grid(row=row, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        central_path_var = tk.StringVar(value=self.config['file_management']['central_folder_path'])
+        self.parameter_vars['file_management']['central_folder_path'] = central_path_var
+
+        central_entry = ttk.Entry(central_frame, textvariable=central_path_var, width=40)
+        central_entry.pack(side=tk.LEFT, padx=(0, 5))
+
+        browse_button = ttk.Button(central_frame, text="Browse", command=self._browse_central_folder)
+        browse_button.pack(side=tk.LEFT)
+
+        row += 1
+
+        # Create backups checkbox
+        backup_var = tk.BooleanVar(value=self.config['file_management']['create_backups'])
+        self.parameter_vars['file_management']['create_backups'] = backup_var
+        ttk.Checkbutton(frame, text="Create backups (zip with timestamp) before overwriting files in central mode",
+                       variable=backup_var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=20, pady=2)
+
     def setup_speed_tab(self):
         """Setup the Speed parameters tab."""
         frame = self.speed_frame
@@ -322,7 +381,7 @@ class ParameterTabs(ttk.Notebook):
             frame, "Volume Combine Ratio (Ramp | Speed):",
             "Ramp", "Speed",
             self.config['volume']['volume_ramp_combine_ratio'],
-            min_val=6.0, max_val=20.0, row=row
+            min_val=10.0, max_val=40.0, row=row
         )
         self.parameter_vars['volume']['volume_ramp_combine_ratio'] = volume_ramp_control.var
         self.combine_ratio_controls['volume_ramp_combine_ratio'] = volume_ramp_control
@@ -769,21 +828,32 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         except Exception as e:
             print(f"Error updating curve name display: {e}")
 
-    def _browse_output_directory(self):
-        """Open file dialog to browse for output directory."""
+    def _browse_central_folder(self):
+        """Open file dialog to browse for central restim folder."""
         # Get current directory if set
-        current_dir = self.parameter_vars['advanced']['custom_output_directory'].get()
+        current_dir = self.parameter_vars['file_management']['central_folder_path'].get()
         initial_dir = current_dir if current_dir else None
-        
+
         # Open directory selection dialog
         selected_dir = filedialog.askdirectory(
-            title="Select Output Directory",
+            title="Select Central Restim Funscripts Folder",
             initialdir=initial_dir
         )
-        
+
         # Update the variable if a directory was selected
         if selected_dir:
-            self.parameter_vars['advanced']['custom_output_directory'].set(selected_dir)
+            self.parameter_vars['file_management']['central_folder_path'].set(selected_dir)
+
+    def _update_mode_description(self):
+        """Update the mode description text based on selected mode."""
+        mode = self.parameter_vars['file_management']['mode'].get()
+
+        if mode == 'central':
+            self.mode_desc_label.config(text="Central mode:")
+            self.mode_desc_text.config(text="All outputs are saved to the configured central restim funscripts folder")
+        else:
+            self.mode_desc_label.config(text="Local mode:")
+            self.mode_desc_text.config(text="All outputs are saved to same folder where the source funscript is found")
 
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""
@@ -815,41 +885,6 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         var = tk.BooleanVar(value=self.config['advanced']['enable_frequency_inversion'])
         self.parameter_vars['advanced']['enable_frequency_inversion'] = var
         ttk.Checkbutton(frame, text="Enable Frequency Inversion", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
-
-        row += 2
-
-        # Custom Output Directory
-        ttk.Label(frame, text="Custom Output Directory:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
-
-        row += 1
-
-        ttk.Label(frame, text="Output Directory:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-        var = tk.StringVar(value=self.config['advanced']['custom_output_directory'])
-        self.parameter_vars['advanced']['custom_output_directory'] = var
-
-        # Create frame for entry and browse button
-        dir_frame = ttk.Frame(frame)
-        dir_frame.grid(row=row, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
-
-        entry = ttk.Entry(dir_frame, textvariable=var, width=40)
-        entry.pack(side=tk.LEFT, padx=(0, 5))
-
-        browse_button = ttk.Button(dir_frame, text="Browse", command=self._browse_output_directory)
-        browse_button.pack(side=tk.LEFT)
-
-        ttk.Label(frame, text="(Leave empty to use input file directory)").grid(row=row, column=2, sticky=tk.W, padx=5)
-
-        row += 2
-
-        # Output Packaging Options
-        ttk.Label(frame, text="Output Packaging:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
-
-        row += 1
-
-        # Pack Output Files to Zip
-        var = tk.BooleanVar(value=self.config['advanced'].get('pack_output_to_zip', False))
-        self.parameter_vars['advanced']['pack_output_to_zip'] = var
-        ttk.Checkbutton(frame, text="Pack Output Files to Zip Archive", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
 
     def update_config(self, config: Dict[str, Any]):
         """Update configuration dictionary with current UI values."""

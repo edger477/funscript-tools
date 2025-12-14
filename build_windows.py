@@ -65,6 +65,11 @@ def build_windows_exe():
         cmd.insert(-1, "--add-data")
         cmd.insert(-1, "restim_config.json;.")
 
+    # Add event definitions if it exists
+    if Path("config.event_definitions.yml").exists():
+        cmd.insert(-1, "--add-data")
+        cmd.insert(-1, "config.event_definitions.yml;.")
+
     # Add icon if it exists
     if Path("assets/icon.ico").exists():
         cmd.insert(-1, "--icon")
@@ -132,6 +137,11 @@ def create_release_package():
     if Path("config.json").exists():
         shutil.copy2("config.json", release_dir / "config.json")
         print(f"Copied: config.json")
+
+    # Copy config.event_definitions.yml if it exists
+    if Path("config.event_definitions.yml").exists():
+        shutil.copy2("config.event_definitions.yml", release_dir / "config.event_definitions.yml")
+        print(f"Copied: config.event_definitions.yml")
 
     # Create a simple install guide
     install_guide = release_dir / "INSTALLATION.txt"

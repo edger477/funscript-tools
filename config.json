@@ -5,7 +5,7 @@
     "accel_window_size": 3
   },
   "speed": {
-    "interpolation_interval": 0.1,
+    "interpolation_interval": 0.01,
     "normalization_method": "max"
   },
   "alpha_beta_generation": {
@@ -24,18 +24,18 @@
     "min_distance_from_center": 0.5
   },
   "frequency": {
-    "pulse_freq_min": 0.4,
+    "pulse_freq_min": 0.5,
     "pulse_freq_max": 0.95,
     "frequency_ramp_combine_ratio": 2.0,
-    "pulse_frequency_combine_ratio": 2.0
+    "pulse_frequency_combine_ratio": 2.6
   },
   "volume": {
-    "volume_ramp_combine_ratio": 10.0,
+    "volume_ramp_combine_ratio": 25.2,
     "prostate_volume_multiplier": 1.5,
     "prostate_rest_level": 0.7,
     "stereostim_volume_min": 0.5,
     "stereostim_volume_max": 1.0,
-    "ramp_percent_per_hour": 12
+    "ramp_percent_per_hour": 10
   },
   "pulse": {
     "pulse_width_min": 0.1,
@@ -52,6 +52,11 @@
     "enable_frequency_inversion": false,
     "custom_output_directory": "",
     "pack_output_to_zip": false
+  },
+  "file_management": {
+    "mode": "central",
+    "central_folder_path": "C:/temp/restim-scripts",
+    "create_backups": true
   },
   "options": {
     "normalize_volume": true,
