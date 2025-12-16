@@ -103,11 +103,16 @@ class ParameterTabs(ttk.Notebook):
     def set_mode_change_callback(self, callback):
         """Set callback function to be called when mode changes."""
         self.mode_change_callback = callback
-        
+
         # Add trace to mode variable if it exists
         if hasattr(self, 'parameter_vars') and 'positional_axes' in self.parameter_vars:
             mode_var = self.parameter_vars['positional_axes']['mode']
             mode_var.trace('w', lambda *args: self._on_mode_change())
+
+    def set_conversion_callbacks(self, basic_callback, prostate_callback):
+        """Set callback functions for the embedded conversion tabs."""
+        if hasattr(self, 'embedded_conversion_tabs'):
+            self.embedded_conversion_tabs.set_conversion_callbacks(basic_callback, prostate_callback)
     
     def _on_mode_change(self):
         """Internal method called when mode changes."""
@@ -219,11 +224,11 @@ class ParameterTabs(ttk.Notebook):
 
         row += 1
 
-        # Auto Generate Alpha/Beta
-        self.parameter_vars['alpha_beta_generation'] = {}
-        var = tk.BooleanVar(value=self.config['alpha_beta_generation']['auto_generate'])
-        self.parameter_vars['alpha_beta_generation']['auto_generate'] = var
-        ttk.Checkbutton(frame, text="Auto-generate alpha/beta files when missing", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+        # Overwrite Existing Files
+        overwrite_value = self.config.get('options', {}).get('overwrite_existing_files', False)
+        var = tk.BooleanVar(value=overwrite_value)
+        self.parameter_vars['options']['overwrite_existing_files'] = var
+        ttk.Checkbutton(frame, text="Overwrite existing output files", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
 
         row += 2
 
@@ -921,7 +926,8 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 config['alpha_beta_generation']['algorithm'] = basic_config['algorithm']
                 config['alpha_beta_generation']['points_per_second'] = basic_config['points_per_second']
                 config['alpha_beta_generation']['min_distance_from_center'] = round(basic_config['min_distance_from_center'], 1)
-                config['alpha_beta_generation']['speed_at_edge_hz'] = round(basic_config['speed_at_edge_hz'], 1)
+                config['alpha_beta_generation']['speed_threshold_percent'] = basic_config['speed_threshold_percent']
+                config['alpha_beta_generation']['direction_change_probability'] = round(basic_config['direction_change_probability'], 2)
 
                 # Update prostate conversion settings
                 prostate_config = self.embedded_conversion_tabs.get_prostate_config()
@@ -932,9 +938,11 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 config['prostate_generation']['algorithm'] = prostate_config['algorithm']
                 config['prostate_generation']['points_per_second'] = prostate_config['points_per_second']
                 config['prostate_generation']['min_distance_from_center'] = round(prostate_config['min_distance_from_center'], 1)
-            except Exception:
-                # Ignore errors if conversion tabs not properly initialized
-                pass
+            except Exception as e:
+                # Log errors if conversion tabs not properly initialized
+                print(f"Error updating conversion tabs config: {e}")
+                import traceback
+                traceback.print_exc()
 
     def update_display(self, config: Dict[str, Any]):
         """Update UI display with configuration values."""

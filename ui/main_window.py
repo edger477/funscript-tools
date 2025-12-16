@@ -69,6 +69,9 @@ class MainWindow:
         # Set callback for mode changes (for future extensibility)
         self.parameter_tabs.set_mode_change_callback(self.on_mode_change)
 
+        # Set conversion callbacks for embedded conversion tabs
+        self.parameter_tabs.set_conversion_callbacks(self.convert_basic_2d, self.convert_prostate_2d)
+
         row += 1
 
         # Progress and status frame
@@ -162,7 +165,11 @@ class MainWindow:
             return
 
         # Disable the convert buttons during processing
-        self.conversion_tabs.set_button_state('disabled')
+        mode = self.current_config['positional_axes']['mode']
+        if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+            self.parameter_tabs.embedded_conversion_tabs.set_button_state('disabled')
+        elif hasattr(self, 'conversion_tabs'):
+            self.conversion_tabs.set_button_state('disabled')
 
         # Start conversion in background thread
         conversion_thread = threading.Thread(target=self._perform_2d_conversion, args=(conversion_type,), daemon=True)
@@ -274,7 +281,7 @@ class MainWindow:
             mode = self.current_config['positional_axes']['mode']
             if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
                 self.root.after(100, lambda: self.parameter_tabs.embedded_conversion_tabs.set_button_state('normal'))
-            else:
+            elif hasattr(self, 'conversion_tabs'):
                 self.root.after(100, lambda: self.conversion_tabs.set_button_state('normal'))
 
     def _generate_motion_axis_files(self, input_path: Path):
