@@ -152,21 +152,43 @@ class RestimProcessor:
             return True
         return False
 
+    def _output_file_exists(self, suffix: str) -> bool:
+        """Check if an output file already exists in the output directory."""
+        output_path = self._get_output_path(suffix)
+        return output_path.exists()
+
+    def _copy_output_to_temp_if_exists(self, suffix: str) -> bool:
+        """Copy existing output file to temp directory if it exists."""
+        output_path = self._get_output_path(suffix)
+        if output_path.exists():
+            dest_path = self._get_temp_path(suffix)
+            shutil.copy2(output_path, dest_path)
+            return True
+        return False
+
     def _execute_pipeline(self, main_funscript: Funscript, progress_callback: Optional[Callable]):
         """Execute the complete processing pipeline."""
 
         # Phase 1: Auxiliary File Preparation (10-20%)
-        self._update_progress(progress_callback, 10, "Copying auxiliary files...")
+        self._update_progress(progress_callback, 10, "Preparing auxiliary files...")
 
-        # Copy existing auxiliary files
+        # Check if we should overwrite existing output files
+        overwrite_existing = self.params.get('options', {}).get('overwrite_existing_files', False)
+
+        # Always reuse ramp and speed if they exist (they are intentionally provided)
+        # These are only generated in temp folder if not present
         ramp_exists = self._copy_if_exists("ramp", "ramp")
         speed_exists = self._copy_if_exists("speed", "speed")
-        alpha_exists = self._copy_if_exists("alpha", "alpha")
-        beta_exists = self._copy_if_exists("beta", "beta")
+
+        # Copy alpha/beta files based on overwrite setting
+        # When overwrite=False: reuse existing alpha/beta from output directory if available
+        # When overwrite=True: regenerate alpha/beta even if they exist
+        alpha_exists = False if overwrite_existing else self._copy_output_to_temp_if_exists("alpha")
+        beta_exists = False if overwrite_existing else self._copy_output_to_temp_if_exists("beta")
 
         # Generate speed early if needed for alpha/beta generation
         speed_funscript = None
-        if (not alpha_exists or not beta_exists) and self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
+        if not alpha_exists or not beta_exists:
             # Need speed funscript for alpha/beta generation
             if not speed_exists:
                 self._update_progress(progress_callback, 12, "Generating speed file for alpha/beta...")
@@ -180,8 +202,8 @@ class RestimProcessor:
             else:
                 speed_funscript = Funscript.from_file(self._get_temp_path("speed"))
 
-        # Generate alpha and beta files if they don't exist and auto-generation is enabled
-        if (not alpha_exists or not beta_exists) and self.params.get('alpha_beta_generation', {}).get('auto_generate', True):
+        # Always generate alpha and beta files (they are mandatory)
+        if not alpha_exists or not beta_exists:
             self._update_progress(progress_callback, 15, "Generating alpha and beta files from main funscript...")
             alpha_beta_config = self.params.get('alpha_beta_generation', {})
             points_per_second = alpha_beta_config.get('points_per_second', 25)
@@ -201,15 +223,13 @@ class RestimProcessor:
                 beta_funscript.save_to_path(self._get_temp_path("beta"))
                 beta_exists = True
 
-        # Generate prostate alpha and beta files if auto-generation is enabled AND prostate generation is enabled
-        alpha_prostate_exists = False
-        beta_prostate_exists = False
-
-        if (self.params.get('alpha_beta_generation', {}).get('auto_generate', True) and
-            self.params.get('prostate_generation', {}).get('generate_prostate_files', True)):
-            # Check if prostate files already exist
-            alpha_prostate_exists = self._copy_if_exists("alpha-prostate", "alpha-prostate")
-            beta_prostate_exists = self._copy_if_exists("beta-prostate", "beta-prostate")
+        # Generate prostate alpha and beta files if prostate generation is enabled
+        if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
+            # Copy prostate files based on overwrite setting from output directory
+            # When overwrite=False: reuse existing prostate files if available
+            # When overwrite=True: regenerate prostate files even if they exist
+            alpha_prostate_exists = False if overwrite_existing else self._copy_output_to_temp_if_exists("alpha-prostate")
+            beta_prostate_exists = False if overwrite_existing else self._copy_output_to_temp_if_exists("beta-prostate")
 
             if not alpha_prostate_exists or not beta_prostate_exists:
                 self._update_progress(progress_callback, 17, "Generating prostate alpha and beta files from main funscript...")
@@ -226,11 +246,8 @@ class RestimProcessor:
 
                 if not alpha_prostate_exists:
                     alpha_prostate_funscript.save_to_path(self._get_temp_path("alpha-prostate"))
-                    alpha_prostate_exists = True
-
                 if not beta_prostate_exists:
                     beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
-                    beta_prostate_exists = True
 
         # Motion Axis Generation (18-19%)
         if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
@@ -308,22 +325,27 @@ class RestimProcessor:
         # Phase 3: Frequency Processing (40-50%)
         self._update_progress(progress_callback, 40, "Processing frequency data...")
 
-        # Generate pulse frequency using original funscript instead of alpha
-        # Map original funscript to frequency range
-        main_freq = map_funscript(
-            main_funscript,
-            self.params['frequency']['pulse_freq_min'],
-            self.params['frequency']['pulse_freq_max']
-        )
-        main_freq.save_to_path(self._get_temp_path("pulse_frequency-mainbased"))
+        # Check if pulse_frequency already exists
+        if not overwrite_existing and self._output_file_exists("pulse_frequency"):
+            self._update_progress(progress_callback, 42, "Reusing existing pulse_frequency...")
+            pulse_frequency = Funscript.from_file(self._get_output_path("pulse_frequency"))
+        else:
+            # Generate pulse frequency using original funscript instead of alpha
+            # Map original funscript to frequency range
+            main_freq = map_funscript(
+                main_funscript,
+                self.params['frequency']['pulse_freq_min'],
+                self.params['frequency']['pulse_freq_max']
+            )
+            main_freq.save_to_path(self._get_temp_path("pulse_frequency-mainbased"))
 
-        # Combine with speed
-        pulse_frequency = combine_funscripts(
-            speed_funscript,
-            main_freq,
-            self.params['frequency']['pulse_frequency_combine_ratio']
-        )
-        pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
+            # Combine with speed
+            pulse_frequency = combine_funscripts(
+                speed_funscript,
+                main_freq,
+                self.params['frequency']['pulse_frequency_combine_ratio']
+            )
+            pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
 
         # Generate alpha-prostate output using inverted main funscript (only if enabled)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
@@ -332,84 +354,110 @@ class RestimProcessor:
         else:
             main_inverted = invert_funscript(main_funscript)
 
-        # Primary frequency generation
-        frequency = combine_funscripts(
-            ramp_funscript,
-            speed_funscript,
-            self.params['frequency']['frequency_ramp_combine_ratio']
-        )
-        frequency.save_to_path(self._get_output_path("frequency"))
+        # Check if frequency already exists
+        if not overwrite_existing and self._output_file_exists("frequency"):
+            self._update_progress(progress_callback, 45, "Reusing existing frequency...")
+            frequency = Funscript.from_file(self._get_output_path("frequency"))
+        else:
+            # Primary frequency generation
+            frequency = combine_funscripts(
+                ramp_funscript,
+                speed_funscript,
+                self.params['frequency']['frequency_ramp_combine_ratio']
+            )
+            frequency.save_to_path(self._get_output_path("frequency"))
 
         # Phase 4: Volume Processing (50-70%)
         self._update_progress(progress_callback, 50, "Processing volume data...")
 
-        # Standard volume
-        volume = combine_funscripts(
-            ramp_funscript,
-            speed_funscript,
-            self.params['volume']['volume_ramp_combine_ratio'],
-            self.params['general']['rest_level']
-        )
+        # Check if volume already exists
+        if not overwrite_existing and self._output_file_exists("volume"):
+            self._update_progress(progress_callback, 52, "Reusing existing volume...")
+            volume = Funscript.from_file(self._get_output_path("volume"))
+        else:
+            # Standard volume
+            volume = combine_funscripts(
+                ramp_funscript,
+                speed_funscript,
+                self.params['volume']['volume_ramp_combine_ratio'],
+                self.params['general']['rest_level']
+            )
 
-        # Volume normalization
-        if self.params['options']['normalize_volume']:
-            volume_not_normalized = volume.copy()
-            volume_not_normalized.save_to_path(self._get_temp_path("volume_not_normalized"))
-            volume = normalize_funscript(volume)
+            # Volume normalization
+            if self.params['options']['normalize_volume']:
+                volume_not_normalized = volume.copy()
+                volume_not_normalized.save_to_path(self._get_temp_path("volume_not_normalized"))
+                volume = normalize_funscript(volume)
 
-        volume.save_to_path(self._get_output_path("volume"))
+            volume.save_to_path(self._get_output_path("volume"))
 
         # Prostate volume (only if enabled)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
-            prostate_volume = combine_funscripts(
-                ramp_funscript,
-                speed_funscript,
-                self.params['volume']['volume_ramp_combine_ratio'] * self.params['volume']['prostate_volume_multiplier'],
-                self.params['volume']['prostate_rest_level']
-            )
-            prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
+            # Check if volume-prostate already exists
+            if not overwrite_existing and self._output_file_exists("volume-prostate"):
+                self._update_progress(progress_callback, 55, "Reusing existing volume-prostate...")
+            else:
+                prostate_volume = combine_funscripts(
+                    ramp_funscript,
+                    speed_funscript,
+                    self.params['volume']['volume_ramp_combine_ratio'] * self.params['volume']['prostate_volume_multiplier'],
+                    self.params['volume']['prostate_rest_level']
+                )
+                prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
 
-        # Stereostim volume
-        stereostim_volume = map_funscript(
-            volume,
-            self.params['volume']['stereostim_volume_min'],
-            self.params['volume']['stereostim_volume_max']
-        )
-        stereostim_volume.save_to_path(self._get_output_path("volume-stereostim"))
+        # Check if volume-stereostim already exists
+        if not overwrite_existing and self._output_file_exists("volume-stereostim"):
+            self._update_progress(progress_callback, 60, "Reusing existing volume-stereostim...")
+        else:
+            # Stereostim volume
+            stereostim_volume = map_funscript(
+                volume,
+                self.params['volume']['stereostim_volume_min'],
+                self.params['volume']['stereostim_volume_max']
+            )
+            stereostim_volume.save_to_path(self._get_output_path("volume-stereostim"))
 
         # Phase 5: Pulse Parameters (70-90%)
         self._update_progress(progress_callback, 70, "Processing pulse parameters...")
 
-        # Generate pulse rise time using ramp_inverted and speed_inverted directly
-        # Simplified approach without beta dependency
-        pulse_rise_time = combine_funscripts(
-            ramp_inverted,
-            speed_inverted,
-            self.params['pulse']['pulse_rise_combine_ratio']
-        )
-        pulse_rise_time = map_funscript(
-            pulse_rise_time,
-            self.params['pulse']['pulse_rise_min'],
-            self.params['pulse']['pulse_rise_max']
-        )
-        pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
+        # Check if pulse_rise_time already exists
+        if not overwrite_existing and self._output_file_exists("pulse_rise_time"):
+            self._update_progress(progress_callback, 72, "Reusing existing pulse_rise_time...")
+        else:
+            # Generate pulse rise time using ramp_inverted and speed_inverted directly
+            # Simplified approach without beta dependency
+            pulse_rise_time = combine_funscripts(
+                ramp_inverted,
+                speed_inverted,
+                self.params['pulse']['pulse_rise_combine_ratio']
+            )
+            pulse_rise_time = map_funscript(
+                pulse_rise_time,
+                self.params['pulse']['pulse_rise_min'],
+                self.params['pulse']['pulse_rise_max']
+            )
+            pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
 
-        # Generate pulse width using inverted original funscript
-        # Reuse main_inverted from alpha-prostate generation above
-        pulse_width_main = limit_funscript(
-            main_inverted,
-            self.params['pulse']['pulse_width_min'],
-            self.params['pulse']['pulse_width_max']
-        )
-        pulse_width_main.save_to_path(self._get_temp_path("pulse_width-main"))
+        # Check if pulse_width already exists
+        if not overwrite_existing and self._output_file_exists("pulse_width"):
+            self._update_progress(progress_callback, 75, "Reusing existing pulse_width...")
+        else:
+            # Generate pulse width using inverted original funscript
+            # Reuse main_inverted from alpha-prostate generation above
+            pulse_width_main = limit_funscript(
+                main_inverted,
+                self.params['pulse']['pulse_width_min'],
+                self.params['pulse']['pulse_width_max']
+            )
+            pulse_width_main.save_to_path(self._get_temp_path("pulse_width-main"))
 
-        # Combine with speed for final pulse width
-        pulse_width = combine_funscripts(
-            speed_funscript,
-            pulse_width_main,
-            self.params['pulse']['pulse_width_combine_ratio']
-        )
-        pulse_width.save_to_path(self._get_output_path("pulse_width"))
+            # Combine with speed for final pulse width
+            pulse_width = combine_funscripts(
+                speed_funscript,
+                pulse_width_main,
+                self.params['pulse']['pulse_width_combine_ratio']
+            )
+            pulse_width.save_to_path(self._get_output_path("pulse_width"))
 
         # Phase 6: Copy remaining outputs (90-95%)
         self._update_progress(progress_callback, 90, "Finalizing outputs...")
@@ -439,13 +487,22 @@ class RestimProcessor:
 
         # Generate optional inverted files if enabled
         if self.params['advanced']['enable_pulse_frequency_inversion']:
-            pulse_freq_inverted = invert_funscript(pulse_frequency)
-            pulse_freq_inverted.save_to_path(self._get_output_path("pulse_frequency_inverted"))
+            if not overwrite_existing and self._output_file_exists("pulse_frequency_inverted"):
+                self._update_progress(progress_callback, 92, "Reusing existing pulse_frequency_inverted...")
+            else:
+                pulse_freq_inverted = invert_funscript(pulse_frequency)
+                pulse_freq_inverted.save_to_path(self._get_output_path("pulse_frequency_inverted"))
 
         if self.params['advanced']['enable_volume_inversion']:
-            volume_inverted = invert_funscript(volume)
-            volume_inverted.save_to_path(self._get_output_path("volume_inverted"))
+            if not overwrite_existing and self._output_file_exists("volume_inverted"):
+                self._update_progress(progress_callback, 93, "Reusing existing volume_inverted...")
+            else:
+                volume_inverted = invert_funscript(volume)
+                volume_inverted.save_to_path(self._get_output_path("volume_inverted"))
 
         if self.params['advanced']['enable_frequency_inversion']:
-            freq_inverted = invert_funscript(frequency)
-            freq_inverted.save_to_path(self._get_output_path("frequency_inverted"))
+            if not overwrite_existing and self._output_file_exists("frequency_inverted"):
+                self._update_progress(progress_callback, 94, "Reusing existing frequency_inverted...")
+            else:
+                freq_inverted = invert_funscript(frequency)
+                freq_inverted.save_to_path(self._get_output_path("frequency_inverted"))

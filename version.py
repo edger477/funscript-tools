@@ -11,9 +11,15 @@ Version information for Restim Funscript Processor
 2.0.0 - major custom events upgrade: visual timeline editor with event library, parameter editing UI with real-time preview,
         file management modes (Local/Central with backups), additional waveforms (square/triangle/sawtooth with duty cycle),
         formalized event groups, max_level_offset API for intuitive peak control
+2.0.1 - bugfixes:
+        1. Direction change probability saved/loaded correctly
+        2. Convert to 2D button working in Motion Axis tab
+        3. Auto-generate option replaced with overwrite option
+        4. Smart overwrite behavior implemented
+        5. Prostate generation checkbox working correctly
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
