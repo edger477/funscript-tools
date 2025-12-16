@@ -216,17 +216,17 @@ class MainWindow:
 
                 # Generate speed funscript (required for radius scaling)
                 from processing.speed_processing import convert_to_speed
-                from config import DEFAULT_CONFIG
                 speed_funscript = convert_to_speed(
                     main_funscript,
-                    DEFAULT_CONFIG['general']['speed_window_size'],
-                    DEFAULT_CONFIG['speed']['interpolation_interval']
+                    self.current_config['general']['speed_window_size'],
+                    self.current_config['speed']['interpolation_interval']
                 )
 
                 # Generate alpha and beta files
                 alpha_funscript, beta_funscript = generate_alpha_beta_from_main(
                     main_funscript, speed_funscript, config['points_per_second'], config['algorithm'],
-                    config['min_distance_from_center'], config['speed_threshold_percent']
+                    config['min_distance_from_center'], config['speed_threshold_percent'],
+                    config['direction_change_probability']
                 )
 
                 # Save files
