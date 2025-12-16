@@ -16,10 +16,10 @@ DEFAULT_CONFIG = {
     },
     "alpha_beta_generation": {
         "points_per_second": 25,
-        "auto_generate": True,
         "algorithm": "top-right-left",
         "min_distance_from_center": 0.1,
-        "speed_threshold_percent": 50
+        "speed_threshold_percent": 50,
+        "direction_change_probability": 0.1
     },
     "prostate_generation": {
         "generate_prostate_files": True,
@@ -63,7 +63,8 @@ DEFAULT_CONFIG = {
     },
     "options": {
         "normalize_volume": True,
-        "delete_intermediary_files": True
+        "delete_intermediary_files": True,
+        "overwrite_existing_files": False
     },
     "positional_axes": {
         "mode": "motion_axis",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
@@ -115,7 +116,8 @@ PARAMETER_RANGES = {
     "alpha_beta_generation": {
         "points_per_second": (1, 100),
         "min_distance_from_center": (0.1, 0.9),
-        "speed_threshold_percent": (0, 100)
+        "speed_threshold_percent": (0, 100),
+        "direction_change_probability": (0.0, 1.0)
     },
     "prostate_generation": {
         "points_per_second": (1, 100),
