@@ -183,7 +183,7 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
     return sorted(validated_events, key=lambda x: x['time']) # Sort by time
 
 
-def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, apply_to_linked: bool = True, config: dict = None) -> Tuple[str, List[str], Path]:
+def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, config: dict = None) -> Tuple[str, List[str], Path]:
     """
     Main entry point for processing custom events.
     Orchestrates finding files, backing up, parsing, and applying events using FunscriptEditor.
@@ -193,7 +193,6 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         perform_backup (bool): Whether to create a backup of original funscripts.
         definitions_path (Path): Path to the event_definitions.yml file.
         volume_headroom (int): Amount of headroom to create above highest volume point (0-20, default 10).
-        apply_to_linked (bool): Whether to apply operations on main axes to linked axes (default True).
         config (dict): Optional configuration dict with file_management settings.
 
     Returns:
@@ -206,7 +205,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
 
     # 2. Find target funscripts (using config to determine search location)
     target_funscript_paths_by_axis = _find_target_funscripts(event_file_path, config)
-    
+
     # Get base filename stem for the FunscriptEditor
     first_path = next(iter(target_funscript_paths_by_axis.values()))
     filename_stem = first_path.stem.replace(f".{first_path.stem.split('.')[-1]}", "") # Remove axis part
@@ -217,7 +216,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         for axis_name, path in target_funscript_paths_by_axis.items()
     }
 
-    editor = FunscriptEditor(funscripts_for_editor, filename_stem, normalization_config, apply_to_linked)
+    editor = FunscriptEditor(funscripts_for_editor, filename_stem, normalization_config)
 
     # 4. Apply headroom adjustment to volume funscript if present
     if 'volume' in funscripts_for_editor and volume_headroom > 0:

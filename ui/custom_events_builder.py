@@ -837,7 +837,6 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self.event_file_var = tk.StringVar()
         self.backup_var = tk.BooleanVar(value=True)
         self.headroom_var = tk.IntVar(value=10)
-        self.apply_to_linked_var = tk.BooleanVar(value=True)
 
         self.setup_ui()
 
@@ -905,9 +904,6 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
         ttk.Checkbutton(options_frame, text="Backup files",
                        variable=self.backup_var).pack(side=tk.LEFT, padx=5)
-
-        ttk.Checkbutton(options_frame, text="Apply to linked axes",
-                       variable=self.apply_to_linked_var).pack(side=tk.LEFT, padx=5)
 
         ttk.Label(options_frame, text="Headroom:").pack(side=tk.LEFT, padx=(10, 0))
         ttk.Spinbox(options_frame, from_=0, to=20, textvariable=self.headroom_var,
@@ -1172,7 +1168,6 @@ class CustomEventsBuilderDialog(tk.Toplevel):
                 self.backup_var.get(),
                 EVENT_DEFINITIONS_PATH,
                 self.headroom_var.get(),
-                self.apply_to_linked_var.get(),
                 self.config
             )
 
