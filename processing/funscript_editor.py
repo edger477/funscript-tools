@@ -234,6 +234,12 @@ class FunscriptEditor:
             print(f"WARNING: Waveform '{waveform}' not supported. Supported: {supported_waveforms}. Skipping modulation.")
             return
 
+        # Validate frequency
+        if frequency > 30:
+            print(f"WARNING: Modulation frequency {frequency} Hz exceeds recommended maximum of 30 Hz.")
+            print(f"         High frequencies may not be accurately captured due to funscript data point spacing.")
+            print(f"         Consider using a lower frequency (3-30 Hz) for better results.")
+
         # Apply operation to all target axes
         for target_axis in target_axes:
             self._apply_modulation_single(target_axis, start_time_ms, duration_ms,
