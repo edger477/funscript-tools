@@ -7,6 +7,7 @@ from typing import Dict, Any
 DEFAULT_CONFIG = {
     "general": {
         "rest_level": 0.4,
+        "ramp_up_duration_after_rest": 1.0,
         "speed_window_size": 5,
         "accel_window_size": 3
     },
@@ -107,6 +108,7 @@ DEFAULT_CONFIG = {
 PARAMETER_RANGES = {
     "general": {
         "rest_level": (0.0, 1.0),
+        "ramp_up_duration_after_rest": (0.0, 10.0),
         "speed_window_size": (1, 30),
         "accel_window_size": (1, 10)
     },

@@ -412,7 +412,8 @@ class RestimProcessor:
                 ramp_funscript,
                 speed_funscript,
                 self.params['volume']['volume_ramp_combine_ratio'],
-                self.params['general']['rest_level']
+                self.params['general']['rest_level'],
+                self.params['general']['ramp_up_duration_after_rest']
             )
 
             # Volume normalization
@@ -433,7 +434,8 @@ class RestimProcessor:
                     ramp_funscript,
                     speed_funscript,
                     self.params['volume']['volume_ramp_combine_ratio'] * self.params['volume']['prostate_volume_multiplier'],
-                    self.params['volume']['prostate_rest_level']
+                    self.params['volume']['prostate_rest_level'],
+                    self.params['general']['ramp_up_duration_after_rest']
                 )
                 prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
 

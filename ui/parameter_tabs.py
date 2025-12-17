@@ -177,6 +177,16 @@ class ParameterTabs(ttk.Notebook):
 
         row += 1
 
+        # Ramp Up Duration After Rest
+        ttk.Label(frame, text="Ramp Up Duration After Rest:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.DoubleVar(value=self.config['general']['ramp_up_duration_after_rest'])
+        self.parameter_vars['general']['ramp_up_duration_after_rest'] = var
+        entry = ttk.Entry(frame, textvariable=var, width=10)
+        entry.grid(row=row, column=1, padx=5, pady=5)
+        ttk.Label(frame, text="(0.0-10.0) Seconds to ramp from rest level back to normal (0 = instant)").grid(row=row, column=2, sticky=tk.W, padx=5)
+
+        row += 1
+
         # Speed Window Size
         ttk.Label(frame, text="Speed Window (sec):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
         var = tk.IntVar(value=self.config['general']['speed_window_size'])

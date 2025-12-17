@@ -1,6 +1,7 @@
 {
   "general": {
     "rest_level": 0.4,
+    "ramp_up_duration_after_rest": 1.0,
     "speed_window_size": 2,
     "accel_window_size": 3
   },
@@ -54,7 +55,7 @@
     "pack_output_to_zip": false
   },
   "file_management": {
-    "mode": "local",
+    "mode": "central",
     "central_folder_path": "C:/temp/restim-scripts",
     "create_backups": true
   },
