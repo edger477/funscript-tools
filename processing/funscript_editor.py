@@ -18,7 +18,7 @@ class FunscriptEditor:
     A class to perform complex, layered editing operations on a set of funscripts.
     All time-based parameters (duration, start_time, ramp_in, ramp_out) are expected in milliseconds.
     """
-    def __init__(self, funscripts_by_axis: Dict[str, Funscript], filename_stem: str, normalization_config: Dict[str, Dict[str, float]] = None, apply_to_linked: bool = True):
+    def __init__(self, funscripts_by_axis: Dict[str, Funscript], filename_stem: str, normalization_config: Dict[str, Dict[str, float]] = None):
         """
         Initializes the editor with a dictionary of funscript objects mapped by their axis name.
         e.g., {'volume': FunscriptObject, 'pulse_frequency': FunscriptObject}
@@ -27,12 +27,10 @@ class FunscriptEditor:
             funscripts_by_axis: Dictionary mapping axis names to Funscript objects
             filename_stem: Base filename for saving
             normalization_config: Dictionary with normalization max values per axis
-            apply_to_linked: Whether to apply operations to linked axes (default True)
         """
         self.funscripts = funscripts_by_axis
         self.filename_stem = filename_stem
         self.history = [] # For potential undo/redo functionality later
-        self.apply_to_linked = apply_to_linked
 
         # Set normalization config with defaults if not provided
         self.normalization_config = normalization_config or {
@@ -42,31 +40,27 @@ class FunscriptEditor:
             'volume': {'max': 1.0}
         }
 
-        # Define linked axes - operations on the primary axis also apply to linked axes
-        self.linked_axes = {
-            'volume': ['volume-prostate'],
-            'alpha': ['alpha-prostate'],
-            'beta': ['beta-prostate']
-        }
-
     def _get_target_axes(self, axis: str) -> List[str]:
         """
-        Returns a list of all axes that should be affected by an operation on the given axis.
-        Includes the primary axis and any linked axes that exist in the loaded funscripts.
+        Returns a list of all axes that should be affected by an operation.
+        Supports comma-separated axis names for explicit multi-axis targeting.
 
         Args:
-            axis: The primary axis name
+            axis: The axis name(s) - can be a single axis or comma-separated list (e.g., "volume,volume-prostate")
 
         Returns:
             List of axis names to apply the operation to
         """
-        target_axes = [axis] if axis in self.funscripts else []
+        # Parse comma-separated axis names
+        axis_names = [name.strip() for name in axis.split(',')]
 
-        # Add linked axes if they exist and apply_to_linked is enabled
-        if self.apply_to_linked and axis in self.linked_axes:
-            for linked_axis in self.linked_axes[axis]:
-                if linked_axis in self.funscripts:
-                    target_axes.append(linked_axis)
+        # Filter to only existing funscripts
+        target_axes = [name for name in axis_names if name in self.funscripts]
+
+        # Warn about any non-existent axes
+        for name in axis_names:
+            if name not in self.funscripts:
+                print(f"WARNING: Axis '{name}' not found in loaded funscripts. Skipping.")
 
         return target_axes
 
@@ -110,10 +104,11 @@ class FunscriptEditor:
                               ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                               mode: str = 'additive'):
         """
-        Applies a linear change to the specified axis and any linked axes.
+        Applies a linear change to the specified axis or axes.
 
         Args:
-            axis (str): The funscript axis to target (e.g., 'volume', 'pulse_frequency').
+            axis (str): The funscript axis to target. Can be a single axis (e.g., 'volume')
+                       or comma-separated list for multiple axes (e.g., 'volume,volume-prostate').
             start_time_ms (int): The timestamp to start the effect, in milliseconds.
             duration_ms (int): The duration of the effect, in milliseconds.
             start_value (float): The value of the effect at its beginning (0.0-1.0).
@@ -122,11 +117,11 @@ class FunscriptEditor:
             ramp_out_ms (int): Duration in milliseconds for a linear fade-out of the effect's intensity.
             mode (str): How to apply the effect: 'additive' or 'overwrite'.
         """
-        # Get all target axes (primary + linked)
+        # Get all target axes
         target_axes = self._get_target_axes(axis)
 
         if not target_axes:
-            print(f"WARNING: Axis '{axis}' not found. Skipping linear change operation.")
+            print(f"WARNING: No valid axes found in '{axis}'. Skipping linear change operation.")
             return
 
         # Apply operation to all target axes
@@ -198,10 +193,11 @@ class FunscriptEditor:
                          ramp_in_ms: int = 0, ramp_out_ms: int = 0,
                          mode: str = 'additive', duty_cycle: float = 0.5):
         """
-        Applies a modulation (e.g., sine wave) to the specified axis and any linked axes.
+        Applies a modulation (e.g., sine wave) to the specified axis or axes.
 
         Args:
-            axis (str): The funscript axis to target.
+            axis (str): The funscript axis to target. Can be a single axis (e.g., 'volume')
+                       or comma-separated list for multiple axes (e.g., 'volume,volume-prostate').
             start_time_ms (int): The timestamp to start the effect, in milliseconds.
             duration_ms (int): The duration of the effect, in milliseconds.
             waveform (str): The shape of the wave. Supports 'sin', 'square', 'triangle', 'sawtooth'.
@@ -221,11 +217,11 @@ class FunscriptEditor:
             duty_cycle (float): For square wave, the percentage of time at max value (0.01-0.99).
                                Default 0.5 (50% duty cycle). Ignored for other waveforms.
         """
-        # Get all target axes (primary + linked)
+        # Get all target axes
         target_axes = self._get_target_axes(axis)
 
         if not target_axes:
-            print(f"WARNING: Axis '{axis}' not found. Skipping modulation operation.")
+            print(f"WARNING: No valid axes found in '{axis}'. Skipping modulation operation.")
             return
 
         # Validate waveform
@@ -233,6 +229,12 @@ class FunscriptEditor:
         if waveform.lower() not in supported_waveforms:
             print(f"WARNING: Waveform '{waveform}' not supported. Supported: {supported_waveforms}. Skipping modulation.")
             return
+
+        # Validate frequency
+        if frequency > 30:
+            print(f"WARNING: Modulation frequency {frequency} Hz exceeds recommended maximum of 30 Hz.")
+            print(f"         High frequencies may not be accurately captured due to funscript data point spacing.")
+            print(f"         Consider using a lower frequency (3-30 Hz) for better results.")
 
         # Apply operation to all target axes
         for target_axis in target_axes:

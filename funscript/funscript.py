@@ -24,9 +24,10 @@ def sha1_hash(path):
 
 
 class Funscript:
-    def __init__(self, x, y):
+    def __init__(self, x, y, metadata=None):
         self.x = np.array(x)
         self.y = np.array(y)
+        self.metadata = metadata if metadata is not None else {}
 
     @staticmethod
     def from_file(filename_or_path):
@@ -52,17 +53,29 @@ class Funscript:
                 x.append(at)
                 y.append(pos)
 
+            # Extract metadata if present
+            metadata = {}
+            for key in ['title', 'creator', 'description', 'url', 'tags', 'duration', 'metadata']:
+                if key in js:
+                    metadata[key] = js[key]
+
         end = time.time()
         logger.info(f'imported {path} in {end-start} seconds')
-        funscript = Funscript(x, y)
+        funscript = Funscript(x, y, metadata)
         funscript_cache[hash] = funscript
         return funscript
 
     def save_to_path(self, path):
         actions = [{"at": int(at * 1000), "pos": int(pos * 100)} for at, pos in zip(self.x, self.y)]
         js = {"actions": actions}
+
+        # Add metadata if present
+        if self.metadata:
+            for key, value in self.metadata.items():
+                js[key] = value
+
         with open(path, 'w') as f:
-            json.dump(js, f)
+            json.dump(js, f, indent=2)
 
     def copy(self):
-        return Funscript(self.x.copy(), self.y.copy())
+        return Funscript(self.x.copy(), self.y.copy(), self.metadata.copy() if self.metadata else {})

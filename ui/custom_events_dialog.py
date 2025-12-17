@@ -34,7 +34,6 @@ class CustomEventsDialog(tk.Toplevel):
         self.event_file_var = tk.StringVar()
         self.backup_var = tk.BooleanVar(value=True)
         self.headroom_var = tk.IntVar(value=10)  # Default 10 units of headroom
-        self.apply_to_linked_var = tk.BooleanVar(value=True)  # Default enabled for backward compatibility
         self.validated_user_events = []
         self.event_definitions = {} # To store loaded event definitions
         self.backup_path = None  # Store the backup path after processing
@@ -105,9 +104,8 @@ class CustomEventsDialog(tk.Toplevel):
             event_file = self.event_file_var.get()
             do_backup = self.backup_var.get()
             headroom = self.headroom_var.get()
-            apply_to_linked = self.apply_to_linked_var.get()
 
-            success_message, _, backup_path = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom, apply_to_linked, self.config)
+            success_message, _, backup_path = process_events(event_file, do_backup, EVENT_DEFINITIONS_PATH, headroom, self.config)
 
             self.after(0, self.on_processing_success, success_message, backup_path)
 
@@ -231,10 +229,6 @@ class CustomEventsDialog(tk.Toplevel):
         # Backup option
         self.backup_checkbox = ttk.Checkbutton(options_frame, text="Backup existing funscripts before applying changes", variable=self.backup_var)
         self.backup_checkbox.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
-
-        # Apply to linked axes option
-        self.linked_checkbox = ttk.Checkbutton(options_frame, text="Apply main axis events to linked axes (e.g., volume → volume-prostate)", variable=self.apply_to_linked_var)
-        self.linked_checkbox.grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
 
         # Headroom option
         headroom_frame = ttk.Frame(options_frame)

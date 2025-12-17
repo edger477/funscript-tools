@@ -6,15 +6,16 @@ Every operation is applied to a specific `axis` (e.g., `volume`, `pulse_frequenc
 
 ---
 
-## Linked Axes
+## Multi-Axis Targeting
 
-Some axes are automatically linked, meaning operations applied to a primary axis will also be applied to its linked axes (if those files exist):
+Operations can target multiple axes simultaneously by using comma-separated axis names. This provides explicit control over which funscript files are affected:
 
-- **`volume`** → also applies to `volume-prostate`
-- **`alpha`** → also applies to `alpha-prostate`
-- **`beta`** → also applies to `beta-prostate`
+**Examples:**
+- **Single axis**: `axis: volume` - affects only volume.funscript
+- **Multiple axes**: `axis: volume,volume-prostate` - affects both volume.funscript and volume-prostate.funscript
+- **Multiple axes**: `axis: alpha,alpha-prostate,beta,beta-prostate` - affects all four files
 
-This means if you apply a modulation to the `volume` axis and a `video.volume-prostate.funscript` file exists, both files will be modified identically.
+This means if you want to apply a modulation to both normal and prostate volume files, use `axis: volume,volume-prostate`.
 
 ---
 
@@ -68,7 +69,7 @@ This is the most powerful operation for creating dynamic effects. It adds or ove
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `axis` | `string`| **(Required)** | The funscript axis to target (e.g., `volume`, `pulse_frequency`, `alpha`, `beta`). Operations also apply to linked axes automatically. |
+| `axis` | `string`| **(Required)** | The funscript axis to target (e.g., `volume`, `pulse_frequency`, `alpha`, `beta`). Can specify multiple axes using comma-separated names (e.g., `volume,volume-prostate`). |
 | `duration_ms`| `int` | **(Required)** | The duration of the effect in milliseconds. |
 | `waveform`| `string` | **(Required)** | The shape of the wave. Supported waveforms: <br>• `sin` - Smooth sinusoidal oscillation <br>• `square` - Square wave (use with `duty_cycle`) <br>• `triangle` - Linear ramp up and down <br>• `sawtooth` - Linear ramp up with instant drop |
 | `frequency` | `float` | **(Required)** | The frequency of the wave in Hz. **Avoid multiples of 10 Hz** (10, 20, 30...) to prevent sampling aliasing issues. Use values like 9, 11, 15, 21, 23, 65 Hz instead. |
@@ -118,7 +119,7 @@ This operation is for simple, non-oscillating changes, like setting a value, app
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `axis` | `string`| **(Required)** | The funscript axis to target. Operations also apply to linked axes automatically. |
+| `axis` | `string`| **(Required)** | The funscript axis to target. Can specify multiple axes using comma-separated names (e.g., `volume,volume-prostate`). |
 | `duration_ms`| `int` | **(Required)** | The duration of the effect in milliseconds. |
 | `start_value`| `float`| **(Required)** | The value of the effect at its beginning, in axis-specific units (will be normalized). |
 | `end_value`| `float` | `start_value` | The value of the effect at its end, in axis-specific units (will be normalized). If different from `start_value`, creates a linear ramp between the two values. |
@@ -249,9 +250,9 @@ intense_edge:
         ramp_out_ms: $ramp_ms
         mode: additive
 
-    # 4. Modulate alpha axis (also affects alpha-prostate if it exists)
+    # 4. Modulate both alpha axes
     - operation: apply_modulation
-      axis: alpha
+      axis: alpha,alpha-prostate
       start_offset: 0
       params:
         waveform: sin
@@ -268,7 +269,7 @@ intense_edge:
 1. Sets pulse frequency to 120 Hz (high intensity) with smooth ramp in/out
 2. Adds 5% volume boost throughout the effect
 3. Overlays an 11 Hz buzzing sensation on top
-4. Modulates the alpha axis with a 9 Hz wave centered at 0.55 (affects both alpha and alpha-prostate files)
+4. Modulates both alpha and alpha-prostate axes with a 9 Hz wave centered at 0.55
 
 ---
 
@@ -295,7 +296,7 @@ intense_edge:
 - Provide sensible defaults that create a good effect without user customization
 
 ### Multi-Axis Effects
-- Operations on `volume`, `alpha`, `beta` automatically affect their `-prostate` variants
+- Use comma-separated axis names to target multiple axes explicitly (e.g., `axis: volume,volume-prostate`)
 - Synchronize operations across axes using the same `start_offset` values
 - Use different frequencies on different axes to create complex, layered sensations
 
@@ -322,6 +323,6 @@ intense_edge:
 **Cause**: Missing or insufficient ramp envelopes
 **Solution**: Add or increase `ramp_in_ms` and `ramp_out_ms` values
 
-### Linked axis not affected
-**Cause**: Linked axis file doesn't exist
-**Solution**: Ensure files like `video.volume-prostate.funscript`, `video.alpha-prostate.funscript` exist alongside the primary axis files
+### Multiple axes not affected
+**Cause**: Specified axis files don't exist
+**Solution**: Ensure all comma-separated axis files exist (e.g., both `video.volume.funscript` and `video.volume-prostate.funscript` must exist to use `axis: volume,volume-prostate`)
