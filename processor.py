@@ -48,8 +48,13 @@ class RestimProcessor:
 
             # Create backup if in central mode with backups enabled
             file_mgmt = self.params.get('file_management', {})
-            if file_mgmt.get('mode') == 'central' and file_mgmt.get('create_backups', False):
-                self._create_backup(progress_callback)
+            if file_mgmt.get('mode') == 'central':
+                if file_mgmt.get('create_backups', False):
+                    self._create_backup(progress_callback)
+                else:
+                    # Delete existing output files if backups are disabled
+                    # This ensures fresh generation instead of reusing old files
+                    self._delete_existing_output_files(progress_callback)
 
             # Load main funscript
             self._update_progress(progress_callback, 5, "Loading input file...")
@@ -99,6 +104,29 @@ class RestimProcessor:
         if self.temp_dir and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
+    def _delete_existing_output_files(self, progress_callback: Optional[Callable]):
+        """Delete existing restim files in central mode (when backups are disabled)."""
+        try:
+            # Collect all existing restim files for this input
+            existing_files = []
+            for file_path in self.output_dir.glob(f"{self.filename_only}.*.funscript"):
+                existing_files.append(file_path)
+
+            if not existing_files:
+                return  # No existing files to delete
+
+            self._update_progress(progress_callback, 3, f"Cleaning {len(existing_files)} existing output files...")
+
+            # Delete the existing files
+            for file_path in existing_files:
+                file_path.unlink()
+
+            self._update_progress(progress_callback, 4, f"Deleted {len(existing_files)} old files")
+
+        except Exception as e:
+            # Log the error but don't fail the entire process
+            self._update_progress(progress_callback, -1, f"Warning: Failed to delete existing files: {str(e)}")
+
     def _create_backup(self, progress_callback: Optional[Callable]):
         """Create backup zip of existing restim files in central mode before overwriting."""
         try:
@@ -123,6 +151,10 @@ class RestimProcessor:
                 for file_path in backup_files:
                     # Add file to zip with just the filename (no path)
                     zipf.write(file_path, file_path.name)
+
+            # Delete the original files after successful backup
+            for file_path in backup_files:
+                file_path.unlink()
 
             self._update_progress(progress_callback, 4, f"Backup created with {len(backup_files)} files")
 
