@@ -17,9 +17,16 @@ Version information for Restim Funscript Processor
         3. Auto-generate option replaced with overwrite option
         4. Smart overwrite behavior implemented
         5. Prostate generation checkbox working correctly
+2.0.2 - improvements and bugfixes:
+        1. Added comprehensive metadata to all generated funscript files (generator, version, algorithms, parameters)
+        2. Added rest level ramp-up feature with centered transition window for smooth volume recovery
+        3. Fixed file overwrite issue in central folder mode (files now properly updated when backups disabled)
+        4. Replaced automatic linked axes with explicit comma-separated axis targeting (e.g., "volume,volume-prostate")
+        5. Removed volume-stereostim file generation and related parameters
+        6. Added validation warning for modulation frequencies >30 Hz (potential undersampling)
 """
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
