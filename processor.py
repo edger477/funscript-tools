@@ -397,11 +397,17 @@ class RestimProcessor:
                 main_freq,
                 self.params['frequency']['pulse_frequency_combine_ratio']
             )
+            self._add_metadata(pulse_frequency, "pulse_frequency", "Pulse frequency modulation", {
+                "pulse_freq_min": self.params['frequency']['pulse_freq_min'],
+                "pulse_freq_max": self.params['frequency']['pulse_freq_max'],
+                "pulse_frequency_combine_ratio": self.params['frequency']['pulse_frequency_combine_ratio']
+            })
             pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
 
         # Generate alpha-prostate output using inverted main funscript (only if enabled)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
             main_inverted = invert_funscript(main_funscript)
+            self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
             main_inverted.save_to_path(self._get_output_path("alpha-prostate"))
         else:
             main_inverted = invert_funscript(main_funscript)
@@ -417,6 +423,9 @@ class RestimProcessor:
                 speed_funscript,
                 self.params['frequency']['frequency_ramp_combine_ratio']
             )
+            self._add_metadata(frequency, "frequency", "Primary frequency modulation", {
+                "frequency_ramp_combine_ratio": self.params['frequency']['frequency_ramp_combine_ratio']
+            })
             frequency.save_to_path(self._get_output_path("frequency"))
 
         # Phase 4: Volume Processing (50-70%)
@@ -442,6 +451,12 @@ class RestimProcessor:
                 volume_not_normalized.save_to_path(self._get_temp_path("volume_not_normalized"))
                 volume = normalize_funscript(volume)
 
+            self._add_metadata(volume, "volume", "Standard volume control", {
+                "volume_ramp_combine_ratio": self.params['volume']['volume_ramp_combine_ratio'],
+                "rest_level": self.params['general']['rest_level'],
+                "ramp_up_duration_after_rest": self.params['general']['ramp_up_duration_after_rest'],
+                "normalized": self.params['options']['normalize_volume']
+            })
             volume.save_to_path(self._get_output_path("volume"))
 
         # Prostate volume (only if enabled)
@@ -457,6 +472,12 @@ class RestimProcessor:
                     self.params['volume']['prostate_rest_level'],
                     self.params['general']['ramp_up_duration_after_rest']
                 )
+                self._add_metadata(prostate_volume, "volume-prostate", "Prostate volume control", {
+                    "volume_ramp_combine_ratio": self.params['volume']['volume_ramp_combine_ratio'],
+                    "prostate_volume_multiplier": self.params['volume']['prostate_volume_multiplier'],
+                    "prostate_rest_level": self.params['volume']['prostate_rest_level'],
+                    "ramp_up_duration_after_rest": self.params['general']['ramp_up_duration_after_rest']
+                })
                 prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
 
         # Check if volume-stereostim already exists
@@ -469,6 +490,10 @@ class RestimProcessor:
                 self.params['volume']['stereostim_volume_min'],
                 self.params['volume']['stereostim_volume_max']
             )
+            self._add_metadata(stereostim_volume, "volume-stereostim", "Stereostim volume control", {
+                "stereostim_volume_min": self.params['volume']['stereostim_volume_min'],
+                "stereostim_volume_max": self.params['volume']['stereostim_volume_max']
+            })
             stereostim_volume.save_to_path(self._get_output_path("volume-stereostim"))
 
         # Phase 5: Pulse Parameters (70-90%)
@@ -490,6 +515,11 @@ class RestimProcessor:
                 self.params['pulse']['pulse_rise_min'],
                 self.params['pulse']['pulse_rise_max']
             )
+            self._add_metadata(pulse_rise_time, "pulse_rise_time", "Pulse rise time modulation", {
+                "pulse_rise_combine_ratio": self.params['pulse']['pulse_rise_combine_ratio'],
+                "pulse_rise_min": self.params['pulse']['pulse_rise_min'],
+                "pulse_rise_max": self.params['pulse']['pulse_rise_max']
+            })
             pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
 
         # Check if pulse_width already exists
@@ -511,6 +541,11 @@ class RestimProcessor:
                 pulse_width_main,
                 self.params['pulse']['pulse_width_combine_ratio']
             )
+            self._add_metadata(pulse_width, "pulse_width", "Pulse width modulation", {
+                "pulse_width_min": self.params['pulse']['pulse_width_min'],
+                "pulse_width_max": self.params['pulse']['pulse_width_max'],
+                "pulse_width_combine_ratio": self.params['pulse']['pulse_width_combine_ratio']
+            })
             pulse_width.save_to_path(self._get_output_path("pulse_width"))
 
         # Phase 6: Copy remaining outputs (90-95%)
@@ -545,6 +580,7 @@ class RestimProcessor:
                 self._update_progress(progress_callback, 92, "Reusing existing pulse_frequency_inverted...")
             else:
                 pulse_freq_inverted = invert_funscript(pulse_frequency)
+                self._add_metadata(pulse_freq_inverted, "pulse_frequency_inverted", "Inverted pulse frequency modulation")
                 pulse_freq_inverted.save_to_path(self._get_output_path("pulse_frequency_inverted"))
 
         if self.params['advanced']['enable_volume_inversion']:
@@ -552,6 +588,7 @@ class RestimProcessor:
                 self._update_progress(progress_callback, 93, "Reusing existing volume_inverted...")
             else:
                 volume_inverted = invert_funscript(volume)
+                self._add_metadata(volume_inverted, "volume_inverted", "Inverted volume control")
                 volume_inverted.save_to_path(self._get_output_path("volume_inverted"))
 
         if self.params['advanced']['enable_frequency_inversion']:
@@ -559,4 +596,5 @@ class RestimProcessor:
                 self._update_progress(progress_callback, 94, "Reusing existing frequency_inverted...")
             else:
                 freq_inverted = invert_funscript(frequency)
+                self._add_metadata(freq_inverted, "frequency_inverted", "Inverted frequency modulation")
                 freq_inverted.save_to_path(self._get_output_path("frequency_inverted"))
