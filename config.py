@@ -39,8 +39,6 @@ DEFAULT_CONFIG = {
         "volume_ramp_combine_ratio": 20.0,
         "prostate_volume_multiplier": 1.5,
         "prostate_rest_level": 0.7,
-        "stereostim_volume_min": 0.50,
-        "stereostim_volume_max": 1.00,
         "ramp_percent_per_hour": 15
     },
     "pulse": {
@@ -135,8 +133,6 @@ PARAMETER_RANGES = {
         "volume_ramp_combine_ratio": (10.0, 40.0),
         "prostate_volume_multiplier": (1.0, 3.0),
         "prostate_rest_level": (0.0, 1.0),
-        "stereostim_volume_min": (0.0, 1.0),
-        "stereostim_volume_max": (0.0, 1.0),
         "ramp_percent_per_hour": (0, 40)
     },
     "pulse": {
@@ -232,11 +228,6 @@ class ConfigManager:
         if 'pulse_rise_min' in pulse_config and 'pulse_rise_max' in pulse_config:
             if pulse_config['pulse_rise_min'] >= pulse_config['pulse_rise_max']:
                 raise ValueError("pulse_rise_min must be less than pulse_rise_max")
-
-        volume_config = self.config.get('volume', {})
-        if 'stereostim_volume_min' in volume_config and 'stereostim_volume_max' in volume_config:
-            if volume_config['stereostim_volume_min'] >= volume_config['stereostim_volume_max']:
-                raise ValueError("stereostim_volume_min must be less than stereostim_volume_max")
 
     def _merge_configs(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
         """Recursively merge configuration dictionaries."""

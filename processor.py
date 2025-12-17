@@ -480,22 +480,6 @@ class RestimProcessor:
                 })
                 prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
 
-        # Check if volume-stereostim already exists
-        if not overwrite_existing and self._output_file_exists("volume-stereostim"):
-            self._update_progress(progress_callback, 60, "Reusing existing volume-stereostim...")
-        else:
-            # Stereostim volume
-            stereostim_volume = map_funscript(
-                volume,
-                self.params['volume']['stereostim_volume_min'],
-                self.params['volume']['stereostim_volume_max']
-            )
-            self._add_metadata(stereostim_volume, "volume-stereostim", "Stereostim volume control", {
-                "stereostim_volume_min": self.params['volume']['stereostim_volume_min'],
-                "stereostim_volume_max": self.params['volume']['stereostim_volume_max']
-            })
-            stereostim_volume.save_to_path(self._get_output_path("volume-stereostim"))
-
         # Phase 5: Pulse Parameters (70-90%)
         self._update_progress(progress_callback, 70, "Processing pulse parameters...")
 

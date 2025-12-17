@@ -69,7 +69,7 @@ def test_processor():
             expected_outputs = [
                 "alpha", "alpha-prostate", "beta", "frequency",
                 "pulse_frequency", "pulse_rise_time", "pulse_width",
-                "volume", "volume-prostate", "volume-stereostim"
+                "volume", "volume-prostate"
             ]
 
             generated_count = 0
