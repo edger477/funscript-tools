@@ -47,14 +47,6 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
-        params:
-          start_value: $volume_boost
-          end_value: $volume_boost
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_up_ms
-          mode: additive          
-      - operation: apply_linear_change
         axis: pulse_frequency
         params:
           start_value: 10
@@ -63,13 +55,14 @@ definitions:
           ramp_in_ms: $ramp_up_ms
           mode: additive
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $buzz_freq
           amplitude: $buzz_intensity
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_up_ms
+          max_level_offset: $volume_boost
           mode: additive
       - operation: apply_modulation
         axis: pulse_width
@@ -81,6 +74,44 @@ definitions:
           ramp_in_ms: $ramp_up_ms
           mode: additive
 
+  ruin:
+    default_params:
+      duration_ms: 30000
+      buzz_freq: 5
+      buzz_intensity: 0.1
+      volume_boost: 0.03
+      ramp_in_ms: 10000
+
+    steps:
+      - operation: apply_linear_change
+        axis: volume
+        params:
+          start_value: 0
+          end_value: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_in_ms
+          ramp_out_ms: 500
+          mode: overwrite
+      - operation: apply_modulation
+        axis: volume-prostate
+        params:
+          waveform: sin
+          frequency: $buzz_freq
+          amplitude: $buzz_intensity
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_in_ms
+          max_level_offset: $volume_boost
+          mode: additive
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: sin
+          frequency: 3
+          amplitude: 0.5
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_in_ms
+          mode: additive
+
   tranquil:
     default_params:
       duration_ms: 20000
@@ -90,7 +121,7 @@ definitions:
 
     steps:
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $osc_freq
@@ -110,8 +141,10 @@ definitions:
     default_params:
       duration_ms: 3000
       max_volume_increase: 0.2
+      prostate_volume_increase: 0.1
       amplitude: 0.6
       frequency: 1
+      ramp_ms: 500
       
     steps:
       - operation: apply_modulation
@@ -127,6 +160,15 @@ definitions:
           ramp_out_ms: 0
           mode: additive
             
+      - operation: apply_linear_change
+        axis: volume-prostate
+        params:
+          start_value: $prostate_volume_increase
+          end_value: $prostate_volume_increase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
 
   mcb_submit:
     default_params:
@@ -158,7 +200,7 @@ definitions:
           mode: overwrite
           
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_boost
           end_value: $volume_boost
@@ -192,7 +234,7 @@ definitions:
 
       # Apply sinusoidal volume modulation
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $mod_freq
@@ -221,7 +263,7 @@ definitions:
     steps:
       # Apply sinusoidal volume modulation
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume
           end_value: $volume
@@ -319,7 +361,7 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_reduction
           end_value: $volume_reduction
@@ -361,7 +403,7 @@ definitions:
           mode: overwrite
 
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $tease_freq
@@ -384,7 +426,7 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $start_boost
           end_value: $end_boost
@@ -447,7 +489,7 @@ definitions:
           mode: overwrite
 
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $throb_freq
@@ -514,7 +556,7 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_boost
           end_value: $volume_boost
@@ -550,7 +592,7 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_boost
           end_value: $volume_boost
@@ -576,83 +618,7 @@ definitions:
           ramp_in_ms: $ramp_ms
           mode: overwrite
 
-  # === PUSH EFFECTS ===
-  # Short, sharp sensations with higher rates
 
-  clutch_push:
-    default_params:
-      duration_ms: 3000
-      pulse_rate: 60          
-      pulse_width: 40
-      volume_boost: 0.005     
-      ramp_ms: 200
-
-    steps:
-      - operation: apply_linear_change
-        axis: volume
-        params:
-          start_value: $volume_boost
-          end_value: $volume_boost
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: additive
-
-      - operation: apply_linear_change
-        axis: pulse_frequency
-        params:
-          start_value: $pulse_rate
-          end_value: $pulse_rate
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: overwrite
-
-      - operation: apply_linear_change
-        axis: pulse_width
-        params:
-          start_value: $pulse_width
-          end_value: $pulse_width
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: overwrite
-
-  clutch_push_2:
-    default_params:
-      duration_ms: 3000
-      pulse_rate: 35          # Slower than push
-      pulse_width: 40
-      volume_boost: 0.005
-      ramp_ms: 200
-
-    steps:
-      - operation: apply_linear_change
-        axis: volume
-        params:
-          start_value: $volume_boost
-          end_value: $volume_boost
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: additive
-
-      - operation: apply_linear_change
-        axis: pulse_frequency
-        params:
-          start_value: $pulse_rate
-          end_value: $pulse_rate
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: overwrite
-
-      - operation: apply_linear_change
-        axis: pulse_width
-        params:
-          start_value: $pulse_width
-          end_value: $pulse_width
-          duration_ms: $duration_ms
-          ramp_in_ms: $ramp_ms
-          mode: overwrite
-
-  # === INTENSE/EDGE EFFECTS ===
-  # Building sensations for edging
 
   clutch_higher_rate:
     default_params:
@@ -664,7 +630,7 @@ definitions:
 
     steps:
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_boost
           end_value: $volume_boost
@@ -701,7 +667,7 @@ definitions:
     steps:
       # Base volume increase for edging
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_boost
           end_value: $volume_boost
@@ -711,7 +677,7 @@ definitions:
 
       # High-frequency buzz creates the edging sensation
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $buzz_freq
@@ -736,7 +702,7 @@ definitions:
     steps:
       # Set base volume level during spike
       - operation: apply_linear_change
-        axis: volume
+        axis: volume,volume-prostate
         params:
           start_value: $volume_level
           end_value: $volume_level
@@ -769,7 +735,7 @@ definitions:
     steps:
       # Low-frequency modulation creates teasing sensation
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $tease_freq
@@ -790,7 +756,7 @@ definitions:
 
     steps:
       - operation: apply_modulation
-        axis: volume
+        axis: volume,volume-prostate
         params:
           waveform: sin
           frequency: $calm_freq

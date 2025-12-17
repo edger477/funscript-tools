@@ -25,10 +25,10 @@
     "min_distance_from_center": 0.5
   },
   "frequency": {
-    "pulse_freq_min": 0.5,
-    "pulse_freq_max": 0.95,
-    "frequency_ramp_combine_ratio": 2.0,
-    "pulse_frequency_combine_ratio": 2.6
+    "pulse_freq_min": 0.6,
+    "pulse_freq_max": 0.99,
+    "frequency_ramp_combine_ratio": 3.7,
+    "pulse_frequency_combine_ratio": 3.0
   },
   "volume": {
     "volume_ramp_combine_ratio": 25.2,
