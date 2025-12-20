@@ -218,6 +218,30 @@ class RestimProcessor:
             return True
         return False
 
+    def _create_events_template(self, events_file_path: Path):
+        """Create an empty events.yml template file with helpful comments."""
+        template_content = """# Custom Events File
+# Add timed events to modify the generated funscript files.
+# All time values are in MILLISECONDS.
+# Event names must match definitions in config.event_definitions.yml
+#
+# Example event structure:
+# events:
+#   - time: 60000        # Event at 1 minute (60,000 ms)
+#     name: edge         # Event name from event_definitions.yml
+#     params:            # Optional parameter overrides
+#       duration_ms: 15000
+
+events:
+  # Add your custom events here
+"""
+        try:
+            with open(events_file_path, 'w', encoding='utf-8') as f:
+                f.write(template_content)
+        except Exception as e:
+            # Don't fail the entire process if template creation fails
+            print(f"Warning: Failed to create events template: {str(e)}")
+
     def _execute_pipeline(self, main_funscript: Funscript, progress_callback: Optional[Callable]):
         """Execute the complete processing pipeline."""
 
@@ -557,6 +581,11 @@ class RestimProcessor:
                     temp_path = self._get_temp_path(axis_name)
                     if temp_path.exists():
                         shutil.copy2(temp_path, self._get_output_path(axis_name))
+
+        # Create empty events.yml template if it doesn't exist
+        events_file_path = self.output_dir / f"{self.filename_only}.events.yml"
+        if not events_file_path.exists():
+            self._create_events_template(events_file_path)
 
         # Generate optional inverted files if enabled
         if self.params['advanced']['enable_pulse_frequency_inversion']:

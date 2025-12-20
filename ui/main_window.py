@@ -28,6 +28,8 @@ class MainWindow:
         # Variables
         self.input_file_var = tk.StringVar()
         self.input_files = []  # Store list of selected files for batch processing
+        self.last_processed_filename = None  # Track last processed filename for auto-loading events
+        self.last_processed_directory = None  # Track directory of last processed file
 
         # Progress tracking
         self.progress_var = tk.IntVar()
@@ -109,7 +111,12 @@ class MainWindow:
 
     def open_custom_events_builder(self):
         """Open the new visual custom events builder."""
-        dialog = CustomEventsBuilderDialog(self.root, self.current_config)
+        dialog = CustomEventsBuilderDialog(
+            self.root,
+            self.current_config,
+            self.last_processed_filename,
+            self.last_processed_directory
+        )
         self.root.wait_window(dialog)
 
     def open_custom_events_dialog(self):
@@ -455,6 +462,10 @@ class MainWindow:
 
                 if success:
                     successful += 1
+                    # Track the last successfully processed file
+                    input_path = Path(input_file)
+                    self.last_processed_filename = input_path.stem
+                    self.last_processed_directory = input_path.parent
                 else:
                     failed += 1
 
@@ -512,9 +523,12 @@ class MainWindow:
 
                     else:
                         raise ValueError(f"Unknown positional axis mode: {mode}")
-                    
+
                     successful += 1
-                    
+                    # Track the last successfully processed file
+                    self.last_processed_filename = input_path.stem
+                    self.last_processed_directory = input_path.parent
+
                 except Exception as file_error:
                     failed += 1
                     error_msg = f"Failed to process {file_name}: {str(file_error)}"

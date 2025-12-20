@@ -793,7 +793,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     Main dialog for visual custom events timeline building
     """
 
-    def __init__(self, parent, config=None):
+    def __init__(self, parent, config=None, last_processed_filename=None, last_processed_directory=None):
         super().__init__(parent)
         self.title("Custom Event Builder")
         self.geometry("1200x950")
@@ -803,6 +803,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
         # Store config
         self.config = config if config is not None else {}
+        self.last_processed_filename = last_processed_filename
+        self.last_processed_directory = last_processed_directory
 
         # State
         self.event_file_path = None
@@ -839,6 +841,56 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self.headroom_var = tk.IntVar(value=10)
 
         self.setup_ui()
+
+        # Auto-load events file if last processed filename is provided
+        self._auto_load_events_file()
+
+    def _auto_load_events_file(self):
+        """Automatically load events file for the last processed filename if it exists."""
+        if not self.last_processed_filename:
+            return
+
+        # Determine the output directory based on file management config
+        file_mgmt = self.config.get('file_management', {})
+        mode = file_mgmt.get('mode', 'local')
+
+        if mode == 'central':
+            # Central mode: use central folder path
+            central_path = file_mgmt.get('central_folder_path', '').strip()
+            if central_path:
+                output_dir = Path(central_path)
+            else:
+                # Can't determine path without central folder setting
+                return
+        else:
+            # Local mode: use the directory of the last processed file
+            if self.last_processed_directory:
+                output_dir = self.last_processed_directory
+            else:
+                # No directory info available
+                return
+
+        # Construct the events file path
+        events_file_path = output_dir / f"{self.last_processed_filename}.events.yml"
+
+        # Check if the file exists and load it
+        if events_file_path.exists():
+            try:
+                with open(events_file_path, 'r') as f:
+                    data = yaml.safe_load(f)
+
+                events = data.get('events', [])
+                if events is not None:  # Load even if empty list
+                    self.timeline_panel.load_events_from_yaml(events)
+                    self.event_file_path = events_file_path
+                    self.event_file_var.set(str(self.event_file_path))
+                    if events:
+                        self.status_label.config(text=f"Auto-loaded {len(events)} events from {events_file_path.name}")
+                    else:
+                        self.status_label.config(text=f"Auto-loaded empty event file: {events_file_path.name}")
+            except Exception as e:
+                # Don't show error on auto-load failure, just silently continue
+                self.status_label.config(text=f"Ready. Could not auto-load events file.")
 
     def setup_ui(self):
         """Create the main UI layout"""
