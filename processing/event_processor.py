@@ -289,7 +289,9 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     # but a global validation pass could be added here later if needed.
 
     # 9. Save modified funscripts
-    editor.save_funscripts(event_file_path.parent)
+    # Save to the directory where the funscripts were found, not where the events file is
+    funscript_directory = first_path.parent
+    editor.save_funscripts(funscript_directory)
 
     modified_files = [path.name for path in target_funscript_paths_by_axis.values()]
     success_message = f"Successfully applied {len(user_events)} events to {len(modified_files)} files."
