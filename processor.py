@@ -583,7 +583,8 @@ events:
                         shutil.copy2(temp_path, self._get_output_path(axis_name))
 
         # Create empty events.yml template if it doesn't exist
-        events_file_path = self.output_dir / f"{self.filename_only}.events.yml"
+        # Events file is always created in local directory (next to source .funscript)
+        events_file_path = self.input_path.parent / f"{self.filename_only}.events.yml"
         if not events_file_path.exists():
             self._create_events_template(events_file_path)
 

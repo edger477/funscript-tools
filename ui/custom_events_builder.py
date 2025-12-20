@@ -846,32 +846,21 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self._auto_load_events_file()
 
     def _auto_load_events_file(self):
-        """Automatically load events file for the last processed filename if it exists."""
+        """Automatically load events file for the last processed filename if it exists.
+
+        Note: Events file is always in the local/source directory, regardless of
+        central/local mode for output files.
+        """
         if not self.last_processed_filename:
             return
 
-        # Determine the output directory based on file management config
-        file_mgmt = self.config.get('file_management', {})
-        mode = file_mgmt.get('mode', 'local')
+        # Events file is always in the source directory (local), not central folder
+        if not self.last_processed_directory:
+            # No directory info available
+            return
 
-        if mode == 'central':
-            # Central mode: use central folder path
-            central_path = file_mgmt.get('central_folder_path', '').strip()
-            if central_path:
-                output_dir = Path(central_path)
-            else:
-                # Can't determine path without central folder setting
-                return
-        else:
-            # Local mode: use the directory of the last processed file
-            if self.last_processed_directory:
-                output_dir = self.last_processed_directory
-            else:
-                # No directory info available
-                return
-
-        # Construct the events file path
-        events_file_path = output_dir / f"{self.last_processed_filename}.events.yml"
+        # Construct the events file path (always in source/local directory)
+        events_file_path = self.last_processed_directory / f"{self.last_processed_filename}.events.yml"
 
         # Check if the file exists and load it
         if events_file_path.exists():
