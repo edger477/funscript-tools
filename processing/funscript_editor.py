@@ -157,29 +157,53 @@ class FunscriptEditor:
         else: # For single point or duration=0
             linear_values = np.full(indices.size, normalized_start_value)
 
-        # Apply ramp_in and ramp_out envelopes
-        envelope = np.ones_like(linear_values)
-
-        if ramp_in_s > 0:
-            ramp_in_end_s = min(ramp_in_s, duration_s)
-            ramp_in_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) < ramp_in_end_s)[0]
-            if ramp_in_indices.size > 0:
-                envelope[ramp_in_indices] *= np.linspace(0, 1, ramp_in_indices.size)
-        
-        if ramp_out_s > 0:
-            ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
-            ramp_out_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) > ramp_out_start_s)[0]
-            if ramp_out_indices.size > 0:
-                envelope[ramp_out_indices] *= np.linspace(1, 0, ramp_out_indices.size)
-        
-        # Combine linear values with envelope
-        final_effect_values = linear_values * envelope
-
         # Apply based on mode
         if mode == 'additive':
+            # Additive mode: use envelope multiplication as before
+            envelope = np.ones_like(linear_values)
+
+            if ramp_in_s > 0:
+                ramp_in_end_s = min(ramp_in_s, duration_s)
+                ramp_in_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) < ramp_in_end_s)[0]
+                if ramp_in_indices.size > 0:
+                    envelope[ramp_in_indices] *= np.linspace(0, 1, ramp_in_indices.size)
+
+            if ramp_out_s > 0:
+                ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
+                ramp_out_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) > ramp_out_start_s)[0]
+                if ramp_out_indices.size > 0:
+                    envelope[ramp_out_indices] *= np.linspace(1, 0, ramp_out_indices.size)
+
+            final_effect_values = linear_values * envelope
             fs.y[indices] = fs.y[indices] + final_effect_values
+
         elif mode == 'overwrite':
-            fs.y[indices] = final_effect_values
+            # Overwrite mode: blend from/to original values during ramps
+            # Save original values before any modification
+            original_values = fs.y[indices].copy()
+
+            # Start with the full effect
+            fs.y[indices] = linear_values
+
+            # Handle ramp_in: blend from original to effect
+            if ramp_in_s > 0:
+                ramp_in_end_s = min(ramp_in_s, duration_s)
+                ramp_in_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) < ramp_in_end_s)[0]
+
+                if ramp_in_indices.size > 0:
+                    # Blend factor: 0 (100% original) → 1 (100% effect)
+                    blend = np.linspace(0, 1, ramp_in_indices.size)
+                    fs.y[indices[ramp_in_indices]] = (1 - blend) * original_values[ramp_in_indices] + blend * linear_values[ramp_in_indices]
+
+            # Handle ramp_out: blend from effect back to original
+            if ramp_out_s > 0:
+                ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
+                ramp_out_indices = np.where(fs.x[indices] - (start_time_ms / 1000.0) > ramp_out_start_s)[0]
+
+                if ramp_out_indices.size > 0:
+                    # Blend factor: 1 (100% effect) → 0 (100% original)
+                    blend = np.linspace(1, 0, ramp_out_indices.size)
+                    fs.y[indices[ramp_out_indices]] = blend * linear_values[ramp_out_indices] + (1 - blend) * original_values[ramp_out_indices]
         else:
             print(f"WARNING: Unknown mode '{mode}' for apply_linear_change. Skipping.")
             return
@@ -339,41 +363,60 @@ class FunscriptEditor:
         modulation_wave = normalized_amplitude * base_wave
         generated_wave = normalized_offset + modulation_wave
 
-        # Apply ramp_in and ramp_out envelopes to the generated wave
-        envelope = np.ones_like(generated_wave)
-
-        if ramp_in_s > 0 and duration_s > 0:
-            ramp_in_end_s = min(ramp_in_s, duration_s)
-            ramp_in_indices = np.where(relative_time_s < ramp_in_end_s)[0]
-            if ramp_in_indices.size > 0:
-                envelope[ramp_in_indices] *= np.linspace(0, 1, ramp_in_indices.size)
-        
-        if ramp_out_s > 0 and duration_s > 0:
-            ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
-            ramp_out_indices = np.where(relative_time_s > ramp_out_start_s)[0]
-            if ramp_out_indices.size > 0:
-                envelope[ramp_out_indices] *= np.linspace(1, 0, ramp_out_indices.size)
-        
-        # Apply envelope to the generated wave
-        final_effect_values = generated_wave * envelope
-
         print(f"DEBUG before applying:")
         print(f"  - generated_wave range: [{generated_wave.min():.10f}, {generated_wave.max():.10f}]")
-        print(f"  - final_effect_values range: [{final_effect_values.min():.10f}, {final_effect_values.max():.10f}]")
         print(f"  - Original y values before: [{fs.y[indices].min():.3f}, {fs.y[indices].max():.3f}]")
 
         # Apply based on mode
         if mode == 'additive':
-            # Additive: add (offset + modulation) to original values
-            # Result: original_value + offset + amplitude*sin(...)
+            # Additive mode: use envelope multiplication as before
+            envelope = np.ones_like(generated_wave)
+
+            if ramp_in_s > 0 and duration_s > 0:
+                ramp_in_end_s = min(ramp_in_s, duration_s)
+                ramp_in_indices = np.where(relative_time_s < ramp_in_end_s)[0]
+                if ramp_in_indices.size > 0:
+                    envelope[ramp_in_indices] *= np.linspace(0, 1, ramp_in_indices.size)
+
+            if ramp_out_s > 0 and duration_s > 0:
+                ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
+                ramp_out_indices = np.where(relative_time_s > ramp_out_start_s)[0]
+                if ramp_out_indices.size > 0:
+                    envelope[ramp_out_indices] *= np.linspace(1, 0, ramp_out_indices.size)
+
+            final_effect_values = generated_wave * envelope
             fs.y[indices] = fs.y[indices] + final_effect_values
 
             print(f"DEBUG after additive application:")
             print(f"  - New y values: [{fs.y[indices].min():.3f}, {fs.y[indices].max():.3f}]")
+
         elif mode == 'overwrite':
-            # Overwrite: replace values with (offset + modulation)
-            # Result: offset + amplitude*sin(...)
-            fs.y[indices] = final_effect_values
+            # Overwrite mode: blend from/to original values during ramps
+            # Save original values before any modification
+            original_values = fs.y[indices].copy()
+
+            # Start with the full effect
+            fs.y[indices] = generated_wave
+
+            # Handle ramp_in: blend from original to effect
+            if ramp_in_s > 0 and duration_s > 0:
+                ramp_in_end_s = min(ramp_in_s, duration_s)
+                ramp_in_indices = np.where(relative_time_s < ramp_in_end_s)[0]
+
+                if ramp_in_indices.size > 0:
+                    # Blend factor: 0 (100% original) → 1 (100% effect)
+                    blend = np.linspace(0, 1, ramp_in_indices.size)
+                    fs.y[indices[ramp_in_indices]] = (1 - blend) * original_values[ramp_in_indices] + blend * generated_wave[ramp_in_indices]
+
+            # Handle ramp_out: blend from effect back to original
+            if ramp_out_s > 0 and duration_s > 0:
+                ramp_out_start_s = duration_s - min(ramp_out_s, duration_s)
+                ramp_out_indices = np.where(relative_time_s > ramp_out_start_s)[0]
+
+                if ramp_out_indices.size > 0:
+                    # Blend factor: 1 (100% effect) → 0 (100% original)
+                    blend = np.linspace(1, 0, ramp_out_indices.size)
+                    fs.y[indices[ramp_out_indices]] = blend * generated_wave[ramp_out_indices] + (1 - blend) * original_values[ramp_out_indices]
         else:
             print(f"WARNING: Unknown mode '{mode}' for apply_modulation. Skipping.")
             return
