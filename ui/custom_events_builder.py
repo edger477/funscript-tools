@@ -606,7 +606,7 @@ class ParameterPanel(ttk.Frame):
 class TimelinePanel(ttk.Frame):
     """Panel for displaying and managing the event timeline"""
 
-    def __init__(self, parent, add_callback=None, edit_callback=None, duplicate_callback=None):
+    def __init__(self, parent, add_callback=None, edit_callback=None, duplicate_callback=None, change_callback=None):
         super().__init__(parent)
         self.events = []  # List of timeline events: [{'time': ms, 'name': str, 'params': dict}, ...]
         self.selected_index = None
@@ -615,6 +615,7 @@ class TimelinePanel(ttk.Frame):
         self.add_callback = add_callback
         self.edit_callback = edit_callback
         self.duplicate_callback = duplicate_callback
+        self.change_callback = change_callback  # Called when timeline is modified
 
         self.setup_ui()
 
@@ -666,6 +667,9 @@ class TimelinePanel(ttk.Frame):
 
         self.refresh_display()
 
+        if self.change_callback:
+            self.change_callback()
+
     def update_event(self, index: int, time_ms: int, event_name: str, params: Dict[str, Any]) -> int:
         """Update an existing event, returns new index after potential re-sort"""
         if 0 <= index < len(self.events):
@@ -696,6 +700,9 @@ class TimelinePanel(ttk.Frame):
                 self.timeline_list.selection_set(new_index)
                 self.timeline_list.see(new_index)
 
+            if self.change_callback:
+                self.change_callback()
+
             return new_index
         return index
 
@@ -704,6 +711,9 @@ class TimelinePanel(ttk.Frame):
         if 0 <= index < len(self.events):
             self.events.pop(index)
             self.refresh_display()
+
+            if self.change_callback:
+                self.change_callback()
 
     def get_event(self, index: int) -> Optional[Dict[str, Any]]:
         """Get event at index"""
@@ -793,7 +803,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     Main dialog for visual custom events timeline building
     """
 
-    def __init__(self, parent, config=None):
+    def __init__(self, parent, config=None, last_processed_filename=None, last_processed_directory=None):
         super().__init__(parent)
         self.title("Custom Event Builder")
         self.geometry("1200x950")
@@ -803,6 +813,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
         # Store config
         self.config = config if config is not None else {}
+        self.last_processed_filename = last_processed_filename
+        self.last_processed_directory = last_processed_directory
 
         # State
         self.event_file_path = None
@@ -837,8 +849,57 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self.event_file_var = tk.StringVar()
         self.backup_var = tk.BooleanVar(value=True)
         self.headroom_var = tk.IntVar(value=10)
+        self.is_dirty = False  # Track unsaved changes
 
         self.setup_ui()
+
+        # Auto-load events file if last processed filename is provided
+        self._auto_load_events_file()
+
+    def _auto_load_events_file(self):
+        """Automatically load events file for the last processed filename if it exists.
+
+        Note: Events file is always in the local/source directory, regardless of
+        central/local mode for output files.
+        """
+        if not self.last_processed_filename:
+            return
+
+        # Events file is always in the source directory (local), not central folder
+        if not self.last_processed_directory:
+            # No directory info available
+            return
+
+        # Construct the events file path (always in source/local directory)
+        events_file_path = self.last_processed_directory / f"{self.last_processed_filename}.events.yml"
+
+        # Check if the file exists and load it
+        if events_file_path.exists():
+            try:
+                with open(events_file_path, 'r') as f:
+                    data = yaml.safe_load(f)
+
+                events = data.get('events', [])
+                if events is not None:  # Load even if empty list
+                    self.timeline_panel.load_events_from_yaml(events)
+                    self.event_file_path = events_file_path
+                    self.event_file_var.set(str(self.event_file_path))
+                    self.set_dirty(False)
+                    if events:
+                        self.status_label.config(text=f"Auto-loaded {len(events)} events from {events_file_path.name}")
+                    else:
+                        self.status_label.config(text=f"Auto-loaded empty event file: {events_file_path.name}")
+            except Exception as e:
+                # Don't show error on auto-load failure, just silently continue
+                self.status_label.config(text=f"Ready. Could not auto-load events file.")
+
+    def set_dirty(self, dirty=True):
+        """Mark the timeline as having unsaved changes and update Apply button text."""
+        self.is_dirty = dirty
+        if dirty:
+            self.apply_button.config(text="Save and Apply Effects")
+        else:
+            self.apply_button.config(text="Apply Effects")
 
     def setup_ui(self):
         """Create the main UI layout"""
@@ -871,7 +932,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             timeline_frame,
             add_callback=self.on_add_event_to_timeline,
             edit_callback=self.on_edit_timeline_event,
-            duplicate_callback=self.on_duplicate_timeline_event
+            duplicate_callback=self.on_duplicate_timeline_event,
+            change_callback=lambda: self.set_dirty(True)
         )
         self.timeline_panel.pack(fill=tk.BOTH, expand=True)
         main_paned.add(timeline_frame, weight=1)
@@ -915,7 +977,9 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         action_frame.pack(fill=tk.X, expand=False, padx=5, pady=(0, 5))
 
         ttk.Button(action_frame, text="View YAML", command=self.on_view_yaml).pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text="Apply Effects", command=self.on_apply_effects).pack(side=tk.LEFT, padx=2)
+
+        self.apply_button = ttk.Button(action_frame, text="Apply Effects", command=self.on_apply_effects)
+        self.apply_button.pack(side=tk.LEFT, padx=2)
 
         self.restore_button = ttk.Button(action_frame, text="Restore Backup",
                                         command=self.on_restore_backup, state='disabled')
@@ -1054,6 +1118,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self.timeline_panel.refresh_display()
         self.event_file_path = None
         self.event_file_var.set("")
+        self.set_dirty(False)
         self.status_label.config(text="New timeline created")
 
     def on_load_file(self):
@@ -1075,6 +1140,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             self.timeline_panel.load_events_from_yaml(events)
             self.event_file_path = Path(file_path)
             self.event_file_var.set(str(self.event_file_path))
+            self.set_dirty(False)
             self.status_label.config(text=f"Loaded {len(events)} events from file")
 
         except Exception as e:
@@ -1106,6 +1172,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
             self.event_file_path = Path(file_path)
             self.event_file_var.set(str(self.event_file_path))
+            self.set_dirty(False)
             self.status_label.config(text=f"Saved {len(self.timeline_panel.events)} events")
 
         except Exception as e:
@@ -1143,16 +1210,18 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             messagebox.showwarning("No Events", "Timeline is empty. Add events before applying.", parent=self)
             return
 
-        if not self.event_file_path:
-            # Save first
-            result = messagebox.askyesno("Save Required",
-                                        "Event file must be saved before applying. Save now?",
-                                        parent=self)
-            if result:
-                self.on_save_file()
-                if not self.event_file_path:
+        # Save if file path doesn't exist or if there are unsaved changes
+        if not self.event_file_path or self.is_dirty:
+            if not self.event_file_path:
+                # First time save
+                result = messagebox.askyesno("Save Required",
+                                            "Event file must be saved before applying. Save now?",
+                                            parent=self)
+                if not result:
                     return
-            else:
+            # Save the file (either first time or to persist changes)
+            self.on_save_file()
+            if not self.event_file_path:
                 return
 
         # Start processing in background thread

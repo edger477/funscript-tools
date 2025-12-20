@@ -47,8 +47,11 @@ def _find_target_funscripts(event_file_path: Path, config: dict = None) -> Dict[
     Finds funscript files related to the event file and returns them as a dict
     { 'axis_name': Path_to_funscript }.
 
+    Note: Events file is always local (next to source .funscript).
+    Output funscripts location depends on file_management mode.
+
     Args:
-        event_file_path: Path to the events YAML file
+        event_file_path: Path to the events YAML file (always in source/local directory)
         config: Optional configuration dict with file_management settings
     """
     if not event_file_path.name.endswith(('.yml', '.yaml')):
@@ -59,12 +62,14 @@ def _find_target_funscripts(event_file_path: Path, config: dict = None) -> Dict[
     if not base_name:
         raise EventProcessorError(f"Could not determine base name from event file: {event_file_path.name}")
 
-    # Determine search directory based on file management mode
-    search_dir = event_file_path.parent  # Default: local mode (same dir as YAML)
+    # Determine search directory for output funscripts based on file management mode
+    # Default (local mode): output files are in same directory as events file
+    search_dir = event_file_path.parent
 
     if config:
         file_mgmt = config.get('file_management', {})
         if file_mgmt.get('mode') == 'central':
+            # Central mode: output files are in central folder (not local with events file)
             central_path = file_mgmt.get('central_folder_path', '').strip()
             if central_path:
                 search_dir = Path(central_path)
@@ -235,8 +240,8 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     # 5. Backup files if requested
     backup_path = None
     if perform_backup:
-        # Include the event file in the backup
-        files_to_backup = list(target_funscript_paths_by_axis.values()) + [event_file_path]
+        # Backup only the output funscripts (not the events file, which is source)
+        files_to_backup = list(target_funscript_paths_by_axis.values())
         backup_path = _backup_files(files_to_backup)
         print(f"Backup created at: {backup_path}")
 
@@ -289,7 +294,9 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     # but a global validation pass could be added here later if needed.
 
     # 9. Save modified funscripts
-    editor.save_funscripts(event_file_path.parent)
+    # Save to the directory where the funscripts were found, not where the events file is
+    funscript_directory = first_path.parent
+    editor.save_funscripts(funscript_directory)
 
     modified_files = [path.name for path in target_funscript_paths_by_axis.values()]
     success_message = f"Successfully applied {len(user_events)} events to {len(modified_files)} files."
