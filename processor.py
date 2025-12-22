@@ -566,12 +566,14 @@ events:
             shutil.copy2(self._get_temp_path("beta"), self._get_output_path("beta"))
 
         # Copy prostate alpha and beta to outputs if they exist and prostate generation is enabled
-        if (self.params.get('prostate_generation', {}).get('generate_prostate_files', True) and
-            'alpha_prostate_exists' in locals() and alpha_prostate_exists):
-            shutil.copy2(self._get_temp_path("alpha-prostate"), self._get_output_path("alpha-prostate"))
-        if (self.params.get('prostate_generation', {}).get('generate_prostate_files', True) and
-            'beta_prostate_exists' in locals() and beta_prostate_exists):
-            shutil.copy2(self._get_temp_path("beta-prostate"), self._get_output_path("beta-prostate"))
+        if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
+            alpha_temp_path = self._get_temp_path("alpha-prostate")
+            if alpha_temp_path.exists():
+                shutil.copy2(alpha_temp_path, self._get_output_path("alpha-prostate"))
+
+            beta_temp_path = self._get_temp_path("beta-prostate")
+            if beta_temp_path.exists():
+                shutil.copy2(beta_temp_path, self._get_output_path("beta-prostate"))
 
         # Copy motion axis files to outputs if motion axis mode is enabled
         if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':

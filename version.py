@@ -31,6 +31,7 @@ Version information for Restim Funscript Processor
         4. Fixed .events.yml files to always stay in local/source directory (not moved to central folder)
         5. Fixed critical overwrite mode ramp bug: ramps now blend from/to current values instead of dropping to 0
         6. Added dirty flag tracking with "Save and Apply Effects" button text when changes are unsaved
+        7. Fixed beta-prostate file not being generated/copied to output in tear-shaped and other prostate modes
 """
 
 __version__ = "2.0.3"
