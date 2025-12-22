@@ -32,9 +32,12 @@ Version information for Restim Funscript Processor
         5. Fixed critical overwrite mode ramp bug: ramps now blend from/to current values instead of dropping to 0
         6. Added dirty flag tracking with "Save and Apply Effects" button text when changes are unsaved
         7. Fixed beta-prostate file not being generated/copied to output in tear-shaped and other prostate modes
+2.0.4 - code cleanup:
+        1. Removed legacy funscript_1d_to_2d.py file that was causing import confusion
+        2. Fixed prostate_2d.py to use correct function parameters (removed invalid speed_at_edge_hz parameter)
 """
 
-__version__ = "2.0.3"
+__version__ = "2.0.4"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
