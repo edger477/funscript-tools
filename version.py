@@ -31,9 +31,17 @@ Version information for Restim Funscript Processor
         4. Fixed .events.yml files to always stay in local/source directory (not moved to central folder)
         5. Fixed critical overwrite mode ramp bug: ramps now blend from/to current values instead of dropping to 0
         6. Added dirty flag tracking with "Save and Apply Effects" button text when changes are unsaved
+        7. Fixed beta-prostate file not being generated/copied to output in tear-shaped and other prostate modes
+2.0.4 - code cleanup:
+        1. Removed legacy funscript_1d_to_2d.py file that was causing import confusion
+        2. Fixed prostate_2d.py to use correct function parameters (removed invalid speed_at_edge_hz parameter)
+2.0.5 - external config loading improvement:
+        1. Fixed event definitions loading to check exe directory first before bundled resources
+        2. Users can now edit config.event_definitions.yml next to the exe to add custom events without rebuilding
+        3. Added get_resource_path() helper function for proper PyInstaller resource resolution
 """
 
-__version__ = "2.0.3"
+__version__ = "2.0.5"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

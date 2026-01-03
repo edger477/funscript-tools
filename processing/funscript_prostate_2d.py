@@ -59,12 +59,11 @@ def convert_funscript_prostate(funscript, points_per_second=25, algorithm="stand
         from processing.funscript_1d_to_2d import convert_funscript_radial
 
         # Use the basic circular algorithm directly with the working funscript
-        # Set speed_at_edge_hz to a reasonable default and min_distance to 0.1 for basic circular motion
+        # Uses defaults: speed_threshold_percent=50, min_distance_from_center=0.1
         alpha_funscript, beta_funscript = convert_funscript_radial(
             working_funscript,
             points_per_second=points_per_second,
-            min_distance_from_center=0.1,  # Use basic algorithm default
-            speed_at_edge_hz=2.0  # Use basic algorithm default
+            min_distance_from_center=0.1  # Use basic algorithm default
         )
 
     return alpha_funscript, beta_funscript
