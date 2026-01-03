@@ -11,8 +11,37 @@ sys.path.append(str(Path(__file__).parent.parent))
 from processing.event_processor import process_events, _parse_and_validate_user_events, _load_event_definitions, EventProcessorError
 
 
+def get_resource_path(relative_path: str) -> Path:
+    """
+    Get absolute path to resource, works for dev and PyInstaller.
+
+    When running as a bundled exe, checks the exe directory first for external config files,
+    then falls back to the bundled resource in the temporary extraction directory.
+
+    Args:
+        relative_path: Path relative to the application root (e.g., "config.event_definitions.yml")
+
+    Returns:
+        Path: Absolute path to the resource file
+    """
+    # Check if running as PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # Running as compiled exe - check exe directory first
+        exe_dir = Path(sys.executable).parent
+        external_file = exe_dir / relative_path
+        if external_file.exists():
+            return external_file
+
+        # Fall back to bundled resource in temp directory
+        base_path = Path(sys._MEIPASS)
+        return base_path / relative_path
+    else:
+        # Running from source - use standard path resolution
+        return Path(__file__).parent.parent / relative_path
+
+
 # Path to the event definitions YAML file
-EVENT_DEFINITIONS_PATH = Path(__file__).parent.parent / "config.event_definitions.yml"
+EVENT_DEFINITIONS_PATH = get_resource_path("config.event_definitions.yml")
 
 
 class CustomEventsDialog(tk.Toplevel):
