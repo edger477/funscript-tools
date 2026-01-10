@@ -39,9 +39,14 @@ Version information for Restim Funscript Processor
         1. Fixed event definitions loading to check exe directory first before bundled resources
         2. Users can now edit config.event_definitions.yml next to the exe to add custom events without rebuilding
         3. Added get_resource_path() helper function for proper PyInstaller resource resolution
+2.0.6 - UI window size improvements:
+        1. Main window default height reduced from 1000px to 760px for better fit on smaller screens
+        2. Custom Events Builder default height reduced from 950px to 900px
+        3. Added dynamic scrollbars to Custom Events Builder (appears when resized below 1000x880)
+        4. Fixed scrollbar positioning to cover full content area in Custom Events Builder
 """
 
-__version__ = "2.0.5"
+__version__ = "2.0.6"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
