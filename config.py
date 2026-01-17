@@ -67,6 +67,11 @@ DEFAULT_CONFIG = {
     },
     "positional_axes": {
         "mode": "motion_axis",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
+        "phase_shift": {
+            "enabled": False,
+            "delay_percentage": 10.0,  # Percentage of segment duration (0-100)
+            "min_segment_duration": 0.25  # Minimum time between extremes in seconds
+        },
         "e1": {
             "enabled": True,
             "curve": {
@@ -146,7 +151,11 @@ PARAMETER_RANGES = {
     },
     "positional_axes": {
         # Note: Individual axis validation handled by motion_axis_generation module
-        # Basic positional axes validation
+        # Phase shift parameter ranges
+        "phase_shift": {
+            "delay_percentage": (0.0, 100.0),
+            "min_segment_duration": (0.1, 5.0)
+        }
     }
 }
 
@@ -206,10 +215,27 @@ class ConfigManager:
             if section not in self.config:
                 continue
 
-            for param, (min_val, max_val) in params.items():
+            # Special handling for nested positional_axes.phase_shift
+            if section == 'positional_axes' and 'phase_shift' in params:
+                phase_shift_ranges = params['phase_shift']
+                phase_shift_config = self.config.get('positional_axes', {}).get('phase_shift', {})
+
+                for param, (min_val, max_val) in phase_shift_ranges.items():
+                    if param in phase_shift_config:
+                        value = phase_shift_config[param]
+                        if not (min_val <= value <= max_val):
+                            raise ValueError(f"Parameter positional_axes.phase_shift.{param} = {value} is outside valid range [{min_val}, {max_val}]")
+                continue  # Skip normal processing for positional_axes
+
+            for param, range_tuple in params.items():
                 if param not in self.config[section]:
                     continue
 
+                # range_tuple should be a tuple of (min_val, max_val)
+                if not isinstance(range_tuple, tuple) or len(range_tuple) != 2:
+                    continue  # Skip if not a valid range tuple
+
+                min_val, max_val = range_tuple
                 value = self.config[section][param]
                 if not (min_val <= value <= max_val):
                     raise ValueError(f"Parameter {section}.{param} = {value} is outside valid range [{min_val}, {max_val}]")

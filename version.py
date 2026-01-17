@@ -44,9 +44,16 @@ Version information for Restim Funscript Processor
         2. Custom Events Builder default height reduced from 950px to 900px
         3. Added dynamic scrollbars to Custom Events Builder (appears when resized below 1000x880)
         4. Fixed scrollbar positioning to cover full content area in Custom Events Builder
+2.0.7 - phase-shifted funscript generation and pulse frequency workflow refactor:
+        1. Added phase-shifted output generation (*-2.funscript files) with variable delay based on local stroke cycle
+        2. New phase shift controls in Motion Axis tab (enable checkbox and delay percentage, default 10%)
+        3. Phase shift supports both legacy (alpha/beta) and motion axis (e1-e4) modes
+        4. Refactored pulse frequency generation to use alpha funscript instead of main funscript
+        5. Moved pulse frequency min/max mapping to final output step for proper bounds guarantee
+        6. Removed intermediate pulse_frequency-mainbased.funscript file
 """
 
-__version__ = "2.0.6"
+__version__ = "2.0.7"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

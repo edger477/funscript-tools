@@ -342,7 +342,7 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars['frequency']['pulse_freq_min'] = var
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(0.0-1.0) Minimum mapping for main funscript to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
+        ttk.Label(frame, text="(0.0-1.0) Minimum value for final pulse frequency output").grid(row=row, column=2, sticky=tk.W, padx=5)
 
         row += 1
 
@@ -352,7 +352,7 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars['frequency']['pulse_freq_max'] = var
         entry = ttk.Entry(frame, textvariable=var, width=10)
         entry.grid(row=row, column=1, padx=5, pady=5)
-        ttk.Label(frame, text="(0.0-1.0) Maximum mapping for main funscript to pulse frequency").grid(row=row, column=2, sticky=tk.W, padx=5)
+        ttk.Label(frame, text="(0.0-1.0) Maximum value for final pulse frequency output").grid(row=row, column=2, sticky=tk.W, padx=5)
 
         row += 1
 
@@ -537,6 +537,36 @@ class ParameterTabs(ttk.Notebook):
 
         ttk.Radiobutton(frame, text="Legacy (Alpha/Beta)", variable=mode_var, value="legacy").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
         ttk.Radiobutton(frame, text="Motion Axis (E1-E4)", variable=mode_var, value="motion_axis").grid(row=row, column=1, sticky=tk.W, padx=5, pady=2)
+
+        row += 1
+
+        # Phase Shift Section
+        ttk.Separator(frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=10)
+
+        row += 1
+
+        ttk.Label(frame, text="Phase-Shifted Output:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(5, 5))
+
+        row += 1
+
+        # Initialize phase_shift parameter vars
+        self.parameter_vars['positional_axes']['phase_shift'] = {}
+
+        # Phase shift enable checkbox
+        phase_shift_enabled_var = tk.BooleanVar(value=self.config['positional_axes']['phase_shift']['enabled'])
+        self.parameter_vars['positional_axes']['phase_shift']['enabled'] = phase_shift_enabled_var
+        ttk.Checkbutton(frame, text="Generate phase-shifted versions (*-2.funscript)",
+                       variable=phase_shift_enabled_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
+
+        row += 1
+
+        # Delay percentage input
+        ttk.Label(frame, text="Delay Percentage:").grid(row=row, column=0, sticky=tk.W, padx=20, pady=5)
+        delay_percentage_var = tk.DoubleVar(value=self.config['positional_axes']['phase_shift']['delay_percentage'])
+        self.parameter_vars['positional_axes']['phase_shift']['delay_percentage'] = delay_percentage_var
+        entry = ttk.Entry(frame, textvariable=delay_percentage_var, width=10)
+        entry.grid(row=row, column=1, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(frame, text="(0-100) % of local segment duration").grid(row=row, column=2, sticky=tk.W, padx=5)
 
         row += 1
 
@@ -892,6 +922,12 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 for param, var in variables.items():
                     if param == 'mode':
                         config[section][param] = var.get()
+                    elif param == 'phase_shift':
+                        # Handle phase_shift nested parameters
+                        if param not in config[section]:
+                            config[section][param] = {}
+                        for phase_param, phase_var in var.items():
+                            config[section][param][phase_param] = phase_var.get()
                     elif param in ['e1', 'e2', 'e3', 'e4']:
                         # Handle axis-specific parameters (only enabled now, no amplitude)
                         if param not in config[section]:
@@ -944,6 +980,12 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                     for param, var in variables.items():
                         if param == 'mode' and param in config[section]:
                             var.set(config[section][param])
+                        elif param == 'phase_shift' and param in config[section]:
+                            # Handle phase_shift nested parameters
+                            phase_config = config[section][param]
+                            for phase_param, phase_var in var.items():
+                                if phase_param in phase_config:
+                                    phase_var.set(phase_config[phase_param])
                         elif param in ['e1', 'e2', 'e3', 'e4'] and param in config[section]:
                             # Handle axis-specific parameters (only enabled now, no amplitude)
                             axis_config = config[section][param]
