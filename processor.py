@@ -17,6 +17,7 @@ from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_m
 from processing.motion_axis_generation import (
     generate_motion_axes, copy_existing_axis_files, validate_motion_axis_config
 )
+from processing.phase_shift_generation import generate_all_phase_shifted_funscripts
 
 
 class RestimProcessor:
@@ -356,6 +357,54 @@ events:
                         self.temp_dir
                     )
 
+        # Phase-Shifted Output Generation (19%)
+        phase_shift_config = self.params.get('positional_axes', {}).get('phase_shift', {})
+        if phase_shift_config.get('enabled', False):
+            self._update_progress(progress_callback, 19, "Generating phase-shifted versions...")
+            print(f"Phase shift enabled: delay={phase_shift_config.get('delay_percentage')}%")
+
+            delay_percentage = phase_shift_config.get('delay_percentage', 10.0)
+            min_segment_duration = phase_shift_config.get('min_segment_duration', 0.25)
+
+            # Collect all positional axis funscripts to phase-shift
+            funscripts_to_shift = {}
+
+            # Check for legacy mode (alpha/beta)
+            if self.params.get('positional_axes', {}).get('mode') == 'legacy':
+                # Load alpha and beta from temp
+                alpha_path = self._get_temp_path("alpha")
+                beta_path = self._get_temp_path("beta")
+
+                if alpha_path.exists():
+                    funscripts_to_shift['alpha'] = Funscript.from_file(alpha_path)
+                if beta_path.exists():
+                    funscripts_to_shift['beta'] = Funscript.from_file(beta_path)
+
+            # Check for motion axis mode (e1-e4)
+            elif self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+                for axis in ['e1', 'e2', 'e3', 'e4']:
+                    axis_path = self._get_temp_path(axis)
+                    if axis_path.exists():
+                        funscripts_to_shift[axis] = Funscript.from_file(axis_path)
+
+            # Generate phase-shifted versions if we have any funscripts
+            if funscripts_to_shift:
+                print(f"  Generating phase-shifted versions for: {list(funscripts_to_shift.keys())}")
+                shifted_funscripts = generate_all_phase_shifted_funscripts(
+                    funscripts_to_shift,
+                    main_funscript,
+                    delay_percentage,
+                    min_segment_duration
+                )
+
+                # Save phase-shifted funscripts to temp directory
+                for key, funscript in shifted_funscripts.items():
+                    output_path = self._get_temp_path(key)
+                    funscript.save_to_path(output_path)
+                    print(f"  Saved phase-shifted file: {output_path.name}")
+            else:
+                print(f"  Warning: No funscripts found to phase-shift (mode={self.params.get('positional_axes', {}).get('mode')})")
+
         # Phase 2: Core File Generation (20-40%)
         self._update_progress(progress_callback, 20, "Generating speed file...")
 
@@ -406,21 +455,23 @@ events:
             self._update_progress(progress_callback, 42, "Reusing existing pulse_frequency...")
             pulse_frequency = Funscript.from_file(self._get_output_path("pulse_frequency"))
         else:
-            # Generate pulse frequency using original funscript instead of alpha
-            # Map original funscript to frequency range
-            main_freq = map_funscript(
-                main_funscript,
+            # Load alpha funscript for pulse frequency generation
+            alpha_funscript = Funscript.from_file(self._get_temp_path("alpha"))
+
+            # Combine alpha with speed (no pre-mapping)
+            pulse_frequency_combined = combine_funscripts(
+                speed_funscript,
+                alpha_funscript,
+                self.params['frequency']['pulse_frequency_combine_ratio']
+            )
+
+            # Map the combined result to the pulse frequency range (min/max)
+            pulse_frequency = map_funscript(
+                pulse_frequency_combined,
                 self.params['frequency']['pulse_freq_min'],
                 self.params['frequency']['pulse_freq_max']
             )
-            main_freq.save_to_path(self._get_temp_path("pulse_frequency-mainbased"))
 
-            # Combine with speed
-            pulse_frequency = combine_funscripts(
-                speed_funscript,
-                main_freq,
-                self.params['frequency']['pulse_frequency_combine_ratio']
-            )
             self._add_metadata(pulse_frequency, "pulse_frequency", "Pulse frequency modulation", {
                 "pulse_freq_min": self.params['frequency']['pulse_freq_min'],
                 "pulse_freq_max": self.params['frequency']['pulse_freq_max'],
@@ -583,6 +634,26 @@ events:
                     temp_path = self._get_temp_path(axis_name)
                     if temp_path.exists():
                         shutil.copy2(temp_path, self._get_output_path(axis_name))
+
+        # Copy phase-shifted files to outputs if phase shift is enabled
+        phase_shift_config = self.params.get('positional_axes', {}).get('phase_shift', {})
+        if phase_shift_config.get('enabled', False):
+            # Copy phase-shifted alpha/beta files (legacy mode)
+            if self.params.get('positional_axes', {}).get('mode') == 'legacy':
+                for suffix in ['alpha-2', 'beta-2']:
+                    temp_path = self._get_temp_path(suffix)
+                    if temp_path.exists():
+                        shutil.copy2(temp_path, self._get_output_path(suffix))
+
+            # Copy phase-shifted motion axis files (motion axis mode)
+            elif self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+                motion_config = self.params.get('positional_axes', {})
+                for axis_name in ['e1', 'e2', 'e3', 'e4']:
+                    if motion_config.get(axis_name, {}).get('enabled', False):
+                        suffix = f"{axis_name}-2"
+                        temp_path = self._get_temp_path(suffix)
+                        if temp_path.exists():
+                            shutil.copy2(temp_path, self._get_output_path(suffix))
 
         # Create empty events.yml template if it doesn't exist
         # Events file is always created in local directory (next to source .funscript)

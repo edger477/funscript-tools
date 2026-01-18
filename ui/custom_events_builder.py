@@ -835,10 +835,14 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def __init__(self, parent, config=None, last_processed_filename=None, last_processed_directory=None):
         super().__init__(parent)
         self.title("Custom Event Builder")
-        self.geometry("1200x950")
+        self.geometry("1200x900")
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
+
+        # Configure minimum size and scrollbar threshold
+        self.min_width_for_scrollbar = 1000
+        self.min_height_for_scrollbar = 880
 
         # Store config
         self.config = config if config is not None else {}
@@ -935,8 +939,34 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # Top bar - File operations
         self.create_file_bar()
 
+        # Bottom bars - Pack these first from bottom to reserve space
+        self.create_action_bar()  # Pack from bottom first
+        self.create_options_bar()  # Pack from bottom second (will be above action bar)
+
+        # Create scrollable container for main content - this will fill the remaining middle space
+        self.scroll_container = ttk.Frame(self)
+        self.scroll_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # Create canvas for scrolling
+        self.canvas = tk.Canvas(self.scroll_container, highlightthickness=0)
+        self.h_scrollbar = ttk.Scrollbar(self.scroll_container, orient='horizontal', command=self.canvas.xview)
+        self.v_scrollbar = ttk.Scrollbar(self.scroll_container, orient='vertical', command=self.canvas.yview)
+
+        # Create frame inside canvas for content
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame.bind(
+            '<Configure>',
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+        )
+
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor='nw')
+        self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
+
+        # Pack canvas - will be managed by _update_scrollbars
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         # Main content - 3 panel layout
-        main_paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        main_paned = ttk.PanedWindow(self.scrollable_frame, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Left panel - Event Library
@@ -970,9 +1000,11 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # Connect change time button
         self.timeline_panel.on_change_time = self.on_change_timeline_event_time
 
-        # Bottom bar - Options and actions
-        self.create_options_bar()
-        self.create_action_bar()
+        # Initialize scrollbar visibility
+        self._update_scrollbars()
+
+        # Bind resize event to update scrollbars
+        self.bind('<Configure>', self._on_window_resize)
 
     def create_file_bar(self):
         """Create file operations bar"""
@@ -991,7 +1023,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def create_options_bar(self):
         """Create options bar"""
         options_frame = ttk.LabelFrame(self, text="Options", padding=5)
-        options_frame.pack(fill=tk.X, expand=False, padx=5, pady=5)
+        options_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=5, pady=5)
 
         ttk.Checkbutton(options_frame, text="Backup files",
                        variable=self.backup_var).pack(side=tk.LEFT, padx=5)
@@ -1003,7 +1035,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def create_action_bar(self):
         """Create action buttons bar"""
         action_frame = ttk.Frame(self)
-        action_frame.pack(fill=tk.X, expand=False, padx=5, pady=(0, 5))
+        action_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=5, pady=(0, 5))
 
         ttk.Button(action_frame, text="View YAML", command=self.on_view_yaml).pack(side=tk.LEFT, padx=2)
 
@@ -1018,6 +1050,49 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
         self.status_label = ttk.Label(action_frame, text="Ready. Select or load an event file.")
         self.status_label.pack(side=tk.RIGHT, padx=10)
+
+    def _on_window_resize(self, event):
+        """Handle window resize to show/hide scrollbars"""
+        # Only process Configure events for the main window, not child widgets
+        if event.widget == self:
+            self._update_scrollbars()
+
+    def _update_scrollbars(self):
+        """Show or hide scrollbars based on window size"""
+        try:
+            window_width = self.winfo_width()
+            window_height = self.winfo_height()
+
+            # Determine if scrollbars should be shown
+            need_h_scrollbar = window_width < self.min_width_for_scrollbar
+            need_v_scrollbar = window_height < self.min_height_for_scrollbar
+
+            # Update vertical scrollbar first (affects horizontal space)
+            if need_v_scrollbar:
+                if not self.v_scrollbar.winfo_ismapped():
+                    self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self.canvas)
+            else:
+                self.v_scrollbar.pack_forget()
+
+            # Update horizontal scrollbar
+            if need_h_scrollbar:
+                if not self.h_scrollbar.winfo_ismapped():
+                    self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+            else:
+                self.h_scrollbar.pack_forget()
+
+            # Update canvas window width to ensure content is visible
+            # Use at least min width or current canvas width
+            canvas_width = self.canvas.winfo_width() if self.canvas.winfo_width() > 1 else window_width
+            content_width = max(self.min_width_for_scrollbar, canvas_width)
+            self.canvas.itemconfig(self.canvas_window, width=content_width)
+
+            # Force canvas to update its scroll region
+            self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+
+        except (tk.TclError, AttributeError):
+            # Window might not be fully initialized yet
+            pass
 
     # Event Handlers
     def on_library_event_selected(self, event_name: str):
