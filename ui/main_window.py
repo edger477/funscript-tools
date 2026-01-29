@@ -5,6 +5,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+try:
+    from tkinterdnd2 import TkinterDnD, DND_ALL
+    HAS_DND = True
+except ImportError:
+    HAS_DND = False
+
 sys.path.append(str(Path(__file__).parent.parent))
 from config import ConfigManager
 from processor import RestimProcessor
@@ -16,7 +22,11 @@ from ui.custom_events_builder import CustomEventsBuilderDialog
 
 class MainWindow:
     def __init__(self):
-        self.root = tk.Tk()
+        # Use TkinterDnD for drag-and-drop support if available
+        if HAS_DND:
+            self.root = TkinterDnD.Tk()
+        else:
+            self.root = tk.Tk()
         self.root.title("Restim Funscript Processor")
         self.root.geometry("850x760")
         self.root.resizable(True, True)
@@ -51,10 +61,22 @@ class MainWindow:
 
         row = 0
 
-        # Input file selection
-        ttk.Label(main_frame, text="Input File:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(main_frame, textvariable=self.input_file_var, width=50).grid(row=row, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
-        ttk.Button(main_frame, text="Browse...", command=self.browse_input_file).grid(row=row, column=2, padx=(0, 5), pady=5)
+        # Input file selection with drop zone
+        input_frame = ttk.LabelFrame(main_frame, text="Input File (drop .funscript files here)", padding="5")
+        input_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        input_frame.columnconfigure(1, weight=1)
+
+        # Create a visible drop zone using tk.Frame (not ttk) for better DnD support
+        self.drop_zone = tk.Frame(input_frame, bg='#f0f0f0', relief='sunken', bd=1)
+        self.drop_zone.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=2, pady=2)
+        self.drop_zone.columnconfigure(1, weight=1)
+
+        ttk.Label(self.drop_zone, text="File:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+
+        self.input_entry = ttk.Entry(self.drop_zone, textvariable=self.input_file_var, width=50)
+        self.input_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        ttk.Button(self.drop_zone, text="Browse...", command=self.browse_input_file).grid(row=0, column=2, padx=5, pady=5)
 
         row += 1
 
@@ -105,7 +127,18 @@ class MainWindow:
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT)
 
         # Configure main_frame row weights
-        main_frame.rowconfigure(row-1, weight=1)  # Parameters frame gets extra space  # Parameters frame gets extra space  # Parameters frame gets extra space
+        main_frame.rowconfigure(row-1, weight=1)  # Parameters frame gets extra space
+
+        # Enable drag-and-drop if available
+        if HAS_DND:
+            try:
+                # Register drop target on the drop zone frame
+                self.drop_zone.drop_target_register(DND_ALL)
+                self.drop_zone.dnd_bind('<<Drop>>', self.handle_drop)
+                self.drop_zone.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.drop_zone.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+            except Exception as e:
+                pass  # Silently fail if drag-and-drop setup fails
 
 
 
@@ -146,6 +179,68 @@ class MainWindow:
                 self.input_file_var.set(self.input_files[0])
             else:
                 self.input_file_var.set(f"{len(self.input_files)} files selected")
+
+    def on_drag_enter(self, event):
+        """Visual feedback when dragging over drop zone."""
+        self.drop_zone.config(bg='#d4edda')  # Light green
+        return event.action
+
+    def on_drag_leave(self, event):
+        """Reset visual feedback when leaving drop zone."""
+        self.drop_zone.config(bg='#f0f0f0')  # Original color
+        return event.action
+
+    def handle_drop(self, event):
+        """Handle files dropped onto the window. Only accepts .funscript files."""
+        # Reset drop zone color
+        self.drop_zone.config(bg='#f0f0f0')
+        # Parse dropped file paths - tkinterdnd2 returns space-separated paths
+        # with curly braces around paths containing spaces
+        dropped_data = event.data
+
+        # Parse the dropped data - handles paths with spaces (wrapped in {})
+        file_paths = []
+        current_path = ""
+        in_braces = False
+
+        for char in dropped_data:
+            if char == '{':
+                in_braces = True
+            elif char == '}':
+                in_braces = False
+                if current_path:
+                    file_paths.append(current_path)
+                    current_path = ""
+            elif char == ' ' and not in_braces:
+                if current_path:
+                    file_paths.append(current_path)
+                    current_path = ""
+            else:
+                current_path += char
+
+        # Don't forget the last path if not in braces
+        if current_path:
+            file_paths.append(current_path)
+
+        # Filter to only .funscript files
+        funscript_files = [
+            path for path in file_paths
+            if path.lower().endswith('.funscript') and Path(path).exists()
+        ]
+
+        if funscript_files:
+            self.input_files = funscript_files
+            # Update display with count of selected files
+            if len(self.input_files) == 1:
+                self.input_file_var.set(self.input_files[0])
+            else:
+                self.input_file_var.set(f"{len(self.input_files)} files selected")
+        elif file_paths:
+            # Files were dropped but none were .funscript
+            messagebox.showwarning(
+                "Invalid Files",
+                "Only .funscript files are accepted. Please drop .funscript files."
+            )
 
     def convert_basic_2d(self):
         """Convert 1D funscript to 2D alpha/beta files using basic algorithms."""

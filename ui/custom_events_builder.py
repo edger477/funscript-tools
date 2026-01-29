@@ -77,7 +77,7 @@ class EventLibraryPanel(ttk.Frame):
 
         ttk.Label(search_frame, text="Search:").pack(side=tk.LEFT)
         self.search_var = tk.StringVar()
-        self.search_var.trace('w', self.on_search_changed)
+        self.search_var.trace_add('write', self.on_search_changed)
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
@@ -423,7 +423,7 @@ class ParameterPanel(ttk.Frame):
         def on_time_changed(*args):
             self.time_display_label.config(text=format_time())
 
-        self.time_var.trace('w', on_time_changed)
+        self.time_var.trace_add('write', on_time_changed)
 
         # Quick adjustment buttons
         btn_frame = ttk.Frame(self.params_frame)
@@ -491,7 +491,7 @@ class ParameterPanel(ttk.Frame):
         self.param_vars[param_name] = var  # Store the variable object
 
         # Add trace to update preview when parameter changes
-        var.trace('w', lambda *args: self.update_steps_preview())
+        var.trace_add('write', lambda *args: self.update_steps_preview())
 
     def create_widget_for_parameter(self, parent, param_name: str, value):
         """Create appropriate widget based on parameter name and value, returns (widget, var, unit)"""

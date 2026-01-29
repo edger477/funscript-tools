@@ -51,9 +51,13 @@ Version information for Restim Funscript Processor
         4. Refactored pulse frequency generation to use alpha funscript instead of main funscript
         5. Moved pulse frequency min/max mapping to final output step for proper bounds guarantee
         6. Removed intermediate pulse_frequency-mainbased.funscript file
+2.0.8 - Python 3.13 compatibility and drag-and-drop support:
+        1. Added drag-and-drop support for .funscript files (drop files onto window instead of using Browse)
+        2. Updated tkinter trace API for Python 3.13 compatibility (.trace('w') -> .trace_add('write'))
+        3. Added tkinterdnd2 dependency for cross-platform drag-and-drop
 """
 
-__version__ = "2.0.7"
+__version__ = "2.0.8"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

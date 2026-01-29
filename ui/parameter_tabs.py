@@ -107,7 +107,7 @@ class ParameterTabs(ttk.Notebook):
         # Add trace to mode variable if it exists
         if hasattr(self, 'parameter_vars') and 'positional_axes' in self.parameter_vars:
             mode_var = self.parameter_vars['positional_axes']['mode']
-            mode_var.trace('w', lambda *args: self._on_mode_change())
+            mode_var.trace_add('write', lambda *args: self._on_mode_change())
 
     def set_conversion_callbacks(self, basic_callback, prostate_callback):
         """Set callback functions for the embedded conversion tabs."""
@@ -272,7 +272,7 @@ class ParameterTabs(ttk.Notebook):
         self.mode_desc_text.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=2)
 
         # Add trace to update description when mode changes
-        var.trace('w', lambda *args: self._update_mode_description())
+        var.trace_add('write', lambda *args: self._update_mode_description())
 
         row += 1
 
@@ -585,7 +585,7 @@ class ParameterTabs(ttk.Notebook):
         self.setup_motion_axis_section_internal()
 
         # Setup mode change callback
-        mode_var.trace('w', lambda *args: self._on_motion_axis_mode_change())
+        mode_var.trace_add('write', lambda *args: self._on_motion_axis_mode_change())
         
         # Initialize display
         self._update_motion_axis_display()

@@ -29,17 +29,91 @@ The application processes a single input funscript and generates:
 
 ## Requirements
 
-- Python 3.7 or later
+- Python 3.8 or later (Python 3.13+ recommended for latest compatibility)
 - NumPy (automatically installed)
-- Tkinter (included with Python)
+- Tkinter (included with Python on Windows/macOS, may need separate install on Linux)
+- tkinterdnd2 (optional, for drag-and-drop support)
 
 ## Installation
 
-1. Clone or download this repository
-2. Install dependencies:
+### Option 1: Download Pre-built Executable (Easiest)
+
+Download the latest release from the [Releases](https://github.com/edger477/funscript-tools/releases) page:
+- **Windows**: Download `RestimFunscriptProcessor-vX.X.X-Windows.zip`, extract, and run the `.exe`
+- No Python installation required!
+
+### Option 2: Run from Source
+
+For developers or users who want the latest features:
+
+#### Quick Setup (Recommended)
+
+**Windows:**
+```batch
+# Double-click setup.bat or run in Command Prompt:
+setup.bat
+
+# Then run the app:
+run.bat
+```
+
+**macOS / Linux:**
+```bash
+# Make the script executable and run it:
+chmod +x setup.sh
+./setup.sh
+
+# Then run the app:
+./run.sh
+```
+
+#### Manual Setup
+
+1. Clone or download this repository:
+   ```bash
+   git clone https://github.com/edger477/funscript-tools.git
+   cd funscript-tools
+   ```
+
+2. Create and activate a virtual environment:
+   ```bash
+   # Windows
+   python -m venv venv
+   venv\Scripts\activate
+
+   # macOS / Linux
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
+
+4. Run the application:
+   ```bash
+   python main.py
+   ```
+
+#### Platform-Specific Notes
+
+**Linux** - You may need to install tkinter separately:
+```bash
+# Ubuntu/Debian
+sudo apt install python3-tk python3-venv
+
+# Fedora
+sudo dnf install python3-tkinter
+
+# Arch
+sudo pacman -S tk
+```
+
+**macOS** - If using Homebrew Python:
+```bash
+brew install python-tk
+```
 
 ## Usage
 
@@ -48,7 +122,7 @@ The application processes a single input funscript and generates:
    python main.py
    ```
 
-2. Select your input `.funscript` file using the Browse button
+2. Select your input `.funscript` file using the Browse button, or **drag and drop** `.funscript` files directly onto the window
 
 3. **Optional**: Configure 1D to 2D conversion:
    - Choose algorithm (Circular, Top-Left-Right, or Top-Right-Left)
@@ -149,6 +223,9 @@ The application features improved combination ratio controls and ramp generation
 2. **Permission errors**: Ensure write access to the input file directory
 3. **Processing errors**: Check that input file is a valid funscript JSON format
 4. **Configuration errors**: Use "Reset to Defaults" if parameter validation fails
+5. **tkinter errors on Linux**: Install tkinter with `sudo apt install python3-tk` (Ubuntu/Debian)
+6. **Drag-and-drop not working**: Install tkinterdnd2 with `pip install tkinterdnd2` (optional feature)
+7. **Python version errors**: This app requires Python 3.8+. Python 3.13+ is recommended for best compatibility
 
 ## Building Windows Executable
 
