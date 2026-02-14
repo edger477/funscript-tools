@@ -62,38 +62,7 @@ jobs:
       with:
         tag_name: ${{ steps.get_version.outputs.VERSION }}
         name: Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
-        body: |
-          ## Restim Funscript Processor ${{ steps.get_version.outputs.VERSION }}
-
-          ### Features
-          - **Windows**: Single executable file - no Python installation required
-          - **Auto-generation**: Creates alpha/beta files from main funscript when missing
-          - **30+ Parameters**: Comprehensive control over processing with intuitive UI
-          - **Real-time Feedback**: Progress tracking and percentage displays for ratio controls
-
-          ### Downloads (Windows Only)
-          - **Windows**: Download the `.zip` file, extract, and run `RestimFunscriptProcessor.exe`
-          - **Linux**: Linux build temporarily unavailable - working on AppImage creation issues
-
-          ### Generated Output Files
-          The application processes a single input funscript and generates 10 output files:
-          1. `alpha.funscript` - Alpha channel data
-          2. `alpha-prostate.funscript` - Inverted alpha for prostate stimulation
-          3. `beta.funscript` - Beta channel data
-          4. `frequency.funscript` - Combined ramp/speed frequency
-          5. `pulse_frequency.funscript` - Alpha-based pulse frequency
-          6. `pulse_rise_time.funscript` - Composite timing signal
-          7. `pulse_width.funscript` - Limited alpha-based width
-          8. `volume.funscript` - Standard volume control
-          9. `volume-prostate.funscript` - Enhanced volume for prostate
-          10. `volume-stereostim.funscript` - Mapped volume range
-
-          ### Installation
-          See the included `INSTALLATION.txt` file in each download for detailed instructions.
-
-          ### Support
-          - Report issues: [GitHub Issues](https://github.com/${{ github.repository }}/issues)
-          - Documentation: See included README.md files
+        body_path: RELEASE_NOTES.md
         files: ./artifacts/windows/*.zip
         draft: false
         prerelease: false
