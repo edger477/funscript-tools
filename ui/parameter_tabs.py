@@ -107,7 +107,7 @@ class ParameterTabs(ttk.Notebook):
         # Add trace to mode variable if it exists
         if hasattr(self, 'parameter_vars') and 'positional_axes' in self.parameter_vars:
             mode_var = self.parameter_vars['positional_axes']['mode']
-            mode_var.trace('w', lambda *args: self._on_mode_change())
+            mode_var.trace_add('write', lambda *args: self._on_mode_change())
 
     def set_conversion_callbacks(self, basic_callback, prostate_callback):
         """Set callback functions for the embedded conversion tabs."""
@@ -122,6 +122,32 @@ class ParameterTabs(ttk.Notebook):
                 self.mode_change_callback(mode)
             except Exception:
                 pass  # Ignore errors during callback
+
+    def _create_entry_tooltip(self, widget, text):
+        """Create a tooltip for a widget."""
+        tooltip = None
+
+        def show_tooltip(event):
+            nonlocal tooltip
+            if tooltip:
+                return
+            x = widget.winfo_rootx() + widget.winfo_width() // 2
+            y = widget.winfo_rooty() + widget.winfo_height() + 5
+            tooltip = tk.Toplevel(widget)
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{x}+{y}")
+            label = tk.Label(tooltip, text=text, background="lightyellow",
+                           relief=tk.SOLID, borderwidth=1, font=('TkDefaultFont', 9))
+            label.pack()
+
+        def hide_tooltip(event):
+            nonlocal tooltip
+            if tooltip:
+                tooltip.destroy()
+                tooltip = None
+
+        widget.bind('<Enter>', show_tooltip)
+        widget.bind('<Leave>', hide_tooltip)
 
     def setup_tabs(self):
         """Setup all parameter tabs."""
@@ -215,32 +241,28 @@ class ParameterTabs(ttk.Notebook):
         # Initialize options parameter vars
         self.parameter_vars['options'] = {}
 
-        # Normalize Volume
+        # Create frame for processing options with 2 equal columns
+        options_frame = ttk.Frame(frame)
+        options_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=2)
+        options_frame.columnconfigure(0, weight=1, uniform="opt")
+        options_frame.columnconfigure(1, weight=1, uniform="opt")
+
+        # Row 1: Normalize Volume | Delete Intermediary Files
         var = tk.BooleanVar(value=self.config['options']['normalize_volume'])
         self.parameter_vars['options']['normalize_volume'] = var
-        ttk.Checkbutton(frame, text="Normalize Volume", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+        ttk.Checkbutton(options_frame, text="Normalize Volume", variable=var).grid(row=0, column=0, sticky=tk.W, pady=2)
 
-        row += 1
-
-        # Delete Intermediary Files
         var = tk.BooleanVar(value=self.config['options']['delete_intermediary_files'])
         self.parameter_vars['options']['delete_intermediary_files'] = var
-        ttk.Checkbutton(frame, text="Delete Intermediary Files When Done", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+        ttk.Checkbutton(options_frame, text="Delete Intermediary Files When Done", variable=var).grid(row=0, column=1, sticky=tk.W, pady=2)
 
-        row += 2
-
-        # Auto-generation section
-        ttk.Label(frame, text="Auto-generation:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
-
-        row += 1
-
-        # Overwrite Existing Files
+        # Row 2: Overwrite Existing Files
         overwrite_value = self.config.get('options', {}).get('overwrite_existing_files', False)
         var = tk.BooleanVar(value=overwrite_value)
         self.parameter_vars['options']['overwrite_existing_files'] = var
-        ttk.Checkbutton(frame, text="Overwrite existing output files", variable=var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+        ttk.Checkbutton(options_frame, text="Overwrite existing output files", variable=var).grid(row=1, column=0, sticky=tk.W, pady=2)
 
-        row += 2
+        row += 1
 
         # File Management section
         ttk.Label(frame, text="File Management:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10, 5))
@@ -272,7 +294,7 @@ class ParameterTabs(ttk.Notebook):
         self.mode_desc_text.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=2)
 
         # Add trace to update description when mode changes
-        var.trace('w', lambda *args: self._update_mode_description())
+        var.trace_add('write', lambda *args: self._update_mode_description())
 
         row += 1
 
@@ -526,17 +548,13 @@ class ParameterTabs(ttk.Notebook):
 
         row = 0
 
-        # Mode Selection
-        ttk.Label(frame, text="Positional Axis Mode:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(5, 10))
-
-        row += 1
-
-        # Mode selection radio buttons
+        # Mode Selection - label and radio buttons on same row
         mode_var = tk.StringVar(value=self.config['positional_axes']['mode'])
         self.parameter_vars['positional_axes']['mode'] = mode_var
 
-        ttk.Radiobutton(frame, text="Legacy (Alpha/Beta)", variable=mode_var, value="legacy").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
-        ttk.Radiobutton(frame, text="Motion Axis (E1-E4)", variable=mode_var, value="motion_axis").grid(row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(frame, text="Positional Axis Mode:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, sticky=tk.W, padx=5, pady=(5, 10))
+        ttk.Radiobutton(frame, text="Legacy (Alpha/Beta)", variable=mode_var, value="legacy").grid(row=row, column=1, sticky=tk.W, padx=5, pady=(5, 10))
+        ttk.Radiobutton(frame, text="Motion Axis (E1-E4)", variable=mode_var, value="motion_axis").grid(row=row, column=2, sticky=tk.W, padx=5, pady=(5, 10))
 
         row += 1
 
@@ -545,28 +563,27 @@ class ParameterTabs(ttk.Notebook):
 
         row += 1
 
-        ttk.Label(frame, text="Phase-Shifted Output:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(5, 5))
-
-        row += 1
-
         # Initialize phase_shift parameter vars
         self.parameter_vars['positional_axes']['phase_shift'] = {}
 
-        # Phase shift enable checkbox
+        # Phase shift enable checkbox and delay percentage on same row
         phase_shift_enabled_var = tk.BooleanVar(value=self.config['positional_axes']['phase_shift']['enabled'])
         self.parameter_vars['positional_axes']['phase_shift']['enabled'] = phase_shift_enabled_var
         ttk.Checkbutton(frame, text="Generate phase-shifted versions (*-2.funscript)",
-                       variable=phase_shift_enabled_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
+                       variable=phase_shift_enabled_var).grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
 
-        row += 1
-
-        # Delay percentage input
-        ttk.Label(frame, text="Delay Percentage:").grid(row=row, column=0, sticky=tk.W, padx=20, pady=5)
+        # Delay percentage input (same row)
+        delay_frame = ttk.Frame(frame)
+        delay_frame.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(delay_frame, text="Delay:").pack(side=tk.LEFT)
         delay_percentage_var = tk.DoubleVar(value=self.config['positional_axes']['phase_shift']['delay_percentage'])
         self.parameter_vars['positional_axes']['phase_shift']['delay_percentage'] = delay_percentage_var
-        entry = ttk.Entry(frame, textvariable=delay_percentage_var, width=10)
-        entry.grid(row=row, column=1, padx=5, pady=5, sticky=tk.W)
-        ttk.Label(frame, text="(0-100) % of local segment duration").grid(row=row, column=2, sticky=tk.W, padx=5)
+        delay_entry = ttk.Entry(delay_frame, textvariable=delay_percentage_var, width=6)
+        delay_entry.pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(delay_frame, text="%").pack(side=tk.LEFT)
+
+        # Add tooltip to delay entry
+        self._create_entry_tooltip(delay_entry, "0-100% of local segment duration")
 
         row += 1
 
@@ -585,7 +602,7 @@ class ParameterTabs(ttk.Notebook):
         self.setup_motion_axis_section_internal()
 
         # Setup mode change callback
-        mode_var.trace('w', lambda *args: self._on_motion_axis_mode_change())
+        mode_var.trace_add('write', lambda *args: self._on_motion_axis_mode_change())
         
         # Initialize display
         self._update_motion_axis_display()

@@ -60,22 +60,22 @@ class ConversionTabs:
         # Algorithm selection
         ttk.Label(self.basic_frame, text="Algorithm:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
 
-        # Create frame for radio buttons arranged vertically
+        # Create frame for radio buttons arranged in 2x2 grid
         algo_frame = ttk.Frame(self.basic_frame)
         algo_frame.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
 
-        ttk.Radiobutton(algo_frame, text="Circular (0°-180°)",
-                       variable=self.basic_algorithm_var, value="circular",
-                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
-        ttk.Radiobutton(algo_frame, text="Top-Left-Bottom-Right (0°-90°)",
-                       variable=self.basic_algorithm_var, value="top-left-right",
-                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
         ttk.Radiobutton(algo_frame, text="Top-Right-Bottom-Left (0°-270°)",
                        variable=self.basic_algorithm_var, value="top-right-left",
-                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
+                       command=self._on_algorithm_change).grid(row=0, column=0, sticky=tk.W, padx=(0, 15), pady=1)
+        ttk.Radiobutton(algo_frame, text="Circular (0°-180°)",
+                       variable=self.basic_algorithm_var, value="circular",
+                       command=self._on_algorithm_change).grid(row=0, column=1, sticky=tk.W, pady=1)
+        ttk.Radiobutton(algo_frame, text="Top-Left-Bottom-Right (0°-90°)",
+                       variable=self.basic_algorithm_var, value="top-left-right",
+                       command=self._on_algorithm_change).grid(row=1, column=0, sticky=tk.W, padx=(0, 15), pady=1)
         ttk.Radiobutton(algo_frame, text="0-360 (restim original)",
                        variable=self.basic_algorithm_var, value="restim-original",
-                       command=self._on_algorithm_change).pack(anchor=tk.W, pady=1)
+                       command=self._on_algorithm_change).grid(row=1, column=1, sticky=tk.W, pady=1)
 
         # Points per second
         self.basic_widgets['points_label'] = ttk.Label(self.basic_frame, text="Points Per Second:")
