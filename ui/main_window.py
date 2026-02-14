@@ -28,7 +28,7 @@ class MainWindow:
         else:
             self.root = tk.Tk()
         self.root.title("Restim Funscript Processor")
-        self.root.geometry("850x760")
+        self.root.geometry("850x735")
         self.root.resizable(True, True)
 
         # Configuration
@@ -100,7 +100,7 @@ class MainWindow:
 
         # Progress and status frame
         status_frame = ttk.LabelFrame(main_frame, text="Output Status", padding="10")
-        status_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        status_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         status_frame.columnconfigure(0, weight=1)
 
         # Progress bar
