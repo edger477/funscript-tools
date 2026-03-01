@@ -101,13 +101,8 @@ class ParameterTabs(ttk.Notebook):
         self.setup_tabs()
 
     def set_mode_change_callback(self, callback):
-        """Set callback function to be called when mode changes."""
+        """Set callback function to be called when mode changes (kept for API compat)."""
         self.mode_change_callback = callback
-
-        # Add trace to mode variable if it exists
-        if hasattr(self, 'parameter_vars') and 'positional_axes' in self.parameter_vars:
-            mode_var = self.parameter_vars['positional_axes']['mode']
-            mode_var.trace_add('write', lambda *args: self._on_mode_change())
 
     def set_conversion_callbacks(self, basic_callback, prostate_callback):
         """Set callback functions for the embedded conversion tabs."""
@@ -115,13 +110,8 @@ class ParameterTabs(ttk.Notebook):
             self.embedded_conversion_tabs.set_conversion_callbacks(basic_callback, prostate_callback)
     
     def _on_mode_change(self):
-        """Internal method called when mode changes."""
-        if hasattr(self, 'mode_change_callback'):
-            try:
-                mode = self.parameter_vars['positional_axes']['mode'].get()
-                self.mode_change_callback(mode)
-            except Exception:
-                pass  # Ignore errors during callback
+        """Internal method called when mode changes (kept for API compat)."""
+        pass
 
     def _create_entry_tooltip(self, widget, text):
         """Create a tooltip for a widget."""
@@ -176,10 +166,18 @@ class ParameterTabs(ttk.Notebook):
         self.add(self.pulse_frame, text="Pulse")
         self.setup_pulse_tab()
 
-        # Motion Axis tab
-        self.motion_axis_frame = ttk.Frame(self)
-        self.add(self.motion_axis_frame, text="Motion Axis")
-        self.setup_motion_axis_tab()
+        # Initialize positional_axes parameter vars once (shared by both motion axis tabs)
+        self.parameter_vars['positional_axes'] = {}
+
+        # Motion Axis (3P) tab - Legacy alpha/beta mode
+        self.motion_axis_3p_frame = ttk.Frame(self)
+        self.add(self.motion_axis_3p_frame, text="Motion Axis (3P)")
+        self.setup_motion_axis_3p_tab()
+
+        # Motion Axis (4P) tab - E1-E4 mode
+        self.motion_axis_4p_frame = ttk.Frame(self)
+        self.add(self.motion_axis_4p_frame, text="Motion Axis (4P)")
+        self.setup_motion_axis_4p_tab()
 
         # Advanced tab
         self.advanced_frame = ttk.Frame(self)
@@ -541,71 +539,98 @@ class ParameterTabs(ttk.Notebook):
         self.parameter_vars['pulse']['pulse_rise_combine_ratio'] = pulse_rise_control.var
         self.combine_ratio_controls['pulse_rise_combine_ratio'] = pulse_rise_control
 
-    def setup_motion_axis_tab(self):
-        """Setup the Motion Axis parameters tab."""
-        frame = self.motion_axis_frame
-        self.parameter_vars['positional_axes'] = {}
-
+    def setup_motion_axis_3p_tab(self):
+        """Setup the Motion Axis (3P) tab — legacy alpha/beta generation."""
+        frame = self.motion_axis_3p_frame
         row = 0
 
-        # Mode Selection - label and radio buttons on same row
-        mode_var = tk.StringVar(value=self.config['positional_axes']['mode'])
-        self.parameter_vars['positional_axes']['mode'] = mode_var
+        # Row 0: Generate motion scripts | Generate phase-shifted versions | Delay
+        generate_legacy_var = tk.BooleanVar(value=self.config['positional_axes'].get('generate_legacy', True))
+        self.parameter_vars['positional_axes']['generate_legacy'] = generate_legacy_var
+        ttk.Checkbutton(frame, text="Generate motion scripts",
+                        variable=generate_legacy_var).grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
 
-        ttk.Label(frame, text="Positional Axis Mode:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, sticky=tk.W, padx=5, pady=(5, 10))
-        ttk.Radiobutton(frame, text="Legacy (Alpha/Beta)", variable=mode_var, value="legacy").grid(row=row, column=1, sticky=tk.W, padx=5, pady=(5, 10))
-        ttk.Radiobutton(frame, text="Motion Axis (E1-E4)", variable=mode_var, value="motion_axis").grid(row=row, column=2, sticky=tk.W, padx=5, pady=(5, 10))
-
-        row += 1
-
-        # Phase Shift Section
-        ttk.Separator(frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=10)
-
-        row += 1
-
-        # Initialize phase_shift parameter vars
         self.parameter_vars['positional_axes']['phase_shift'] = {}
-
-        # Phase shift enable checkbox and delay percentage on same row
         phase_shift_enabled_var = tk.BooleanVar(value=self.config['positional_axes']['phase_shift']['enabled'])
         self.parameter_vars['positional_axes']['phase_shift']['enabled'] = phase_shift_enabled_var
         ttk.Checkbutton(frame, text="Generate phase-shifted versions (*-2.funscript)",
-                       variable=phase_shift_enabled_var).grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+                        variable=phase_shift_enabled_var).grid(row=row, column=1, sticky=tk.W, padx=5, pady=2)
 
-        # Delay percentage input (same row)
-        delay_frame = ttk.Frame(frame)
-        delay_frame.grid(row=row, column=1, columnspan=2, sticky=tk.W, padx=5, pady=2)
-        ttk.Label(delay_frame, text="Delay:").pack(side=tk.LEFT)
+        delay_frame_3p = ttk.Frame(frame)
+        delay_frame_3p.grid(row=row, column=2, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(delay_frame_3p, text="Delay:").pack(side=tk.LEFT)
         delay_percentage_var = tk.DoubleVar(value=self.config['positional_axes']['phase_shift']['delay_percentage'])
         self.parameter_vars['positional_axes']['phase_shift']['delay_percentage'] = delay_percentage_var
-        delay_entry = ttk.Entry(delay_frame, textvariable=delay_percentage_var, width=6)
-        delay_entry.pack(side=tk.LEFT, padx=(5, 0))
-        ttk.Label(delay_frame, text="%").pack(side=tk.LEFT)
-
-        # Add tooltip to delay entry
-        self._create_entry_tooltip(delay_entry, "0-100% of local segment duration")
+        delay_entry_3p = ttk.Entry(delay_frame_3p, textvariable=delay_percentage_var, width=6)
+        delay_entry_3p.pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(delay_frame_3p, text="%").pack(side=tk.LEFT)
+        self._create_entry_tooltip(delay_entry_3p, "0-100% of local segment duration")
 
         row += 1
 
-        # Configure grid
+        ttk.Separator(frame, orient='horizontal').grid(row=row, column=0, columnspan=3,
+                                                       sticky=(tk.W, tk.E), padx=5, pady=10)
+        row += 1
+
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(row, weight=1)
 
-        # Create container for mode-specific content
         self.content_container = ttk.Frame(frame)
-        self.content_container.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        self.content_container.grid(row=row, column=0, columnspan=3,
+                                    sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
         self.content_container.columnconfigure(0, weight=1)
         self.content_container.rowconfigure(0, weight=1)
 
-        # Setup both sections
         self.setup_legacy_section()
-        self.setup_motion_axis_section_internal()
+        self.legacy_frame.grid()  # always visible in this tab
 
-        # Setup mode change callback
-        mode_var.trace_add('write', lambda *args: self._on_motion_axis_mode_change())
-        
-        # Initialize display
-        self._update_motion_axis_display()
+    def setup_motion_axis_4p_tab(self):
+        """Setup the Motion Axis (4P) tab — E1-E4 generation."""
+        frame = self.motion_axis_4p_frame
+        row = 0
+
+        # Row 0: Generate motion scripts | Generate phase-shifted versions | Delay
+        generate_motion_axis_var = tk.BooleanVar(
+            value=self.config['positional_axes'].get('generate_motion_axis', True))
+        self.parameter_vars['positional_axes']['generate_motion_axis'] = generate_motion_axis_var
+        ttk.Checkbutton(frame, text="Generate motion scripts",
+                        variable=generate_motion_axis_var).grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+
+        self.parameter_vars['positional_axes']['motion_axis_phase_shift'] = {}
+        ma_ps_config = self.config['positional_axes'].get(
+            'motion_axis_phase_shift', self.config['positional_axes']['phase_shift'])
+        ma_phase_enabled_var = tk.BooleanVar(value=ma_ps_config['enabled'])
+        self.parameter_vars['positional_axes']['motion_axis_phase_shift']['enabled'] = ma_phase_enabled_var
+        ttk.Checkbutton(frame, text="Generate phase-shifted versions (*-2.funscript)",
+                        variable=ma_phase_enabled_var).grid(row=row, column=1, sticky=tk.W, padx=5, pady=2)
+
+        delay_frame_4p = ttk.Frame(frame)
+        delay_frame_4p.grid(row=row, column=2, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(delay_frame_4p, text="Delay:").pack(side=tk.LEFT)
+        ma_delay_var = tk.DoubleVar(value=ma_ps_config['delay_percentage'])
+        self.parameter_vars['positional_axes']['motion_axis_phase_shift']['delay_percentage'] = ma_delay_var
+        delay_entry_4p = ttk.Entry(delay_frame_4p, textvariable=ma_delay_var, width=6)
+        delay_entry_4p.pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(delay_frame_4p, text="%").pack(side=tk.LEFT)
+        self._create_entry_tooltip(delay_entry_4p, "0-100% of local segment duration")
+
+        row += 1
+
+        ttk.Separator(frame, orient='horizontal').grid(row=row, column=0, columnspan=3,
+                                                       sticky=(tk.W, tk.E), padx=5, pady=10)
+        row += 1
+
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(row, weight=1)
+
+        self.content_container = ttk.Frame(frame)
+        self.content_container.grid(row=row, column=0, columnspan=3,
+                                    sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        self.content_container.columnconfigure(0, weight=1)
+        self.content_container.rowconfigure(0, weight=1)
+
+        self.setup_motion_axis_section_internal()
+        self.motion_config_frame.grid()  # always visible in this tab
 
     def setup_legacy_section(self):
         """Setup the legacy 1D to 2D conversion section within Motion Axis tab."""
@@ -616,12 +641,9 @@ class ParameterTabs(ttk.Notebook):
 
         # Import ConversionTabs here to avoid circular import
         from ui.conversion_tabs import ConversionTabs
-        
+
         # Create conversion tabs within the legacy section
         self.embedded_conversion_tabs = ConversionTabs(self.legacy_frame, self.config)
-        
-        # Initially hide
-        self.legacy_frame.grid_remove()
 
     def setup_motion_axis_section_internal(self):
         """Setup the Motion Axis configuration section within Motion Axis tab."""
@@ -725,9 +747,6 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         info_label = ttk.Label(self.motion_config_frame, text=info_text, wraplength=500, justify=tk.LEFT)
         info_label.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
 
-        # Initially hide
-        self.motion_config_frame.grid_remove()
-
     def _generate_curve_data(self, control_points):
         """Generate curve data from control points for visualization."""
         try:
@@ -791,37 +810,6 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         except Exception as e:
             # Ignore visualization errors
             print(f"Warning: Could not update curve visualization: {e}")
-
-    def _on_motion_axis_mode_change(self):
-        """Handle mode changes within the Motion Axis tab."""
-        self._update_motion_axis_display()
-        
-        # Also call the main window callback if it exists
-        if hasattr(self, 'mode_change_callback'):
-            try:
-                mode = self.parameter_vars['positional_axes']['mode'].get()
-                self.mode_change_callback(mode)
-            except Exception:
-                pass
-
-    def _update_motion_axis_display(self):
-        """Update the display within Motion Axis tab based on current mode."""
-        try:
-            current_mode = self.parameter_vars['positional_axes']['mode'].get()
-            
-            if current_mode == 'motion_axis':
-                # Show Motion Axis configuration, hide legacy
-                self.legacy_frame.grid_remove()
-                self.motion_config_frame.grid()
-            else:
-                # Show legacy conversion, hide Motion Axis configuration
-                self.motion_config_frame.grid_remove()
-                self.legacy_frame.grid()
-        except Exception:
-            # Default to legacy if there's any error
-            if hasattr(self, 'legacy_frame'):
-                self.motion_config_frame.grid_remove()
-                self.legacy_frame.grid()
 
     def _open_curve_editor(self, axis_name):
         """Open curve editor modal dialog."""
@@ -937,21 +925,25 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
             if section == 'positional_axes':
                 # Handle nested positional_axes structure
                 for param, var in variables.items():
-                    if param == 'mode':
+                    if param in ('generate_legacy', 'generate_motion_axis'):
                         config[section][param] = var.get()
-                    elif param == 'phase_shift':
-                        # Handle phase_shift nested parameters
+                    elif param in ('phase_shift', 'motion_axis_phase_shift'):
                         if param not in config[section]:
                             config[section][param] = {}
                         for phase_param, phase_var in var.items():
                             config[section][param][phase_param] = phase_var.get()
                     elif param in ['e1', 'e2', 'e3', 'e4']:
-                        # Handle axis-specific parameters (only enabled now, no amplitude)
+                        # Handle axis-specific parameters
                         if param not in config[section]:
                             config[section][param] = {}
                         for axis_param, axis_var in var.items():
                             if axis_param == 'enabled':
                                 config[section][param][axis_param] = axis_var.get()
+                # Derive mode for backward compat with processor
+                if config[section].get('generate_motion_axis', False):
+                    config[section]['mode'] = 'motion_axis'
+                elif config[section].get('generate_legacy', False):
+                    config[section]['mode'] = 'legacy'
             else:
                 # Handle regular flat structure
                 for param, var in variables.items():
@@ -995,16 +987,14 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                 if section == 'positional_axes':
                     # Handle nested positional_axes structure
                     for param, var in variables.items():
-                        if param == 'mode' and param in config[section]:
+                        if param in ('generate_legacy', 'generate_motion_axis') and param in config[section]:
                             var.set(config[section][param])
-                        elif param == 'phase_shift' and param in config[section]:
-                            # Handle phase_shift nested parameters
+                        elif param in ('phase_shift', 'motion_axis_phase_shift') and param in config[section]:
                             phase_config = config[section][param]
                             for phase_param, phase_var in var.items():
                                 if phase_param in phase_config:
                                     phase_var.set(phase_config[phase_param])
                         elif param in ['e1', 'e2', 'e3', 'e4'] and param in config[section]:
-                            # Handle axis-specific parameters (only enabled now, no amplitude)
                             axis_config = config[section][param]
                             for axis_param, axis_var in var.items():
                                 if axis_param == 'enabled' and axis_param in axis_config:

@@ -51,6 +51,11 @@ def build_windows_exe():
             "--collect-all", "processing",  # Collect entire processing package
             "--hidden-import", "tkinter",
             "--hidden-import", "numpy",
+            "--hidden-import", "matplotlib",
+            "--hidden-import", "matplotlib.pyplot",
+            "--hidden-import", "matplotlib.backends.backend_tkagg",
+            "--hidden-import", "matplotlib.figure",
+            "--hidden-import", "matplotlib.patches",
             "--hidden-import", "json",
             "--hidden-import", "pathlib",
             "--hidden-import", "processing.linear_mapping",  # New motion axis module

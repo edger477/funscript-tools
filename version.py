@@ -62,9 +62,16 @@ Version information for Restim Funscript Processor
         4. Basic tab: Arranged algorithm radio buttons in 2x2 grid instead of 4 rows
         5. General tab: Combined processing options into 2-column layout, removed redundant section title
         6. Fixed bottom margin to match left/right margins
+2.1.0 - Motion Axis tab split and bugfixes:
+        1. Split Motion Axis tab into Motion Axis (3P) and Motion Axis (4P) independent tabs
+        2. Each tab has its own "Generate motion scripts" and "Generate phase-shifted versions" checkboxes
+        3. 3P and 4P script generation can now be enabled/disabled independently
+        4. Each tab has independent phase-shift delay settings
+        5. Fixed matplotlib not being installed during Windows build (added to requirements.txt and PyInstaller hidden imports)
+        6. Fixed E1-E4 files not being copied to output after generation (missing filename_base in generate_motion_axes call)
 """
 
-__version__ = "2.0.9"
+__version__ = "2.1.0"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

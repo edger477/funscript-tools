@@ -66,11 +66,18 @@ DEFAULT_CONFIG = {
         "overwrite_existing_files": False
     },
     "positional_axes": {
-        "mode": "motion_axis",  # "legacy" for alpha/beta, "motion_axis" for E1-E4
+        "mode": "motion_axis",  # kept for backward compat; use generate_legacy/generate_motion_axis flags instead
+        "generate_legacy": True,       # Motion Axis (3P) tab: generate legacy alpha/beta scripts
+        "generate_motion_axis": True,  # Motion Axis (4P) tab: generate E1-E4 scripts
         "phase_shift": {
             "enabled": False,
             "delay_percentage": 10.0,  # Percentage of segment duration (0-100)
             "min_segment_duration": 0.25  # Minimum time between extremes in seconds
+        },
+        "motion_axis_phase_shift": {
+            "enabled": False,
+            "delay_percentage": 10.0,
+            "min_segment_duration": 0.25
         },
         "e1": {
             "enabled": True,

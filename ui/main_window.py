@@ -267,11 +267,8 @@ class MainWindow:
             return
 
         # Disable the convert buttons during processing
-        mode = self.current_config['positional_axes']['mode']
-        if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+        if hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
             self.parameter_tabs.embedded_conversion_tabs.set_button_state('disabled')
-        elif hasattr(self, 'conversion_tabs'):
-            self.conversion_tabs.set_button_state('disabled')
 
         # Start conversion in background thread
         conversion_thread = threading.Thread(target=self._perform_2d_conversion, args=(conversion_type,), daemon=True)
@@ -294,9 +291,8 @@ class MainWindow:
 
             self.update_progress(30, "Converting to 2D...")
 
-            # Determine which conversion_tabs to use (main window or embedded in parameter tabs)
-            mode = self.current_config['positional_axes']['mode']
-            if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+            # Determine which conversion_tabs to use (always use embedded 3P tab)
+            if hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
                 conversion_tabs = self.parameter_tabs.embedded_conversion_tabs
             else:
                 conversion_tabs = self.conversion_tabs
@@ -380,11 +376,8 @@ class MainWindow:
 
         finally:
             # Re-enable the convert buttons
-            mode = self.current_config['positional_axes']['mode']
-            if mode == 'legacy' and hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
+            if hasattr(self.parameter_tabs, 'embedded_conversion_tabs'):
                 self.root.after(100, lambda: self.parameter_tabs.embedded_conversion_tabs.set_button_state('normal'))
-            elif hasattr(self, 'conversion_tabs'):
-                self.root.after(100, lambda: self.conversion_tabs.set_button_state('normal'))
 
     def _generate_motion_axis_files(self, input_path: Path):
         """Generate motion axis files (E1-E4) based on current configuration."""
@@ -592,32 +585,34 @@ class MainWindow:
             successful = 0
             failed = 0
             
-            # Get current positional axis mode
-            mode = self.current_config['positional_axes']['mode']
-            
+            axes_config = self.current_config['positional_axes']
+            generate_legacy = axes_config.get('generate_legacy', False)
+            generate_motion_axis = axes_config.get('generate_motion_axis', False)
+            modes = ([" 3P"] if generate_legacy else []) + (["4P"] if generate_motion_axis else [])
+            mode_str = "+".join(modes) if modes else "none"
+
             for index, input_file in enumerate(self.input_files, 1):
                 file_name = Path(input_file).name
-                self.update_progress(0, f"[{index}/{total_files}] Processing {file_name} in {mode} mode...")
-                
+                self.update_progress(0, f"[{index}/{total_files}] Processing {file_name} ({mode_str})...")
+
                 try:
                     input_path = Path(input_file)
 
-                    if mode == 'legacy':
-                        # Use existing 2D conversion logic (default to basic)
-                        self.update_progress(20, f"[{index}/{total_files}] Converting to 2D (Legacy mode)...")
-                        # Note: _perform_2d_conversion uses self.input_file_var, so we need to temporarily set it
+                    if generate_legacy:
+                        # Use existing 2D conversion logic
+                        self.update_progress(20, f"[{index}/{total_files}] Converting to 2D (3P)...")
                         original_value = self.input_file_var.get()
                         self.input_file_var.set(input_file)
                         self._perform_2d_conversion('basic')
                         self.input_file_var.set(original_value)
 
-                    elif mode == 'motion_axis':
+                    if generate_motion_axis:
                         # Generate motion axis files
-                        self.update_progress(20, f"[{index}/{total_files}] Generating motion axis files...")
+                        self.update_progress(20, f"[{index}/{total_files}] Generating motion axis files (4P)...")
                         self._generate_motion_axis_files(input_path)
 
-                    else:
-                        raise ValueError(f"Unknown positional axis mode: {mode}")
+                    if not generate_legacy and not generate_motion_axis:
+                        raise ValueError("No motion scripts enabled — enable 'Generate motion scripts' in the Motion Axis (3P) or (4P) tab")
 
                     successful += 1
                     # Track the last successfully processed file

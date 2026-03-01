@@ -327,7 +327,7 @@ events:
                     beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
 
         # Motion Axis Generation (18-19%)
-        if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+        if self.params.get('positional_axes', {}).get('generate_motion_axis', False):
             self._update_progress(progress_callback, 18, "Generating motion axis files...")
             motion_config = self.params.get('positional_axes', {})
 
@@ -354,56 +354,58 @@ events:
                     generated_files = generate_motion_axes(
                         main_funscript,
                         generate_config,
-                        self.temp_dir
+                        self.temp_dir,
+                        self.filename_only
                     )
 
-        # Phase-Shifted Output Generation (19%)
-        phase_shift_config = self.params.get('positional_axes', {}).get('phase_shift', {})
-        if phase_shift_config.get('enabled', False):
-            self._update_progress(progress_callback, 19, "Generating phase-shifted versions...")
-            print(f"Phase shift enabled: delay={phase_shift_config.get('delay_percentage')}%")
+        # Phase-Shifted Output Generation (19%) — handled independently per mode
+        axes_config = self.params.get('positional_axes', {})
 
-            delay_percentage = phase_shift_config.get('delay_percentage', 10.0)
-            min_segment_duration = phase_shift_config.get('min_segment_duration', 0.25)
+        # 3P (legacy) phase shift: alpha/beta
+        if axes_config.get('generate_legacy', False):
+            phase_shift_config = axes_config.get('phase_shift', {})
+            if phase_shift_config.get('enabled', False):
+                self._update_progress(progress_callback, 19, "Generating phase-shifted versions (3P)...")
+                print(f"3P phase shift enabled: delay={phase_shift_config.get('delay_percentage')}%")
+                funscripts_to_shift = {}
+                for key in ['alpha', 'beta']:
+                    path = self._get_temp_path(key)
+                    if path.exists():
+                        funscripts_to_shift[key] = Funscript.from_file(path)
+                if funscripts_to_shift:
+                    shifted = generate_all_phase_shifted_funscripts(
+                        funscripts_to_shift, main_funscript,
+                        phase_shift_config.get('delay_percentage', 10.0),
+                        phase_shift_config.get('min_segment_duration', 0.25)
+                    )
+                    for key, funscript in shifted.items():
+                        funscript.save_to_path(self._get_temp_path(key))
+                        print(f"  Saved phase-shifted file: {self._get_temp_path(key).name}")
+                else:
+                    print("  Warning: No alpha/beta funscripts found to phase-shift (3P)")
 
-            # Collect all positional axis funscripts to phase-shift
-            funscripts_to_shift = {}
-
-            # Check for legacy mode (alpha/beta)
-            if self.params.get('positional_axes', {}).get('mode') == 'legacy':
-                # Load alpha and beta from temp
-                alpha_path = self._get_temp_path("alpha")
-                beta_path = self._get_temp_path("beta")
-
-                if alpha_path.exists():
-                    funscripts_to_shift['alpha'] = Funscript.from_file(alpha_path)
-                if beta_path.exists():
-                    funscripts_to_shift['beta'] = Funscript.from_file(beta_path)
-
-            # Check for motion axis mode (e1-e4)
-            elif self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
+        # 4P (motion axis) phase shift: e1-e4
+        if axes_config.get('generate_motion_axis', False):
+            ma_phase_config = axes_config.get('motion_axis_phase_shift', axes_config.get('phase_shift', {}))
+            if ma_phase_config.get('enabled', False):
+                self._update_progress(progress_callback, 19, "Generating phase-shifted versions (4P)...")
+                print(f"4P phase shift enabled: delay={ma_phase_config.get('delay_percentage')}%")
+                funscripts_to_shift = {}
                 for axis in ['e1', 'e2', 'e3', 'e4']:
-                    axis_path = self._get_temp_path(axis)
-                    if axis_path.exists():
-                        funscripts_to_shift[axis] = Funscript.from_file(axis_path)
-
-            # Generate phase-shifted versions if we have any funscripts
-            if funscripts_to_shift:
-                print(f"  Generating phase-shifted versions for: {list(funscripts_to_shift.keys())}")
-                shifted_funscripts = generate_all_phase_shifted_funscripts(
-                    funscripts_to_shift,
-                    main_funscript,
-                    delay_percentage,
-                    min_segment_duration
-                )
-
-                # Save phase-shifted funscripts to temp directory
-                for key, funscript in shifted_funscripts.items():
-                    output_path = self._get_temp_path(key)
-                    funscript.save_to_path(output_path)
-                    print(f"  Saved phase-shifted file: {output_path.name}")
-            else:
-                print(f"  Warning: No funscripts found to phase-shift (mode={self.params.get('positional_axes', {}).get('mode')})")
+                    path = self._get_temp_path(axis)
+                    if path.exists():
+                        funscripts_to_shift[axis] = Funscript.from_file(path)
+                if funscripts_to_shift:
+                    shifted = generate_all_phase_shifted_funscripts(
+                        funscripts_to_shift, main_funscript,
+                        ma_phase_config.get('delay_percentage', 10.0),
+                        ma_phase_config.get('min_segment_duration', 0.25)
+                    )
+                    for key, funscript in shifted.items():
+                        funscript.save_to_path(self._get_temp_path(key))
+                        print(f"  Saved phase-shifted file: {self._get_temp_path(key).name}")
+                else:
+                    print("  Warning: No E1-E4 funscripts found to phase-shift (4P)")
 
         # Phase 2: Core File Generation (20-40%)
         self._update_progress(progress_callback, 20, "Generating speed file...")
@@ -626,30 +628,31 @@ events:
             if beta_temp_path.exists():
                 shutil.copy2(beta_temp_path, self._get_output_path("beta-prostate"))
 
-        # Copy motion axis files to outputs if motion axis mode is enabled
-        if self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
-            motion_config = self.params.get('positional_axes', {})
+        axes_config = self.params.get('positional_axes', {})
+
+        # Copy motion axis files to outputs if 4P mode is enabled
+        if axes_config.get('generate_motion_axis', False):
             for axis_name in ['e1', 'e2', 'e3', 'e4']:
-                if motion_config.get(axis_name, {}).get('enabled', False):
+                if axes_config.get(axis_name, {}).get('enabled', False):
                     temp_path = self._get_temp_path(axis_name)
                     if temp_path.exists():
                         shutil.copy2(temp_path, self._get_output_path(axis_name))
 
-        # Copy phase-shifted files to outputs if phase shift is enabled
-        phase_shift_config = self.params.get('positional_axes', {}).get('phase_shift', {})
-        if phase_shift_config.get('enabled', False):
-            # Copy phase-shifted alpha/beta files (legacy mode)
-            if self.params.get('positional_axes', {}).get('mode') == 'legacy':
+        # Copy phase-shifted outputs — 3P (legacy)
+        if axes_config.get('generate_legacy', False):
+            ps_config = axes_config.get('phase_shift', {})
+            if ps_config.get('enabled', False):
                 for suffix in ['alpha-2', 'beta-2']:
                     temp_path = self._get_temp_path(suffix)
                     if temp_path.exists():
                         shutil.copy2(temp_path, self._get_output_path(suffix))
 
-            # Copy phase-shifted motion axis files (motion axis mode)
-            elif self.params.get('positional_axes', {}).get('mode') == 'motion_axis':
-                motion_config = self.params.get('positional_axes', {})
+        # Copy phase-shifted outputs — 4P (motion axis)
+        if axes_config.get('generate_motion_axis', False):
+            ma_ps_config = axes_config.get('motion_axis_phase_shift', axes_config.get('phase_shift', {}))
+            if ma_ps_config.get('enabled', False):
                 for axis_name in ['e1', 'e2', 'e3', 'e4']:
-                    if motion_config.get(axis_name, {}).get('enabled', False):
+                    if axes_config.get(axis_name, {}).get('enabled', False):
                         suffix = f"{axis_name}-2"
                         temp_path = self._get_temp_path(suffix)
                         if temp_path.exists():

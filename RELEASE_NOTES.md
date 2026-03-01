@@ -1,9 +1,11 @@
-## What's New in v2.0.9
+## What's New in v2.1.0
 
-### UI compactness improvements
-1. Reduced main window default height from 760px to 735px
-2. Motion Axis tab: Combined mode label and radio buttons into single row
-3. Motion Axis tab: Removed redundant title, combined phase shift controls into single row with tooltip
-4. Basic tab: Arranged algorithm radio buttons in 2x2 grid instead of 4 rows
-5. General tab: Combined processing options into 2-column layout, removed redundant section title
-6. Fixed bottom margin to match left/right margins
+### Motion Axis tab split into 3P and 4P
+1. "Motion Axis" tab replaced by two independent tabs: **Motion Axis (3P)** (legacy alpha/beta) and **Motion Axis (4P)** (E1-E4)
+2. Each tab has its own **Generate motion scripts** checkbox and **Generate phase-shifted versions** checkbox on the same row
+3. 3P and 4P script generation can now be enabled/disabled independently
+4. Each tab has independent phase-shift delay percentage settings
+
+### Bugfixes
+5. Fixed matplotlib not being installed during Windows build (added to requirements.txt and PyInstaller hidden imports)
+6. Fixed E1-E4 files not being copied to output after generation (missing filename parameter in generate_motion_axes call)
