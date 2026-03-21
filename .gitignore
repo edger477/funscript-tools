@@ -187,3 +187,4 @@ nul
 testdata/
 *.funscript
 RestimFunscriptProcessor.AppDir/
+analysis/

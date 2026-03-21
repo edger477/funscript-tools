@@ -157,9 +157,24 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
         
         # Token substitution for step parameters
         processed_steps = []
-        for step in definition.get('steps', []):
+        for step_idx, step in enumerate(definition.get('steps', []), start=1):
+            # Validate required step fields
+            if 'operation' not in step:
+                raise EventProcessorError(f"Event '{event_name}': step {step_idx} is missing required 'operation' field.")
+            if 'axis' not in step:
+                raise EventProcessorError(f"Event '{event_name}': step {step_idx} (operation: '{step['operation']}') is missing required 'axis' field.")
+
+            # Validate operation-specific required params
+            operation = step['operation']
+            step_params_raw = step.get('params', {})
+            if operation == 'apply_linear_change' and 'start_value' not in step_params_raw:
+                raise EventProcessorError(
+                    f"Event '{event_name}': step {step_idx} uses 'apply_linear_change' but is missing "
+                    f"required 'start_value'. Did you mean 'apply_modulation'?"
+                )
+
             processed_step = step.copy()
-            processed_step_params = step.get('params', {}).copy()
+            processed_step_params = step_params_raw.copy()
             processed_step_start_offset = step.get('start_offset', 0)
 
             # Substitute tokens like $duration, $volume_boost

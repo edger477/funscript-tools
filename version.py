@@ -69,9 +69,15 @@ Version information for Restim Funscript Processor
         4. Each tab has independent phase-shift delay settings
         5. Fixed matplotlib not being installed during Windows build (added to requirements.txt and PyInstaller hidden imports)
         6. Fixed E1-E4 files not being copied to output after generation (missing filename_base in generate_motion_axes call)
+2.1.1 - Custom events bugfixes and new event definitions:
+        1. Fixed normalization bug: negative values on axes with max > 1.0 (e.g. pulse_frequency) now correctly divided by max instead of passed through as-is
+        2. Added step validation in event processor: clear errors for missing 'operation', 'axis', or 'start_value' fields (including hint to use apply_modulation)
+        3. Improved error reporting in Custom Event Builder: full traceback shown for unexpected errors
+        4. Added new event definitions: cum, stay, medium, fast, edge (General group)
+        5. Updated config defaults: algorithm, interpolation interval, pulse_freq_min, overwrite behavior
 """
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

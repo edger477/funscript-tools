@@ -90,7 +90,8 @@ class FunscriptEditor:
                 if max_value == 1.0:
                     return value
                 # If value is already in 0.0-1.0 range and max is large, assume it's already normalized
-                if max_value > 1.0 and value <= 1.0:
+                # Note: negative values are NOT treated as pre-normalized — they must be divided by max
+                if max_value > 1.0 and 0.0 <= value <= 1.0:
                     return value
                 # Otherwise normalize by dividing by max
                 return value / max_value

@@ -6,12 +6,12 @@
     "accel_window_size": 3
   },
   "speed": {
-    "interpolation_interval": 0.01,
+    "interpolation_interval": 0.05,
     "normalization_method": "max"
   },
   "alpha_beta_generation": {
     "points_per_second": 25,
-    "algorithm": "top-right-left",
+    "algorithm": "top-left-right",
     "min_distance_from_center": 0.2,
     "speed_threshold_percent": 57,
     "direction_change_probability": 0.2,
@@ -25,7 +25,7 @@
     "min_distance_from_center": 0.5
   },
   "frequency": {
-    "pulse_freq_min": 0.6,
+    "pulse_freq_min": 0.5,
     "pulse_freq_max": 0.99,
     "frequency_ramp_combine_ratio": 3.7,
     "pulse_frequency_combine_ratio": 3.0
@@ -60,12 +60,19 @@
   "options": {
     "normalize_volume": true,
     "delete_intermediary_files": true,
-    "overwrite_existing_files": false
+    "overwrite_existing_files": true
   },
   "positional_axes": {
-    "mode": "legacy",
+    "mode": "motion_axis",
+    "generate_legacy": true,
+    "generate_motion_axis": true,
     "phase_shift": {
       "enabled": true,
+      "delay_percentage": 10.0,
+      "min_segment_duration": 0.25
+    },
+    "motion_axis_phase_shift": {
+      "enabled": false,
       "delay_percentage": 10.0,
       "min_segment_duration": 0.25
     },
@@ -80,7 +87,7 @@
             0.0
           ],
           [
-            0.5,
+            0.75,
             0.2
           ],
           [
@@ -102,7 +109,7 @@
           ],
           [
             0.4,
-            0.1
+            0.2
           ],
           [
             0.5,
@@ -110,7 +117,7 @@
           ],
           [
             0.6,
-            0.1
+            0.2
           ],
           [
             1.0,
@@ -130,8 +137,8 @@
             1.0
           ],
           [
-            0.23719165085388993,
-            0.5584415584415585
+            0.25,
+            0.2
           ],
           [
             1.0,
@@ -148,19 +155,23 @@
         "control_points": [
           [
             0.0,
-            0.5142857142857142
+            0.9922077922077923
           ],
           [
-            0.003162555344718515,
-            0.5142857142857142
+            0.25,
+            0.0
           ],
           [
-            0.22454142947501582,
-            0.4805194805194805
+            0.5,
+            1.0
+          ],
+          [
+            0.75,
+            0.0
           ],
           [
             1.0,
-            0.4
+            1.0
           ]
         ]
       }

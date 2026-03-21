@@ -8,6 +8,7 @@ custom event timelines without requiring manual YAML editing.
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import traceback
 import zipfile
 import yaml
 from pathlib import Path
@@ -1349,7 +1350,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         except EventProcessorError as e:
             self.after(0, self.on_processing_error, str(e))
         except Exception as e:
-            self.after(0, self.on_processing_error, f"Unexpected error: {e}")
+            tb = traceback.format_exc()
+            self.after(0, self.on_processing_error, f"Unexpected error: {e}\n\nDetails:\n{tb}")
 
     def on_processing_success(self, message: str, backup_path):
         """Handle successful processing"""
