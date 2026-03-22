@@ -41,8 +41,8 @@ definitions:
     default_params:
       duration_ms: 15000
       buzz_freq: 1.5
-      buzz_intensity: 0.05
-      volume_boost: 0.05
+      buzz_intensity: 0.07
+      volume_boost: 0.1
       ramp_up_ms: 250
     steps:
       - operation: apply_linear_change
@@ -75,9 +75,9 @@ definitions:
   stay:
     default_params:
       duration_ms: 15000
-      buzz_freq: 10
-      buzz_intensity: 0.02
-      volume_boost: 0.01
+      buzz_freq: 15
+      buzz_intensity: 0.03
+      volume_boost: 0.05
       ramp_up_ms: 250
     steps:
       - operation: apply_linear_change
@@ -110,10 +110,10 @@ definitions:
   edge:
     default_params:
       duration_ms: 15000
-      buzz_freq: 30
+      buzz_freq: 10
       buzz_intensity: 0.1
-      volume_boost: 0.05
-      ramp_up_ms: 250
+      volume_boost: 0.1
+      ramp_up_ms: 500
 
     steps:
       - operation: apply_linear_change
@@ -281,7 +281,7 @@ definitions:
       stroke_freq: 2
       stroke_intensity: 0.5
       stroke_offset: 0.1
-      volume_boost: 0.05
+      volume_boost: 0.03
       ramp_up_ms: 2500
 
     steps:
@@ -340,10 +340,10 @@ definitions:
       ramp_out_ms: 1000
     steps:
       - operation: apply_linear_change
-        axis: volume-prostate
+        axis: volume
         params:
-          start_value: 0
-          end_value: 0
+          start_value: 0.05
+          end_value: 0.1
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_in_ms
           ramp_out_ms: $ramp_out_ms
