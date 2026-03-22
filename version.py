@@ -75,9 +75,15 @@ Version information for Restim Funscript Processor
         3. Improved error reporting in Custom Event Builder: full traceback shown for unexpected errors
         4. Added new event definitions: cum, stay, medium, fast, edge (General group)
         5. Updated config defaults: algorithm, interpolation interval, pulse_freq_min, overwrite behavior
+2.2.0 - Tuned event definition defaults and config:
+        1. Tuned default params for cum event: buzz_intensity 0.05→0.07, volume_boost 0.05→0.10
+        2. Tuned default params for stay event: buzz_freq 10→15, buzz_intensity 0.02→0.03, volume_boost 0.01→0.05
+        3. Tuned default params for medium event: buzz_freq 30→10, volume_boost 0.05→0.10, ramp_up_ms 250→500
+        4. Tuned clutch_tantalize: volume_boost 0.05→0.03; fixed clutch_tranquil volume axis and start/end values
+        5. Updated config default interpolation_interval 0.05→0.02 for higher resolution processing
 """
 
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
