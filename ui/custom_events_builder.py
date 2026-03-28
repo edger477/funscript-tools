@@ -504,8 +504,14 @@ class ParameterPanel(ttk.Frame):
 
         # Frequency parameters
         if 'freq' in param_name.lower() or param_name == 'pulse_rate':
-            var = tk.IntVar(value=int(value))
-            widget = ttk.Spinbox(parent, from_=1, to=200, increment=1, textvariable=var, width=10)
+            is_fractional = isinstance(value, float) and (value < 1.0 or value % 1.0 != 0.0)
+            if is_fractional:
+                var = tk.DoubleVar(value=float(value))
+                widget = ttk.Spinbox(parent, from_=0.1, to=200, increment=0.05, textvariable=var,
+                                   format='%.2f', width=10)
+            else:
+                var = tk.IntVar(value=int(value))
+                widget = ttk.Spinbox(parent, from_=1, to=200, increment=1, textvariable=var, width=10)
             return widget, var, 'Hz'
 
         # Pulse width (percentage)
@@ -557,7 +563,8 @@ class ParameterPanel(ttk.Frame):
                 if param_name.endswith('_ms') or param_name == 'pulse_rate' or param_name == 'pulse_width':
                     params[param_name] = int(value) if isinstance(value, (int, float)) else int(float(value))
                 elif 'freq' in param_name.lower():
-                    params[param_name] = int(value) if isinstance(value, (int, float)) else int(float(value))
+                    fval = float(value) if not isinstance(value, (int, float)) else float(value)
+                    params[param_name] = fval if fval % 1.0 != 0.0 else int(fval)
                 elif param_name.endswith('_phase'):
                     params[param_name] = int(value) if isinstance(value, (int, float)) else int(float(value))
                 else:

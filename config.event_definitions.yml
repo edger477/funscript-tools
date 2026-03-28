@@ -41,8 +41,8 @@ definitions:
     default_params:
       duration_ms: 15000
       buzz_freq: 1.5
-      buzz_intensity: 0.07
-      volume_boost: 0.1
+      buzz_intensity: 0.1
+      volume_boost: 0.2
       ramp_up_ms: 250
     steps:
       - operation: apply_linear_change
@@ -76,8 +76,8 @@ definitions:
     default_params:
       duration_ms: 15000
       buzz_freq: 15
-      buzz_intensity: 0.03
-      volume_boost: 0.05
+      buzz_intensity: 0.05
+      volume_boost: 0.1
       ramp_up_ms: 250
     steps:
       - operation: apply_linear_change
@@ -111,8 +111,8 @@ definitions:
     default_params:
       duration_ms: 15000
       buzz_freq: 10
-      buzz_intensity: 0.1
-      volume_boost: 0.1
+      buzz_intensity: 0.07
+      volume_boost: 0.15
       ramp_up_ms: 500
 
     steps:
@@ -203,6 +203,14 @@ definitions:
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_up_ms
           mode: additive
+      - operation: apply_linear_change
+        axis: alpha
+        params:
+          start_value: §stroke_offset
+          end_value: $stroke_offset
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
       - operation: apply_modulation
         axis: alpha
         params:
@@ -211,7 +219,6 @@ definitions:
           amplitude: $stroke_intensity
           duration_ms: $duration_ms
           ramp_in_ms: $ramp_up_ms
-          max_level_offset: $stroke_offset
           mode: additive
       - operation: apply_linear_change
         axis: volume,volume-prostate
@@ -235,7 +242,7 @@ definitions:
       duration_ms: 15000
       stroke_freq: 1
       stroke_intensity: 0.5
-      stroke_offset: 0.1
+      stroke_offset: 0
       volume_boost: 0.00
       ramp_up_ms: 250
 
@@ -280,7 +287,7 @@ definitions:
       duration_ms: 15000
       stroke_freq: 2
       stroke_intensity: 0.5
-      stroke_offset: 0.1
+      stroke_offset: 0
       volume_boost: 0.03
       ramp_up_ms: 2500
 

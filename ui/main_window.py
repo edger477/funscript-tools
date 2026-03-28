@@ -297,12 +297,15 @@ class MainWindow:
             else:
                 conversion_tabs = self.conversion_tabs
 
-            # Determine output directory - use custom if specified, otherwise use input file directory
-            custom_output = self.current_config.get('advanced', {}).get('custom_output_directory', '').strip()
-            if custom_output:
-                output_dir = Path(custom_output)
-                # Ensure the output directory exists
-                output_dir.mkdir(parents=True, exist_ok=True)
+            # Determine output directory - respect file_management mode (central vs local)
+            file_mgmt = self.current_config.get('file_management', {})
+            if file_mgmt.get('mode') == 'central':
+                central_path = file_mgmt.get('central_folder_path', '').strip()
+                if central_path:
+                    output_dir = Path(central_path)
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                else:
+                    output_dir = input_path.parent  # fallback if central path not set
             else:
                 output_dir = input_path.parent
 
@@ -396,12 +399,15 @@ class MainWindow:
             # Get motion axis configuration
             motion_config = self.current_config['positional_axes']
 
-            # Determine output directory - use custom if specified, otherwise use input file directory
-            custom_output = self.current_config.get('advanced', {}).get('custom_output_directory', '').strip()
-            if custom_output:
-                output_dir = Path(custom_output)
-                # Ensure the output directory exists
-                output_dir.mkdir(parents=True, exist_ok=True)
+            # Determine output directory - respect file_management mode (central vs local)
+            file_mgmt = self.current_config.get('file_management', {})
+            if file_mgmt.get('mode') == 'central':
+                central_path = file_mgmt.get('central_folder_path', '').strip()
+                if central_path:
+                    output_dir = Path(central_path)
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                else:
+                    output_dir = input_path.parent  # fallback if central path not set
             else:
                 output_dir = input_path.parent
 

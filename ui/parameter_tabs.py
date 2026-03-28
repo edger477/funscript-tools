@@ -319,6 +319,20 @@ class ParameterTabs(ttk.Notebook):
         ttk.Checkbutton(frame, text="Create backups (zip with timestamp) before overwriting files in central mode",
                        variable=backup_var).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=20, pady=2)
 
+        row += 1
+
+        # Zip output checkbox (only meaningful in central mode)
+        zip_var = tk.BooleanVar(value=self.config['file_management'].get('zip_output', False))
+        self.parameter_vars['file_management']['zip_output'] = zip_var
+        self.zip_output_checkbox = ttk.Checkbutton(
+            frame,
+            text="Zip output files (copy single .zip to central folder instead of individual files)",
+            variable=zip_var
+        )
+        self.zip_output_checkbox.grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=20, pady=2)
+        if self.config['file_management']['mode'] != 'central':
+            self.zip_output_checkbox.state(['disabled'])
+
     def setup_speed_tab(self):
         """Setup the Speed parameters tab."""
         frame = self.speed_frame
@@ -881,9 +895,13 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         if mode == 'central':
             self.mode_desc_label.config(text="Central mode:")
             self.mode_desc_text.config(text="All outputs are saved to the configured central restim funscripts folder")
+            if hasattr(self, 'zip_output_checkbox'):
+                self.zip_output_checkbox.state(['!disabled'])
         else:
             self.mode_desc_label.config(text="Local mode:")
             self.mode_desc_text.config(text="All outputs are saved to same folder where the source funscript is found")
+            if hasattr(self, 'zip_output_checkbox'):
+                self.zip_output_checkbox.state(['disabled'])
 
     def setup_advanced_tab(self):
         """Setup the Advanced parameters tab."""

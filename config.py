@@ -58,7 +58,8 @@ DEFAULT_CONFIG = {
     "file_management": {
         "mode": "local",  # "local" or "central"
         "central_folder_path": "",
-        "create_backups": True
+        "create_backups": True,
+        "zip_output": False
     },
     "options": {
         "normalize_volume": True,

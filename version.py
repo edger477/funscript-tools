@@ -81,9 +81,18 @@ Version information for Restim Funscript Processor
         3. Tuned default params for medium event: buzz_freq 30→10, volume_boost 0.05→0.10, ramp_up_ms 250→500
         4. Tuned clutch_tantalize: volume_boost 0.05→0.03; fixed clutch_tranquil volume axis and start/end values
         5. Updated config default interpolation_interval 0.05→0.02 for higher resolution processing
+2.2.1 - Central folder bugfixes and zip output feature:
+        1. Fixed "Process Motion Files" ignoring central folder setting (files went to source folder instead)
+        2. Fixed same central folder bug in 3P conversion path (_perform_2d_conversion)
+        3. Added zip output option in central mode: packs all output funscripts into a single .zip file
+        4. Zip output cleans up old .zip on re-process (when backups disabled)
+        5. Fixed Custom Event Builder: fractional frequencies (e.g. buzz_freq: 1.5) now use float spinbox
+        6. Further tuned event defaults: cum buzz_intensity 0.07→0.1, volume_boost 0.1→0.2; stay buzz_intensity 0.03→0.05, volume_boost 0.05→0.1; edge buzz_intensity 0.1→0.07, volume_boost 0.1→0.15
+        7. Fixed slow event: separated alpha linear offset from modulation (was using max_level_offset for offset bias)
+        8. Changed medium and fast stroke_offset default 0.1→0 (center-aligned strokes)
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
