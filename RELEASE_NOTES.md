@@ -1,11 +1,39 @@
-## What's New in v2.1.0
-
-### Motion Axis tab split into 3P and 4P
-1. "Motion Axis" tab replaced by two independent tabs: **Motion Axis (3P)** (legacy alpha/beta) and **Motion Axis (4P)** (E1-E4)
-2. Each tab has its own **Generate motion scripts** checkbox and **Generate phase-shifted versions** checkbox on the same row
-3. 3P and 4P script generation can now be enabled/disabled independently
-4. Each tab has independent phase-shift delay percentage settings
+## What's New in v2.2.1
 
 ### Bugfixes
-5. Fixed matplotlib not being installed during Windows build (added to requirements.txt and PyInstaller hidden imports)
-6. Fixed E1-E4 files not being copied to output after generation (missing filename parameter in generate_motion_axes call)
+1. Fixed **Process Motion Files** ignoring the central folder setting — files were written to the source funscript folder instead of the configured central folder
+2. Fixed the same central folder bug in the 3P conversion path (_perform_2d_conversion)
+3. Fixed **Custom Event Builder**: fractional frequencies (e.g. `buzz_freq: 1.5`) now use a float spinbox instead of an integer spinbox
+
+### New Feature: Zip Output in Central Mode
+4. Added **Zip output files** option in the General tab (only active when Central mode is selected)
+5. When enabled, all generated `.funscript` files are packed into a single `<name>.zip` in the central folder instead of individual files
+6. On re-process without backups, the previous `.zip` is deleted before regenerating
+
+### Tuned Event Defaults
+7. `cum`: `buzz_intensity` 0.07→0.1, `volume_boost` 0.1→0.2
+8. `stay`: `buzz_intensity` 0.03→0.05, `volume_boost` 0.05→0.1
+9. `edge`: `buzz_intensity` 0.1→0.07, `volume_boost` 0.1→0.15
+10. `slow`: separated alpha linear offset from modulation (was incorrectly using `max_level_offset` for the DC bias)
+11. `medium`, `fast`: `stroke_offset` default 0.1→0 (center-aligned strokes)
+
+---
+
+## v2.2.0 — Tuned event defaults and config
+
+1. Tuned `cum`: `buzz_intensity` 0.05→0.07, `volume_boost` 0.05→0.10
+2. Tuned `stay`: `buzz_freq` 10→15, `buzz_intensity` 0.02→0.03, `volume_boost` 0.01→0.05
+3. Tuned `medium`: `buzz_freq` 30→10, `volume_boost` 0.05→0.10, `ramp_up_ms` 250→500
+4. Tuned `clutch_tantalize`: `volume_boost` 0.05→0.03; fixed `clutch_tranquil` volume axis and start/end values
+5. Updated config default `interpolation_interval` 0.05→0.02 for higher resolution processing
+6. Added zip output support for central folder (UI + processor groundwork)
+
+---
+
+## v2.1.1 — Custom events bugfixes and new event definitions
+
+1. Fixed normalization bug: negative values on axes with `max > 1.0` (e.g. `pulse_frequency`) now correctly divided by max instead of passed through as-is
+2. Added step validation in event processor: clear errors for missing `operation`, `axis`, or `start_value` fields (including hint to use `apply_modulation`)
+3. Improved error reporting in Custom Event Builder: full traceback shown for unexpected errors
+4. Added new event definitions: `cum`, `stay`, `medium`, `fast`, `edge` (General group)
+5. Updated config defaults: algorithm, interpolation interval, `pulse_freq_min`, overwrite behavior
