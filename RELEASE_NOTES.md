@@ -1,4 +1,11 @@
-## What's New in v2.2.1
+## What's New in v2.2.2
+
+### Hotfix
+1. Fixed typo `§stroke_offset` → `$stroke_offset` in the `slow` event definition — caused a numpy DType error ("The DType `StrDType` could not be promoted by `PyFloatDType`") when applying effects in the Custom Event Builder
+
+---
+
+## v2.2.1 — Central folder bugfixes and zip output feature
 
 ### Bugfixes
 1. Fixed **Process Motion Files** ignoring the central folder setting — files were written to the source funscript folder instead of the configured central folder
@@ -26,7 +33,6 @@
 3. Tuned `medium`: `buzz_freq` 30→10, `volume_boost` 0.05→0.10, `ramp_up_ms` 250→500
 4. Tuned `clutch_tantalize`: `volume_boost` 0.05→0.03; fixed `clutch_tranquil` volume axis and start/end values
 5. Updated config default `interpolation_interval` 0.05→0.02 for higher resolution processing
-6. Added zip output support for central folder (UI + processor groundwork)
 
 ---
 

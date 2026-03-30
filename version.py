@@ -81,6 +81,8 @@ Version information for Restim Funscript Processor
         3. Tuned default params for medium event: buzz_freq 30→10, volume_boost 0.05→0.10, ramp_up_ms 250→500
         4. Tuned clutch_tantalize: volume_boost 0.05→0.03; fixed clutch_tranquil volume axis and start/end values
         5. Updated config default interpolation_interval 0.05→0.02 for higher resolution processing
+2.2.2 - Hotfix:
+        1. Fixed typo §stroke_offset → $stroke_offset in slow event definition (caused numpy DType error when applying effects)
 2.2.1 - Central folder bugfixes and zip output feature:
         1. Fixed "Process Motion Files" ignoring central folder setting (files went to source folder instead)
         2. Fixed same central folder bug in 3P conversion path (_perform_2d_conversion)
@@ -92,7 +94,7 @@ Version information for Restim Funscript Processor
         8. Changed medium and fast stroke_offset default 0.1→0 (center-aligned strokes)
 """
 
-__version__ = "2.2.1"
+__version__ = "2.2.2"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
