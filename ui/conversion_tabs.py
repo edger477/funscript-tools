@@ -7,15 +7,28 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 
 class ConversionTabs:
-    def __init__(self, parent, config):
+    def __init__(self, parent, config, interpolation_interval_var=None):
         self.parent = parent
         self.config = config
+        self.interpolation_interval_var = interpolation_interval_var
 
         # Basic tab variables
         algorithm_value = config['alpha_beta_generation'].get('algorithm', 'circular')
         self.basic_algorithm_var = tk.StringVar(value=algorithm_value)
-        points_per_second = config['alpha_beta_generation'].get('points_per_second', 25)
-        self.basic_points_var = tk.IntVar(value=points_per_second)
+        # points_per_second is derived from interpolation_interval — not a free parameter.
+        interpolation_interval = config['speed'].get('interpolation_interval', 0.02)
+        computed_pps = round(1.0 / interpolation_interval)
+        self.basic_points_var = tk.IntVar(value=computed_pps)
+        # If a live variable is provided, keep the display in sync
+        if interpolation_interval_var is not None:
+            def _update_pps(*_):
+                try:
+                    val = interpolation_interval_var.get()
+                    if val > 0:
+                        self.basic_points_var.set(round(1.0 / val))
+                except Exception:
+                    pass
+            interpolation_interval_var.trace_add('write', _update_pps)
         min_distance = config['alpha_beta_generation'].get('min_distance_from_center', 0.1)
         self.basic_min_distance_var = tk.DoubleVar(value=min_distance)
         speed_threshold = config['alpha_beta_generation'].get('speed_threshold_percent', 50)
@@ -39,6 +52,33 @@ class ConversionTabs:
 
         self.setup_tabs()
 
+    def _make_scrollable(self, outer):
+        """Add a vertical scrollbar to outer frame and return the inner frame for widgets."""
+        canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(inner_id, width=event.width)
+
+        inner.bind("<Configure>", _on_inner_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        inner.bind("<MouseWheel>", _on_mousewheel)
+        return inner
+
     def setup_tabs(self):
         """Setup the tabbed interface for 1D to 2D conversion."""
         # Create notebook for tabs
@@ -46,13 +86,15 @@ class ConversionTabs:
         self.notebook.pack(fill='both', expand=True)
 
         # Basic conversion tab
-        self.basic_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.basic_frame, text="Basic")
+        _basic_outer = ttk.Frame(self.notebook)
+        self.notebook.add(_basic_outer, text="Basic")
+        self.basic_frame = self._make_scrollable(_basic_outer)
         self.setup_basic_tab()
 
         # Prostate conversion tab
-        self.prostate_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.prostate_frame, text="Prostate")
+        _prostate_outer = ttk.Frame(self.notebook)
+        self.notebook.add(_prostate_outer, text="Prostate")
+        self.prostate_frame = self._make_scrollable(_prostate_outer)
         self.setup_prostate_tab()
 
     def setup_basic_tab(self):
@@ -77,12 +119,12 @@ class ConversionTabs:
                        variable=self.basic_algorithm_var, value="restim-original",
                        command=self._on_algorithm_change).grid(row=1, column=1, sticky=tk.W, pady=1)
 
-        # Points per second
+        # Points per second — read-only, derived from interpolation_interval (Speed tab)
         self.basic_widgets['points_label'] = ttk.Label(self.basic_frame, text="Points Per Second:")
         self.basic_widgets['points_label'].grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.basic_widgets['points_entry'] = ttk.Entry(self.basic_frame, textvariable=self.basic_points_var, width=10)
+        self.basic_widgets['points_entry'] = ttk.Entry(self.basic_frame, textvariable=self.basic_points_var, width=10, state='readonly')
         self.basic_widgets['points_entry'].grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        self.basic_widgets['points_desc'] = ttk.Label(self.basic_frame, text="(1-100) Interpolation density")
+        self.basic_widgets['points_desc'] = ttk.Label(self.basic_frame, text="Auto (= 1 / interpolation interval, set in Speed tab)")
         self.basic_widgets['points_desc'].grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
 
         # Min Distance From Center

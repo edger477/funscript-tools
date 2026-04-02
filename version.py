@@ -81,6 +81,13 @@ Version information for Restim Funscript Processor
         3. Tuned default params for medium event: buzz_freq 30→10, volume_boost 0.05→0.10, ramp_up_ms 250→500
         4. Tuned clutch_tantalize: volume_boost 0.05→0.03; fixed clutch_tranquil volume axis and start/end values
         5. Updated config default interpolation_interval 0.05→0.02 for higher resolution processing
+2.2.3 - Fix alpha/beta grid alignment with speed funscript:
+        1. Fixed isolated low-value artifacts in pulse_frequency caused by segment-relative linspace timestamps
+           misaligning with the speed funscript's uniform arange grid when merged via union1d in combine_funscripts
+        2. Alpha/beta generation now uses the speed funscript's own timestamps as the output grid (when available),
+           guaranteeing zero extra points are introduced by union1d
+        3. Points Per Second in the 3P tab is now derived from interpolation_interval (read-only),
+           keeping the fallback arange grid consistent with the speed grid
 2.2.2 - Hotfix:
         1. Fixed typo §stroke_offset → $stroke_offset in slow event definition (caused numpy DType error when applying effects)
 2.2.1 - Central folder bugfixes and zip output feature:
@@ -94,7 +101,7 @@ Version information for Restim Funscript Processor
         8. Changed medium and fast stroke_offset default 0.1→0 (center-aligned strokes)
 """
 
-__version__ = "2.2.2"
+__version__ = "2.2.3"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

@@ -1,3 +1,13 @@
+## What's New in v2.2.3
+
+### Fix: Alpha/Beta Grid Alignment with Speed Funscript
+
+1. **Fixed isolated low-value artifacts in `pulse_frequency`** — caused by segment-relative `np.linspace` timestamps in alpha/beta generation drifting off the speed funscript's uniform 20 ms `np.arange` grid. When the two grids were merged via `union1d` in `combine_funscripts`, the alpha funscript's true arc-minimum appeared as an extra outlier point at an off-grid time, producing a single noticeably low value (visible as ~20% dip) surrounded by correctly-interpolated neighbours.
+2. **Alpha/beta generation now uses the speed funscript's own timestamps** as the output time grid (when `speed_funscript` is provided). `union1d` therefore adds zero new points — the combined grid is identical to the speed grid.
+3. **Points Per Second in the 3P tab is now read-only**, automatically derived as `round(1 / interpolation_interval)`. This keeps the fallback arange path consistent with the speed grid and prevents the user from accidentally re-introducing misalignment.
+
+---
+
 ## What's New in v2.2.2
 
 ### Hotfix

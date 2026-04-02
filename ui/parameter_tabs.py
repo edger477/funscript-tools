@@ -139,49 +139,84 @@ class ParameterTabs(ttk.Notebook):
         widget.bind('<Enter>', show_tooltip)
         widget.bind('<Leave>', hide_tooltip)
 
+    def _make_scrollable(self, outer):
+        """Add a vertical scrollbar to outer frame and return the inner frame for widgets."""
+        canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(inner_id, width=event.width)
+
+        inner.bind("<Configure>", _on_inner_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        inner.bind("<MouseWheel>", _on_mousewheel)
+        return inner
+
     def setup_tabs(self):
         """Setup all parameter tabs."""
         # General tab
-        self.general_frame = ttk.Frame(self)
-        self.add(self.general_frame, text="General")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="General")
+        self.general_frame = self._make_scrollable(_outer)
         self.setup_general_tab()
 
         # Speed tab
-        self.speed_frame = ttk.Frame(self)
-        self.add(self.speed_frame, text="Speed")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Speed")
+        self.speed_frame = self._make_scrollable(_outer)
         self.setup_speed_tab()
 
         # Frequency tab
-        self.frequency_frame = ttk.Frame(self)
-        self.add(self.frequency_frame, text="Frequency")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Frequency")
+        self.frequency_frame = self._make_scrollable(_outer)
         self.setup_frequency_tab()
 
         # Volume tab
-        self.volume_frame = ttk.Frame(self)
-        self.add(self.volume_frame, text="Volume")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Volume")
+        self.volume_frame = self._make_scrollable(_outer)
         self.setup_volume_tab()
 
         # Pulse tab
-        self.pulse_frame = ttk.Frame(self)
-        self.add(self.pulse_frame, text="Pulse")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Pulse")
+        self.pulse_frame = self._make_scrollable(_outer)
         self.setup_pulse_tab()
 
         # Initialize positional_axes parameter vars once (shared by both motion axis tabs)
         self.parameter_vars['positional_axes'] = {}
 
         # Motion Axis (3P) tab - Legacy alpha/beta mode
-        self.motion_axis_3p_frame = ttk.Frame(self)
-        self.add(self.motion_axis_3p_frame, text="Motion Axis (3P)")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Motion Axis (3P)")
+        self.motion_axis_3p_frame = self._make_scrollable(_outer)
         self.setup_motion_axis_3p_tab()
 
         # Motion Axis (4P) tab - E1-E4 mode
-        self.motion_axis_4p_frame = ttk.Frame(self)
-        self.add(self.motion_axis_4p_frame, text="Motion Axis (4P)")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Motion Axis (4P)")
+        self.motion_axis_4p_frame = self._make_scrollable(_outer)
         self.setup_motion_axis_4p_tab()
 
         # Advanced tab
-        self.advanced_frame = ttk.Frame(self)
-        self.add(self.advanced_frame, text="Advanced")
+        _outer = ttk.Frame(self)
+        self.add(_outer, text="Advanced")
+        self.advanced_frame = self._make_scrollable(_outer)
         self.setup_advanced_tab()
 
     def setup_general_tab(self):
@@ -656,8 +691,10 @@ class ParameterTabs(ttk.Notebook):
         # Import ConversionTabs here to avoid circular import
         from ui.conversion_tabs import ConversionTabs
 
-        # Create conversion tabs within the legacy section
-        self.embedded_conversion_tabs = ConversionTabs(self.legacy_frame, self.config)
+        # Create conversion tabs within the legacy section, passing the live
+        # interpolation_interval variable so Points Per Second stays in sync.
+        interp_var = self.parameter_vars.get('speed', {}).get('interpolation_interval')
+        self.embedded_conversion_tabs = ConversionTabs(self.legacy_frame, self.config, interpolation_interval_var=interp_var)
 
     def setup_motion_axis_section_internal(self):
         """Setup the Motion Axis configuration section within Motion Axis tab."""

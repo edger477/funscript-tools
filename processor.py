@@ -312,7 +312,10 @@ events:
         if not alpha_exists or not beta_exists:
             self._update_progress(progress_callback, 15, "Generating alpha and beta files from main funscript...")
             alpha_beta_config = self.params.get('alpha_beta_generation', {})
-            points_per_second = alpha_beta_config.get('points_per_second', 25)
+            # Derive points_per_second from interpolation_interval so the alpha/beta grid
+            # matches the speed funscript's grid exactly (used as fallback when speed_funscript is None).
+            interpolation_interval = self.params['speed']['interpolation_interval']
+            points_per_second = round(1.0 / interpolation_interval)
             algorithm = alpha_beta_config.get('algorithm', 'circular')
             min_distance_from_center = alpha_beta_config.get('min_distance_from_center', 0.1)
             speed_threshold_percent = alpha_beta_config.get('speed_threshold_percent', 50)
