@@ -75,8 +75,16 @@ class ConversionTabs:
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-        canvas.bind("<MouseWheel>", _on_mousewheel)
-        inner.bind("<MouseWheel>", _on_mousewheel)
+        def _bind_mousewheel(*_):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(*_):
+            canvas.unbind_all("<MouseWheel>")
+
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
+        inner.bind("<Enter>", _bind_mousewheel)
+        inner.bind("<Leave>", _unbind_mousewheel)
         return inner
 
     def setup_tabs(self):

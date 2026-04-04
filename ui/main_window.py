@@ -16,7 +16,6 @@ from config import ConfigManager
 from processor import RestimProcessor
 from ui.parameter_tabs import ParameterTabs
 from ui.conversion_tabs import ConversionTabs
-from ui.custom_events_dialog import CustomEventsDialog
 from ui.custom_events_builder import CustomEventsBuilderDialog
 
 
@@ -120,8 +119,7 @@ class MainWindow:
         self.process_motion_button = ttk.Button(buttons_frame, text="Process Motion Files", command=self.start_motion_processing)
         self.process_motion_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        ttk.Button(buttons_frame, text="Custom Event Builder (NEW)", command=self.open_custom_events_builder).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(buttons_frame, text="Custom Events (Classic)", command=self.open_custom_events_dialog).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(buttons_frame, text="Custom Event Builder", command=self.open_custom_events_builder).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Button(buttons_frame, text="Save Config", command=self.save_config).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT)
@@ -151,12 +149,6 @@ class MainWindow:
             self.last_processed_directory
         )
         self.root.wait_window(dialog)
-
-    def open_custom_events_dialog(self):
-        """Open the classic text-based custom events dialog."""
-        dialog = CustomEventsDialog(self.root, self.current_config)
-        self.root.wait_window(dialog)
-
 
     def on_mode_change(self, mode):
         """Called when positional axis mode changes."""

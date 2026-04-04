@@ -843,8 +843,12 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def __init__(self, parent, config=None, last_processed_filename=None, last_processed_directory=None):
         super().__init__(parent)
         self.title("Custom Event Builder")
-        self.geometry("1200x900")
         self.resizable(True, True)
+
+        # Fit dialog height to available screen space (screen height minus ~48px taskbar)
+        screen_h = self.winfo_screenheight()
+        dialog_h = min(900, screen_h - 48)
+        self.geometry(f"1200x{dialog_h}")
         self.transient(parent)
         self.grab_set()
 
