@@ -1,5 +1,7 @@
+import copy
+import json
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox, simpledialog
 from typing import Dict, Any
 
 
@@ -643,6 +645,8 @@ class ParameterTabs(ttk.Notebook):
 
     def setup_motion_axis_4p_tab(self):
         """Setup the Motion Axis (4P) tab — E1-E4 generation."""
+        self._ma_presets_ensure()
+
         frame = self.motion_axis_4p_frame
         row = 0
 
@@ -677,6 +681,29 @@ class ParameterTabs(ttk.Notebook):
                                                        sticky=(tk.W, tk.E), padx=5, pady=10)
         row += 1
 
+        # Row 2: Preset selector
+        preset_row = ttk.Frame(frame)
+        preset_row.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=(2, 6))
+
+        ttk.Label(preset_row, text="Config preset:").pack(side=tk.LEFT, padx=(0, 5))
+
+        self._ma_active_name = tk.StringVar(
+            value=self.config['motion_axis_presets'].get('active', 'Default'))
+        self._ma_combobox = ttk.Combobox(
+            preset_row, textvariable=self._ma_active_name,
+            values=list(self.config['motion_axis_presets']['presets'].keys()),
+            state='readonly', width=22)
+        self._ma_combobox.pack(side=tk.LEFT, padx=(0, 8))
+        self._ma_combobox.bind('<<ComboboxSelected>>', self._ma_on_select)
+
+        ttk.Button(preset_row, text="New",    width=6, command=self._ma_new).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_row, text="Delete", width=7, command=self._ma_delete).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_row, text="Rename", width=7, command=self._ma_rename).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_row, text="Export", width=7, command=self._ma_export).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_row, text="Import", width=7, command=self._ma_import).pack(side=tk.LEFT, padx=2)
+
+        row += 1
+
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(row, weight=1)
 
@@ -688,6 +715,291 @@ class ParameterTabs(ttk.Notebook):
 
         self.setup_motion_axis_section_internal()
         self.motion_config_frame.grid()  # always visible in this tab
+
+    # ------------------------------------------------------------------
+    # Motion Axis preset helpers
+    # ------------------------------------------------------------------
+
+    def _ma_blank_axis(self):
+        return {
+            'enabled': False,
+            'curve': {
+                'name': 'Linear',
+                'description': 'Linear response',
+                'control_points': [[0.0, 0.0], [1.0, 1.0]],
+            },
+        }
+
+    def _ma_blank_preset(self):
+        return {
+            'motion_axis_phase_shift': {
+                'enabled': False,
+                'delay_percentage': 10.0,
+                'min_segment_duration': 0.25,
+            },
+            'e1': self._ma_blank_axis(),
+            'e2': self._ma_blank_axis(),
+            'e3': self._ma_blank_axis(),
+            'e4': self._ma_blank_axis(),
+        }
+
+    def _ma_extract_from_axes(self):
+        """Snapshot current positional_axes config into a preset dict."""
+        axes = self.config.get('positional_axes', {})
+        ma_ps = axes.get('motion_axis_phase_shift', axes.get('phase_shift', {
+            'enabled': False, 'delay_percentage': 10.0, 'min_segment_duration': 0.25,
+        }))
+        preset = {'motion_axis_phase_shift': copy.deepcopy(ma_ps)}
+        for ax in ['e1', 'e2', 'e3', 'e4']:
+            if ax in axes:
+                preset[ax] = {
+                    'enabled': axes[ax].get('enabled', False),
+                    'curve': copy.deepcopy(axes[ax].get('curve', self._ma_blank_axis()['curve'])),
+                }
+            else:
+                preset[ax] = self._ma_blank_axis()
+        return preset
+
+    def _ma_presets_ensure(self):
+        """Migrate config to include motion_axis_presets if missing."""
+        if 'motion_axis_presets' not in self.config:
+            self.config['motion_axis_presets'] = {
+                'active': 'Default',
+                'presets': {'Default': self._ma_extract_from_axes()},
+            }
+            return
+        presets = self.config['motion_axis_presets'].setdefault('presets', {})
+        if not presets:
+            presets['Default'] = self._ma_extract_from_axes()
+            self.config['motion_axis_presets']['active'] = 'Default'
+        active = self.config['motion_axis_presets'].get('active', '')
+        if active not in presets:
+            self.config['motion_axis_presets']['active'] = next(iter(presets))
+
+    def _ma_sync_to_store(self, config=None):
+        """Write current UI state for the active preset back into motion_axis_presets."""
+        if config is None:
+            config = self.config
+        if 'motion_axis_presets' not in config:
+            return
+        active = config['motion_axis_presets'].get('active')
+        if not active or active not in config['motion_axis_presets']['presets']:
+            return
+        axes = config.get('positional_axes', {})
+        ps_vars = self.parameter_vars['positional_axes'].get('motion_axis_phase_shift', {})
+        ma_ps_cfg = axes.get('motion_axis_phase_shift', axes.get('phase_shift', {}))
+        preset = {
+            'motion_axis_phase_shift': {
+                'enabled': ps_vars['enabled'].get() if 'enabled' in ps_vars else ma_ps_cfg.get('enabled', False),
+                'delay_percentage': ps_vars['delay_percentage'].get() if 'delay_percentage' in ps_vars else ma_ps_cfg.get('delay_percentage', 10.0),
+                'min_segment_duration': ma_ps_cfg.get('min_segment_duration', 0.25),
+            },
+        }
+        for ax in ['e1', 'e2', 'e3', 'e4']:
+            ax_vars = self.parameter_vars['positional_axes'].get(ax, {})
+            ax_cfg = axes.get(ax, {})
+            preset[ax] = {
+                'enabled': ax_vars['enabled'].get() if 'enabled' in ax_vars else ax_cfg.get('enabled', False),
+                'curve': copy.deepcopy(ax_cfg.get('curve', self._ma_blank_axis()['curve'])),
+            }
+        config['motion_axis_presets']['presets'][active] = preset
+
+    def _ma_apply_preset_to_config(self, preset):
+        """Copy preset data into positional_axes config."""
+        axes = self.config['positional_axes']
+        if 'motion_axis_phase_shift' in preset:
+            axes['motion_axis_phase_shift'] = copy.deepcopy(preset['motion_axis_phase_shift'])
+        for ax in ['e1', 'e2', 'e3', 'e4']:
+            if ax in preset:
+                axes.setdefault(ax, {})
+                axes[ax]['enabled'] = preset[ax].get('enabled', False)
+                axes[ax]['curve'] = copy.deepcopy(preset[ax].get('curve', self._ma_blank_axis()['curve']))
+
+    def _ma_apply_preset_to_ui(self):
+        """Refresh UI vars and visualizations from positional_axes config."""
+        axes = self.config['positional_axes']
+        ps_vars = self.parameter_vars['positional_axes'].get('motion_axis_phase_shift', {})
+        ma_ps = axes.get('motion_axis_phase_shift', {})
+        if 'enabled' in ps_vars and 'enabled' in ma_ps:
+            ps_vars['enabled'].set(ma_ps['enabled'])
+        if 'delay_percentage' in ps_vars and 'delay_percentage' in ma_ps:
+            ps_vars['delay_percentage'].set(ma_ps['delay_percentage'])
+        for ax in ['e1', 'e2', 'e3', 'e4']:
+            ax_cfg = axes.get(ax, {})
+            ax_vars = self.parameter_vars['positional_axes'].get(ax, {})
+            if 'enabled' in ax_vars and 'enabled' in ax_cfg:
+                ax_vars['enabled'].set(ax_cfg['enabled'])
+        self._update_curve_visualizations()
+        for ax in ['e1', 'e2', 'e3', 'e4']:
+            self._update_curve_name_display(ax)
+
+    def _ma_refresh_combobox(self):
+        """Refresh combobox values from the current presets dict."""
+        if not hasattr(self, '_ma_combobox'):
+            return
+        names = list(self.config['motion_axis_presets']['presets'].keys())
+        self._ma_combobox.configure(values=names)
+        active = self.config['motion_axis_presets'].get('active', '')
+        if active not in names and names:
+            active = names[0]
+            self.config['motion_axis_presets']['active'] = active
+        self._ma_active_name.set(active)
+
+    def _ma_on_select(self, *_):
+        """Handle preset combobox selection."""
+        new_name = self._ma_active_name.get()
+        presets = self.config['motion_axis_presets']['presets']
+        if new_name not in presets:
+            return
+        if new_name == self.config['motion_axis_presets'].get('active'):
+            return
+        self._ma_sync_to_store()
+        self.config['motion_axis_presets']['active'] = new_name
+        self._ma_apply_preset_to_config(presets[new_name])
+        self._ma_apply_preset_to_ui()
+
+    def _ma_new(self):
+        """Create a new preset (blank or cloned from active)."""
+        name = simpledialog.askstring("New Config", "Enter name for new config:", parent=self.root)
+        if not name or not name.strip():
+            return
+        name = name.strip()
+        presets = self.config['motion_axis_presets']['presets']
+        if name in presets:
+            messagebox.showerror("Error", f"Config '{name}' already exists.", parent=self.root)
+            return
+
+        # Dialog: blank or clone
+        dialog = tk.Toplevel(self.root)
+        dialog.title("New Config")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+
+        choice = tk.StringVar(value='clone')
+        ttk.Label(dialog, text=f"Create config '{name}':").pack(padx=20, pady=(15, 5))
+        ttk.Radiobutton(dialog, text="Clone current config", variable=choice, value='clone').pack(anchor=tk.W, padx=30)
+        ttk.Radiobutton(dialog, text="Create blank config",  variable=choice, value='blank').pack(anchor=tk.W, padx=30)
+
+        result: list = [None]
+
+        def _ok():
+            result[0] = choice.get()
+            dialog.destroy()
+
+        def _cancel():
+            dialog.destroy()
+
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(pady=15)
+        ttk.Button(btn_frame, text="OK",     command=_ok).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=_cancel).pack(side=tk.LEFT, padx=5)
+        self.root.wait_window(dialog)
+
+        if result[0] is None:
+            return
+
+        self._ma_sync_to_store()
+        active = self.config['motion_axis_presets']['active']
+        if result[0] == 'clone':
+            presets[name] = copy.deepcopy(presets[active])
+        else:
+            presets[name] = self._ma_blank_preset()
+
+        self.config['motion_axis_presets']['active'] = name
+        self._ma_apply_preset_to_config(presets[name])
+        self._ma_apply_preset_to_ui()
+        self._ma_refresh_combobox()
+        self._ma_active_name.set(name)
+
+    def _ma_delete(self):
+        """Delete the active preset."""
+        presets = self.config['motion_axis_presets']['presets']
+        if len(presets) <= 1:
+            messagebox.showinfo("Cannot Delete", "Cannot delete the only config.", parent=self.root)
+            return
+        active = self.config['motion_axis_presets']['active']
+        if not messagebox.askyesno("Delete Config", f"Delete config '{active}'?", parent=self.root):
+            return
+        del presets[active]
+        new_active = next(iter(presets))
+        self.config['motion_axis_presets']['active'] = new_active
+        self._ma_apply_preset_to_config(presets[new_active])
+        self._ma_apply_preset_to_ui()
+        self._ma_refresh_combobox()
+        self._ma_active_name.set(new_active)
+
+    def _ma_rename(self):
+        """Rename the active preset."""
+        active = self.config['motion_axis_presets']['active']
+        new_name = simpledialog.askstring("Rename Config", "New name:", initialvalue=active, parent=self.root)
+        if not new_name or not new_name.strip():
+            return
+        new_name = new_name.strip()
+        if new_name == active:
+            return
+        presets = self.config['motion_axis_presets']['presets']
+        if new_name in presets:
+            messagebox.showerror("Error", f"Config '{new_name}' already exists.", parent=self.root)
+            return
+        presets[new_name] = presets.pop(active)
+        self.config['motion_axis_presets']['active'] = new_name
+        self._ma_refresh_combobox()
+        self._ma_active_name.set(new_name)
+
+    def _ma_export(self):
+        """Export all presets to a JSON file."""
+        filepath = filedialog.asksaveasfilename(
+            title="Export Motion Axis Configs",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialfile="motion_axis_configs.json",
+            parent=self.root,
+        )
+        if not filepath:
+            return
+        self._ma_sync_to_store()
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(self.config['motion_axis_presets'], f, indent=2)
+            messagebox.showinfo("Export Complete", f"Configs exported to:\n{filepath}", parent=self.root)
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export:\n{e}", parent=self.root)
+
+    def _ma_import(self):
+        """Import presets from a JSON file."""
+        filepath = filedialog.askopenfilename(
+            title="Import Motion Axis Configs",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            parent=self.root,
+        )
+        if not filepath:
+            return
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if 'presets' not in data or not isinstance(data['presets'], dict):
+                messagebox.showerror("Import Error", "Invalid file: missing 'presets' key.", parent=self.root)
+                return
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to read file:\n{e}", parent=self.root)
+            return
+
+        existing = self.config['motion_axis_presets']['presets']
+        conflicts = [n for n in data['presets'] if n in existing]
+        import_all = True
+        if conflicts:
+            msg = f"The following configs already exist:\n{', '.join(conflicts)}\n\nOverwrite them?"
+            import_all = messagebox.askyesno("Import Conflict", msg, parent=self.root)
+
+        imported = 0
+        for name, preset in data['presets'].items():
+            if import_all or name not in existing:
+                existing[name] = copy.deepcopy(preset)
+                imported += 1
+
+        self._ma_refresh_combobox()
+        messagebox.showinfo("Import Complete", f"Imported {imported} config(s).", parent=self.root)
 
     def setup_legacy_section(self):
         """Setup the legacy 1D to 2D conversion section within Motion Axis tab."""
@@ -1007,6 +1319,9 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
                     config[section]['mode'] = 'motion_axis'
                 elif config[section].get('generate_legacy', False):
                     config[section]['mode'] = 'legacy'
+                # Sync active preset into the preset store
+                if 'motion_axis_presets' in config and hasattr(self, '_ma_active_name'):
+                    self._ma_sync_to_store(config)
             else:
                 # Handle regular flat structure
                 for param, var in variables.items():
@@ -1045,6 +1360,10 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
     def update_display(self, config: Dict[str, Any]):
         """Update UI display with configuration values."""
         self.config = config
+        # Migrate / refresh preset selector when loading a new config
+        self._ma_presets_ensure()
+        if hasattr(self, '_ma_combobox'):
+            self._ma_refresh_combobox()
         for section, variables in self.parameter_vars.items():
             if section in config:
                 if section == 'positional_axes':

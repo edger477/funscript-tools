@@ -1,3 +1,24 @@
+## What's New in v2.2.4
+
+### UI Improvements (from v2.2.3 → v2.2.4)
+
+1. **Mousewheel scrolls full tab area** — scrolling now activates whenever the mouse is anywhere inside a scrollable tab, not only when hovering over the thin scrollbar widget
+2. **Removed Classic Custom Event Builder** — the old "Custom Events (Classic)" button has been removed; the remaining button is simply labelled "Custom Event Builder"
+3. **Adaptive dialog height for Custom Event Builder** — the dialog now detects screen resolution and caps its height to fit (screen height − 48 px for the taskbar), preventing it from opening off-screen on smaller displays
+
+### New Feature: Motion Axis (4P) Config Presets
+
+4. **Multiple named configs for the 4P tab** — the Motion Axis (4P) tab now has a **Config preset** selector row with a dropdown and full CRUD operations:
+   - **New** — create a blank preset or clone the current one; a name dialog prompts for the preset name
+   - **Delete** — remove the active preset (blocked when only one preset exists)
+   - **Rename** — rename the active preset in-place
+   - **Export** — save all presets to a `.json` file for backup or sharing
+   - **Import** — load presets from a `.json` file; conflicts prompt for overwrite/skip
+5. **Automatic migration** — existing single configs are transparently promoted to a "Default" preset on first launch; no manual migration needed
+6. **Preset sync on save** — the active preset is always kept in sync with the live axis settings when config is saved
+
+---
+
 ## What's New in v2.2.3
 
 ### Fix: Alpha/Beta Grid Alignment with Speed Funscript
