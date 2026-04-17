@@ -2267,10 +2267,10 @@ class CustomEventsBuilderDialog(tk.Toplevel):
     def _on_close(self):
         _theme.unregister(self._on_theme_change)
         self._video_panel.stop()
-        # Delay destroy by 300 ms so ffpyplayer's internal C thread has time to
-        # wind down after close_player(). Creating a new MediaPlayer while the old
-        # one's SDL thread is still running causes an access violation in SDL2_mixer.
-        self.after(300, self.destroy)
+        # Delay destroy so ffpyplayer's internal C thread has time to wind down
+        # after close_player(). The primary fix is lazy video loading (no MediaPlayer
+        # is created at dialog construction), so this is a secondary safety margin.
+        self.after(1000, self.destroy)
 
     def _on_theme_change(self, dark: bool):
         CanvasTimelinePanel.apply_canvas_theme(dark)
@@ -2507,6 +2507,10 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             self._video_win.deiconify()
             self._video_win.lift()
             self._video_toggle_btn.config(text='\u23f9 Video')
+            # Lazy-load matching video on first show so no MediaPlayer is created
+            # during dialog construction — avoids SDL2_mixer crash when reopening.
+            if self._video_panel._player is None:
+                self._try_auto_load_video()
 
     def _on_video_win_close(self):
         """User closed the video window via the X button."""
@@ -2609,6 +2613,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
                 data = yaml.safe_load(f)
             events = data.get('events', [])
             if events is not None:
+                if 'headroom' in data:
+                    self.headroom_var.set(data['headroom'])
                 self.timeline_panel.load_events_from_yaml(events)
                 self.event_file_path = events_file_path
                 self.event_file_var.set(str(self.event_file_path))
@@ -2622,7 +2628,6 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         except Exception:
             self.status_label.config(text="Ready. Could not auto-load events file.")
 
-        self._try_auto_load_video()
         if self.event_file_path:
             self._try_load_matching_funscript(self.event_file_path)
 
@@ -2863,6 +2868,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             with open(file_path, 'r') as f:
                 data = yaml.safe_load(f)
             events = data.get('events') or []
+            if 'headroom' in data:
+                self.headroom_var.set(data['headroom'])
             self.timeline_panel.load_events_from_yaml(events)
             self.event_file_path = Path(file_path)
             self.event_file_var.set(str(self.event_file_path))
@@ -2930,6 +2937,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
         try:
             data = self.timeline_panel.get_yaml_data()
+            data = {'headroom': self.headroom_var.get(), **data}
             with open(file_path, 'w') as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
             self.event_file_path = Path(file_path)
@@ -2946,6 +2954,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             return
 
         yaml_data = self.timeline_panel.get_yaml_data()
+        yaml_data = {'headroom': self.headroom_var.get(), **yaml_data}
         yaml_text = yaml.dump(yaml_data, default_flow_style=False, sort_keys=False)
 
         dialog = tk.Toplevel(self)
