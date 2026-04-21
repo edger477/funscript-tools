@@ -13,7 +13,8 @@
       "mcp__serena__find_file",
       "Bash(git add:*)",
       "Bash(wc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

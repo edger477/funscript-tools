@@ -88,10 +88,10 @@ def build_windows_exe():
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("Build successful!")
 
-        # Show output files
+        # Show output files — search recursively to support onedir builds
         windows_dist = Path("dist/windows")
         if windows_dist.exists():
-            exe_files = list(windows_dist.glob("*.exe"))
+            exe_files = list(windows_dist.rglob("*.exe"))
             if exe_files:
                 exe_file = exe_files[0]
                 file_size = exe_file.stat().st_size / (1024 * 1024)  # MB
@@ -115,74 +115,33 @@ def create_release_package():
     """Create a release package with the executable and documentation."""
     print("Creating release package...")
 
-    release_dir = Path(f"dist/RestimFunscriptProcessor-v{__version__}-Windows")
-    release_dir.mkdir(parents=True, exist_ok=True)
+    app_dir_name = f"RestimFunscriptProcessor-v{__version__}"
+    archive_name = f"{app_dir_name}-Windows"
 
-    # Copy executable
+    # Locate the onedir build folder (PyInstaller puts it at dist/windows/<name>/)
     windows_dist = Path("dist/windows")
-    exe_files = list(windows_dist.glob("*.exe"))
-    if exe_files:
-        exe_file = exe_files[0]
-        target_exe = release_dir / f"RestimFunscriptProcessor.exe"
-        shutil.copy2(exe_file, target_exe)
-        print(f"Copied executable to: {target_exe}")
+    app_dir = windows_dist / app_dir_name
 
-    # Copy documentation
-    docs_to_copy = [
-        "README.md",
-        "PYTHON_GUI_APPLICATION_SPECIFICATION.md",
-        "RESTIM_FUNSCRIPT_PROCESSING_REQUIREMENTS.md"
-    ]
+    if app_dir.exists():
+        # onedir build — the whole folder is the distributable
+        release_dir = app_dir
+        print(f"Using onedir build: {release_dir}")
+    else:
+        # Fallback: assemble from loose exe (onefile build)
+        release_dir = Path(f"dist/{archive_name}")
+        release_dir.mkdir(parents=True, exist_ok=True)
+        exe_files = list(windows_dist.rglob("*.exe"))
+        if exe_files:
+            shutil.copy2(exe_files[0], release_dir / "RestimFunscriptProcessor.exe")
+            print(f"Copied executable")
 
-    for doc in docs_to_copy:
-        if Path(doc).exists():
-            shutil.copy2(doc, release_dir / doc)
-            print(f"Copied: {doc}")
-
-    # Copy config.json if it exists
-    if Path("config.json").exists():
-        shutil.copy2("config.json", release_dir / "config.json")
-        print(f"Copied: config.json")
-
-    # Copy config.event_definitions.yml if it exists
-    if Path("config.event_definitions.yml").exists():
-        shutil.copy2("config.event_definitions.yml", release_dir / "config.event_definitions.yml")
-        print(f"Copied: config.event_definitions.yml")
-
-    # Create a simple install guide
-    install_guide = release_dir / "INSTALLATION.txt"
-    with open(install_guide, 'w') as f:
-        f.write(f"""Restim Funscript Processor v{__version__} - Windows Installation
-
-QUICK START:
-1. Extract this folder to any location (e.g., Desktop or Program Files)
-2. Double-click "RestimFunscriptProcessor.exe" to run the application
-3. No Python installation required!
-
-USAGE:
-- Select your .funscript file using the Browse button
-- Configure parameters in the tabs
-- Click "Process Files" to generate output files
-- Output files will be created in the same folder as your input file
-
-DOCUMENTATION:
-- README.md - Complete user guide and features
-- PYTHON_GUI_APPLICATION_SPECIFICATION.md - Technical specification
-- RESTIM_FUNSCRIPT_PROCESSING_REQUIREMENTS.md - Processing details
-
-SUPPORT:
-- Report issues at: https://github.com/your-username/funscript-tools/issues
-- Documentation: See included README.md
-
-VERSION: {__version__}
-""")
-
-    print(f"Created installation guide: {install_guide}")
+    # Copy README if present
+    if Path("README.md").exists():
+        shutil.copy2("README.md", release_dir / "README.md")
+        print("Copied: README.md")
 
     # Create ZIP archive
-    archive_name = f"RestimFunscriptProcessor-v{__version__}-Windows"
     print(f"Creating ZIP archive: {archive_name}.zip")
-
     shutil.make_archive(
         f"dist/{archive_name}",
         'zip',
