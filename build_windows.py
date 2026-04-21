@@ -33,7 +33,7 @@ def build_windows_exe():
     if use_spec_file:
         print("Using spec file for build...")
         cmd = [
-            "pyinstaller",
+            sys.executable, "-m", "PyInstaller",
             "--clean",  # Clean PyInstaller cache
             "--distpath", "dist/windows",
             str(spec_file)
@@ -42,7 +42,7 @@ def build_windows_exe():
         print("Using command line arguments for build...")
         # PyInstaller command
         cmd = [
-            "pyinstaller",
+            sys.executable, "-m", "PyInstaller",
             "--onefile",  # Single executable file
             "--windowed",  # No console window (GUI app)
             "--name", f"RestimFunscriptProcessor-v{__version__}",
