@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import traceback
 import sys
 from pathlib import Path
 from typing import Optional
@@ -151,13 +152,35 @@ class MainWindow:
 
     def open_custom_events_builder(self):
         """Open the new visual custom events builder."""
-        dialog = CustomEventsBuilderDialog(
-            self.root,
-            self.current_config,
-            self.last_processed_filename,
-            self.last_processed_directory
-        )
-        self.root.wait_window(dialog)
+        import datetime
+        log_path = Path(sys.executable).parent / 'custom_events.log'
+        def log(msg):
+            try:
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] {msg}\n")
+            except Exception:
+                pass
+        try:
+            log("Opening Custom Event Builder")
+            log(f"  last_processed_filename={self.last_processed_filename}")
+            log(f"  last_processed_directory={self.last_processed_directory}")
+            dialog = CustomEventsBuilderDialog(
+                self.root,
+                self.current_config,
+                self.last_processed_filename,
+                self.last_processed_directory
+            )
+            log("Dialog created successfully")
+            self.root.wait_window(dialog)
+            log("Dialog closed")
+        except Exception:
+            tb = traceback.format_exc()
+            log(f"EXCEPTION:\n{tb}")
+            messagebox.showerror(
+                "Custom Event Builder Error",
+                f"Failed to open Custom Event Builder:\n\n{tb}",
+                parent=self.root
+            )
 
     def _toggle_dark_mode(self):
         _theme.toggle()
