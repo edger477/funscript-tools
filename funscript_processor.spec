@@ -23,6 +23,9 @@ _exe_name = f'RestimFunscriptProcessor-v{_version}'
 VLC_DIR = r'C:\Program Files\VideoLAN\VLC'
 
 datas = [('config.event_definitions.yml', '.')]
+if os.path.exists('config.json'):
+    datas.append(('config.json', '.'))
+
 binaries = []
 
 if os.path.exists(VLC_DIR):

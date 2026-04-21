@@ -8,7 +8,7 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
-from version import __version__, __app_name__
+from version import __version__, __app_name__, __url__
 
 def build_windows_exe():
     """Build Windows executable using PyInstaller."""
@@ -135,10 +135,62 @@ def create_release_package():
             shutil.copy2(exe_files[0], release_dir / "RestimFunscriptProcessor.exe")
             print(f"Copied executable")
 
-    # Copy README if present
-    if Path("README.md").exists():
-        shutil.copy2("README.md", release_dir / "README.md")
-        print("Copied: README.md")
+    # Copy documentation
+    docs_to_copy = [
+        "README.md",
+        "PYTHON_GUI_APPLICATION_SPECIFICATION.md",
+        "RESTIM_FUNSCRIPT_PROCESSING_REQUIREMENTS.md",
+        "ALGORITHM_REDESIGN.md",
+        "RELEASE_NOTES.md"
+    ]
+
+    for doc in docs_to_copy:
+        if Path(doc).exists():
+            shutil.copy2(doc, release_dir / doc)
+            print(f"Copied: {doc}")
+
+    # Copy config files to be next to the exe
+    # config.json might contain user settings, but we include default if it exists
+    if Path("config.json").exists():
+        shutil.copy2("config.json", release_dir / "config.json")
+        print("Copied: config.json")
+    
+    if Path("config.event_definitions.yml").exists():
+        shutil.copy2("config.event_definitions.yml", release_dir / "config.event_definitions.yml")
+        print("Copied: config.event_definitions.yml")
+
+    # Create a simple install guide
+    install_guide = release_dir / "INSTALLATION.txt"
+    with open(install_guide, 'w') as f:
+        f.write(f"""Restim Funscript Processor v{__version__} - Windows Installation
+
+QUICK START:
+1. Extract this folder to any location (e.g., Desktop or Program Files)
+2. Double-click "RestimFunscriptProcessor-v{__version__}.exe" to run the application
+3. No Python installation required!
+
+VLC VIDEO PLAYER:
+This application includes bundled VLC binaries for video playback. 
+If video does not play, ensure you have the latest drivers for your graphics card.
+
+USAGE:
+- Select your .funscript file using the Browse button (or drag and drop)
+- Configure parameters in the tabs
+- Click "Process Files" to generate output files
+- Output files will be created in the same folder as your input file
+
+DOCUMENTATION:
+- README.md - Complete user guide and features
+- RELEASE_NOTES.md - Version history and changes
+- PYTHON_GUI_APPLICATION_SPECIFICATION.md - Technical details
+
+SUPPORT:
+- Report issues at: {__url__}/issues
+- Documentation: See included README.md
+
+VERSION: {__version__}
+""")
+    print(f"Created installation guide: {install_guide}")
 
     # Create ZIP archive
     print(f"Creating ZIP archive: {archive_name}.zip")
