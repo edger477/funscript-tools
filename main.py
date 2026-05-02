@@ -9,8 +9,8 @@ import logging
 import os
 from pathlib import Path
 
-# Set VLC plugin path when running as a frozen PyInstaller exe
-if getattr(sys, 'frozen', False):
+# Set VLC plugin path when running as a frozen PyInstaller exe (Windows only)
+if sys.platform == 'win32' and getattr(sys, 'frozen', False):
     os.environ.setdefault('VLC_PLUGIN_PATH',
                           os.path.join(sys._MEIPASS, 'plugins'))
 

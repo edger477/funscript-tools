@@ -18,6 +18,16 @@ from typing import Dict, List, Any, Optional
 
 log = logging.getLogger(__name__)
 
+import sys as _sys
+_VLC_AVAILABLE = False
+if _sys.platform == 'win32':
+    try:
+        import vlc as _vlc_test
+        del _vlc_test
+        _VLC_AVAILABLE = True
+    except (ImportError, OSError):
+        pass
+
 # Add parent directory to path to allow sibling imports
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
@@ -2072,9 +2082,8 @@ class VideoPanel(ttk.Frame):
         """Load a video file. Returns True on success."""
         try:
             import vlc as _vlc
-        except ImportError:
-            self._status_label.config(
-                text='python-vlc not installed — run: pip install python-vlc')
+        except (ImportError, OSError):
+            self._status_label.config(text='VLC not available on this platform')
             return False
         # Create VLC instance once.
         # --avcodec-hw=none  : disable FFmpeg hardware video decoding
@@ -2409,7 +2418,8 @@ class CustomEventsBuilderDialog(tk.Toplevel):
                 return
             # False → No, discard changes and close
         _theme.unregister(self._on_theme_change)
-        self._video_panel.stop()
+        if self._video_panel is not None:
+            self._video_panel.stop()
         # Delay destroy so ffpyplayer's internal C thread has time to wind down
         # after close_player(). The primary fix is lazy video loading (no MediaPlayer
         # is created at dialog construction), so this is a secondary safety margin.
@@ -2505,28 +2515,31 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # Wire event list refresh to every timeline redraw
         self.timeline_panel.on_redraw_callback = self._refresh_event_list
 
-        # --- Floating video window (hidden until toggled) ---
-        self._video_win = tk.Toplevel(self)
-        self._video_win.withdraw()  # hide immediately — before geometry/content, avoids WM focus-steal on Windows
-        self._video_win.title('Video')
-        self._video_win.geometry('800x500')
-        self._video_win.protocol('WM_DELETE_WINDOW', self._on_video_win_close)
-        self._video_panel = VideoPanel(self._video_win)
-        self._video_panel.pack(fill=tk.BOTH, expand=True)
-        self._video_driving = False       # True while video tick is updating playhead
-        self._seek_settling_count = 0     # >0 while a seek is still settling; suppresses video tick
-        self._video_tick_count = 0        # counts video ticks; used to throttle timeline redraws
+        # --- Floating video window (hidden until toggled; Windows + VLC only) ---
+        self._video_win = None
+        self._video_panel = None
+        self._video_driving = False
+        self._seek_settling_count = 0
+        self._video_tick_count = 0
+        if _VLC_AVAILABLE:
+            self._video_win = tk.Toplevel(self)
+            self._video_win.withdraw()  # hide immediately — avoids WM focus-steal on Windows
+            self._video_win.title('Video')
+            self._video_win.geometry('800x500')
+            self._video_win.protocol('WM_DELETE_WINDOW', self._on_video_win_close)
+            self._video_panel = VideoPanel(self._video_win)
+            self._video_panel.pack(fill=tk.BOTH, expand=True)
 
-        # Wire playhead ↔ video sync
-        self.timeline_panel.on_playhead_change = self._on_playhead_change
-        self.timeline_panel.play_pause_callback = self._video_panel.toggle_play
-        self._video_panel._on_playback_tick = self._on_video_tick
-        self._video_panel._on_duration_known = self._on_video_duration_known
+            # Wire playhead ↔ video sync
+            self.timeline_panel.on_playhead_change = self._on_playhead_change
+            self.timeline_panel.play_pause_callback = self._video_panel.toggle_play
+            self._video_panel._on_playback_tick = self._on_video_tick
+            self._video_panel._on_duration_known = self._on_video_duration_known
 
-        # Forward video-window key events to the timeline panel methods
-        self._video_panel.on_arrow     = self.timeline_panel._on_arrow
-        self._video_panel.on_seek_ms   = self.timeline_panel._on_seek_ms
-        self._video_panel.on_play_pause = self._video_panel.toggle_play
+            # Forward video-window key events to the timeline panel methods
+            self._video_panel.on_arrow      = self.timeline_panel._on_arrow
+            self._video_panel.on_seek_ms    = self.timeline_panel._on_seek_ms
+            self._video_panel.on_play_pause = self._video_panel.toggle_play
 
         # Set initial sash position after layout is realised
         self.after(100, self._init_sash)
@@ -2625,12 +2638,12 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         )
         self._dark_toggle_btn.pack(side=tk.LEFT, padx=2)
 
-        self._video_toggle_btn = ttk.Button(
-            action_frame, text='\u25b6 Video', width=9, command=self._toggle_video_panel)
-        self._video_toggle_btn.pack(side=tk.LEFT, padx=2)
-
-        ttk.Button(action_frame, text='Load Video',
-                   command=self._load_video_dialog).pack(side=tk.LEFT, padx=2)
+        if _VLC_AVAILABLE:
+            self._video_toggle_btn = ttk.Button(
+                action_frame, text='\u25b6 Video', width=9, command=self._toggle_video_panel)
+            self._video_toggle_btn.pack(side=tk.LEFT, padx=2)
+            ttk.Button(action_frame, text='Load Video',
+                       command=self._load_video_dialog).pack(side=tk.LEFT, padx=2)
 
         self.apply_button = ttk.Button(action_frame, text="Apply Effects",
                                        command=self.on_apply_effects)
@@ -2660,7 +2673,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             self._video_toggle_btn.config(text='\u23f9 Video')
             # Lazy-load matching video on first show so no MediaPlayer is created
             # during dialog construction — avoids SDL2_mixer crash when reopening.
-            if self._video_panel._player is None:
+            if self._video_panel._vlc_mp is None:
                 self._try_auto_load_video()
 
     def _on_video_win_close(self):
@@ -2686,7 +2699,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
     def _try_auto_load_video(self):
         """Look for a matching video file in the same directory as the events file."""
-        if not self.last_processed_directory or not self.last_processed_filename:
+        if self._video_panel is None or not self.last_processed_directory or not self.last_processed_filename:
             return
         from pathlib import Path
         for ext in ('.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v',
@@ -2698,7 +2711,7 @@ class CustomEventsBuilderDialog(tk.Toplevel):
 
     def _on_playhead_change(self, ms: float):
         """Timeline playhead moved → seek video. Works during playback too."""
-        if not self._video_driving:
+        if self._video_panel is not None and not self._video_driving:
             self._video_panel.seek(ms)
             # Suppress video tick from overwriting the playhead until the seek settles
             self._seek_settling_count += 1
