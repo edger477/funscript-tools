@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from pathlib import Path
@@ -54,6 +55,65 @@ DEFAULT_CONFIG = {
         "enable_pulse_frequency_inversion": False,
         "enable_volume_inversion": False,
         "enable_frequency_inversion": False
+    },
+    "trochoid_quantization": {
+        "enabled": False,
+        "n_points": 23,
+        "projection": "radius",
+        "family": "hypo",
+        "deduplicate_holds": False,
+        "params_by_family": {
+            "hypo": {"R": 5.0, "r": 3.0, "d": 2.0},
+            "epi": {"R": 5.0, "r": 3.0, "d": 2.0},
+            "rose": {"a": 1.0, "k": 5.0},
+            "lissajous": {"A": 1.0, "B": 1.0, "a": 3.0, "b": 2.0,
+                          "delta": 1.5708},
+            "butterfly": {"scale": 1.0},
+            "superformula": {"a": 1.0, "b": 1.0, "m": 6.0,
+                             "n1": 1.0, "n2": 7.0, "n3": 8.0},
+            "custom": {"x_expr": "sin(3*t)", "y_expr": "cos(2*t)"}
+        }
+    },
+    "trochoid_spatial": {
+        "enabled": False,
+        "family": "hypo",
+        "mapping": "directional",
+        "sharpness": 1.0,
+        "cycles_per_unit": 1.0,
+        "electrode_angles_deg": [0.0, 90.0, 180.0, 270.0],
+        "params_by_family": {
+            "hypo": {"R": 5.0, "r": 3.0, "d": 2.0},
+            "epi": {"R": 5.0, "r": 3.0, "d": 2.0},
+            "rose": {"a": 1.0, "k": 5.0},
+            "lissajous": {"A": 1.0, "B": 1.0, "a": 3.0, "b": 2.0,
+                          "delta": 1.5708},
+            "butterfly": {"scale": 1.0},
+            "superformula": {"a": 1.0, "b": 1.0, "m": 6.0,
+                             "n1": 1.0, "n2": 7.0, "n3": 8.0},
+            "custom": {"x_expr": "sin(3*t)", "y_expr": "cos(2*t)"}
+        }
+    },
+    "traveling_wave": {
+        "enabled": False,
+        "direction": "bounce",
+        "envelope_mode": "input",
+        "wave_speed_hz": 1.0,
+        "wave_width": 0.18,
+        "speed_mod": 0.0,
+        "sharpness": 1.0,
+        "velocity_window_s": 0.10,
+        "noise_gate": 0.10,
+        "exclusive": False,
+        "electrode_positions": [0.85, 0.65, 0.45, 0.25]
+    },
+    "variants": {
+        "active": "A",
+        "slots": {
+            "A": {"label": "A", "enabled": True, "config": {}},
+            "B": {"label": "B", "enabled": False, "config": {}},
+            "C": {"label": "C", "enabled": False, "config": {}},
+            "D": {"label": "D", "enabled": False, "config": {}}
+        }
     },
     "file_management": {
         "mode": "local",  # "local" or "central"
@@ -160,6 +220,12 @@ PARAMETER_RANGES = {
         "pulse_rise_max": (0.0, 1.0),
         "pulse_rise_combine_ratio": (1, 10)
     },
+    "trochoid_quantization": {
+        "n_points": (2, 256),
+        "R": (0.001, 1000.0),
+        "r": (0.001, 1000.0),
+        "d": (0.0, 1000.0)
+    },
     "positional_axes": {
         # Note: Individual axis validation handled by motion_axis_generation module
         # Phase shift parameter ranges
@@ -185,12 +251,36 @@ class ConfigManager:
                     loaded_config = json.load(f)
                     # Merge with defaults to ensure all keys exist
                     self.config = self._merge_configs(DEFAULT_CONFIG, loaded_config)
+                    self._migrate_trochoid_config()
                     self.validate_config()
             except (json.JSONDecodeError, ValueError) as e:
                 print(f"Error loading config file: {e}")
                 print("Using default configuration.")
                 self.config = DEFAULT_CONFIG.copy()
         return self.config
+
+    def _migrate_trochoid_config(self):
+        """Lift legacy flat trochoid keys (curve_type, R, r, d) into the new
+        family / params_by_family structure. No-op once migration has run."""
+        tq = self.config.get('trochoid_quantization')
+        if not isinstance(tq, dict):
+            return
+        legacy_curve = tq.pop('curve_type', None)
+        legacy_R = tq.pop('R', None)
+        legacy_r = tq.pop('r', None)
+        legacy_d = tq.pop('d', None)
+        if legacy_curve in ('hypo', 'epi'):
+            # Direct assignment: the merged-in default 'family' may already be
+            # 'hypo'; the legacy curve_type wins on first migration.
+            tq['family'] = legacy_curve
+            params = tq.setdefault('params_by_family', {}).setdefault(
+                legacy_curve, {})
+            if legacy_R is not None:
+                params['R'] = float(legacy_R)
+            if legacy_r is not None:
+                params['r'] = float(legacy_r)
+            if legacy_d is not None:
+                params['d'] = float(legacy_d)
 
     def save_config(self) -> bool:
         """Save current configuration to file."""
@@ -267,13 +357,18 @@ class ConfigManager:
                 raise ValueError("pulse_rise_min must be less than pulse_rise_max")
 
     def _merge_configs(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
-        """Recursively merge configuration dictionaries."""
-        result = base.copy()
+        """Recursively merge configuration dictionaries.
+
+        Deep-copies values pulled from `base` so that subsequent mutations of
+        the returned config (e.g. by migration helpers) do not leak back into
+        the original DEFAULT_CONFIG dictionary.
+        """
+        result = copy.deepcopy(base)
 
         for key, value in update.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = self._merge_configs(result[key], value)
             else:
-                result[key] = value
+                result[key] = copy.deepcopy(value)
 
         return result

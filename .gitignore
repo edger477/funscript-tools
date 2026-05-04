@@ -187,4 +187,9 @@ nul
 testdata/
 *.funscript
 RestimFunscriptProcessor.AppDir/
-analysis/
+analysis/.DS_Store
+**/.DS_Store
+.claude/settings.local.json
+C:/
+C:\
+curve_library.json

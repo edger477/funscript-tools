@@ -105,6 +105,12 @@ class ConversionTabs:
         self.prostate_frame = self._make_scrollable(_prostate_outer)
         self.setup_prostate_tab()
 
+        # Angle Manipulation tab
+        _angle_outer = ttk.Frame(self.notebook)
+        self.notebook.add(_angle_outer, text="Angle Manipulation")
+        self.angle_frame = self._make_scrollable(_angle_outer)
+        self.setup_angle_tab()
+
     def setup_basic_tab(self):
         """Setup the basic conversion tab."""
         # Algorithm selection
@@ -230,7 +236,28 @@ class ConversionTabs:
         # Configure grid weights
         self.prostate_frame.columnconfigure(1, weight=1)
 
+    def setup_angle_tab(self):
+        """Setup the angle manipulation tab."""
+        ttk.Label(self.angle_frame, text="Axis 1 (°):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.axis1_entry = ttk.Entry(self.angle_frame, width=10)
+        self.axis1_entry.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.angle_frame, text="Axis 2 (°):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.axis2_entry = ttk.Entry(self.angle_frame, width=10)
+        self.axis2_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.angle_frame, text="Axis 3 (°):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        self.axis3_entry = ttk.Entry(self.angle_frame, width=10)
+        self.axis3_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.angle_frame, text="Axis 4 (°):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        self.axis4_entry = ttk.Entry(self.angle_frame, width=10)
+        self.axis4_entry.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        self.apply_btn = ttk.Button(self.angle_frame, text="Apply", command=self.apply_angle)
+        self.apply_btn.grid(row=4, column=0, columnspan=2, pady=10)
+
     def convert_basic_2d(self):
+        """Trigger basic 2D conversion."""
+        # This will be connected to the main window's conversion function
+        if hasattr(self, 'basic_conversion_callback'):
+            self.basic_conversion_callback()
         """Trigger basic 2D conversion."""
         # This will be connected to the main window's conversion function
         if hasattr(self, 'basic_conversion_callback'):
@@ -310,5 +337,41 @@ class ConversionTabs:
             'generate_from_inverted': self.prostate_invert_var.get(),
             'algorithm': self.prostate_algorithm_var.get(),
             'points_per_second': self.prostate_points_var.get(),
-            'min_distance_from_center': self.prostate_min_distance_var.get()
+            'min_distance_from_center': self.prostate_min_distance_var.get(),
         }
+        def setup_angle_tab(self):
+            """Setup the angle manipulation tab."""
+            ttk.Label(self.angle_frame, text="Axis 1 (°):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+            self.axis1_entry = ttk.Entry(self.angle_frame, width=10)
+            self.axis1_entry.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+            ttk.Label(self.angle_frame, text="Axis 2 (°):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+            self.axis2_entry = ttk.Entry(self.angle_frame, width=10)
+            self.axis2_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+            ttk.Label(self.angle_frame, text="Axis 3 (°):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+            self.axis3_entry = ttk.Entry(self.angle_frame, width=10)
+            self.axis3_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+            ttk.Label(self.angle_frame, text="Axis 4 (°):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+            self.axis4_entry = ttk.Entry(self.angle_frame, width=10)
+            self.axis4_entry.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+            self.apply_btn = ttk.Button(self.angle_frame, text="Apply", command=self.apply_angle)
+            self.apply_btn.grid(row=4, column=0, columnspan=2, pady=10)
+
+    def apply_angle(self):
+        try:
+            axis1 = float(self.axis1_entry.get())
+            axis2 = float(self.axis2_entry.get())
+            axis3 = float(self.axis3_entry.get())
+            axis4 = float(self.axis4_entry.get())
+            target_ys = [a * 0.01 for a in [axis1, axis2, axis3, axis4]]
+            if hasattr(self, 'current_funscript'):
+                self.current_funscript.y1 = np.full_like(self.current_funscript.y1, target_ys[0])
+                self.current_funscript.y2 = np.full_like(self.current_funscript.y2, target_ys[1])
+                self.current_funscript.y3 = np.full_like(self.current_funscript.y3, target_ys[2])
+                self.current_funscript.y4 = np.full_like(self.current_funscript.y4, target_ys[3])
+                if hasattr(self, 'refresh_plot'):
+                    self.refresh_plot()
+                tk.messagebox.showinfo("Success", "Set all axes to specified angles")
+            else:
+                tk.messagebox.showerror("Error", "No funscript loaded")
+        except ValueError:
+            tk.messagebox.showerror("Error", "Please enter valid numbers")

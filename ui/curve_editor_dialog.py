@@ -26,6 +26,25 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from processing.linear_mapping import apply_linear_response_curve, validate_control_points
 from processing.motion_axis_generation import get_curve_presets, create_custom_curve
+from processing.linear_mapping import get_default_response_curves
+from processing.curve_library import (
+    load_library, save_curve as lib_save_curve,
+    delete_curve as lib_delete_curve, rename_curve as lib_rename_curve,
+)
+
+# Names of built-in presets that cannot be overwritten in the library.
+_BUILTIN_PRESET_NAMES = set()
+
+
+def _init_builtin_names():
+    """Cache the set of built-in preset display names."""
+    global _BUILTIN_PRESET_NAMES
+    if not _BUILTIN_PRESET_NAMES:
+        for data in get_curve_presets().values():
+            _BUILTIN_PRESET_NAMES.add(data['name'])
+        # Also include the default axis curve names
+        for data in get_default_response_curves().values():
+            _BUILTIN_PRESET_NAMES.add(data['name'])
 
 
 class CurveEditorDialog:
@@ -123,48 +142,73 @@ class CurveEditorDialog:
         self.dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
 
     def setup_ui(self):
-        """Setup the dialog user interface."""
+        """Setup the dialog user interface with resizable paned panels."""
         # Main container
         main_frame = ttk.Frame(self.dialog, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame.grid(row=0, column=0, sticky='nsew')
 
-        # Configure grid weights
         self.dialog.columnconfigure(0, weight=1)
         self.dialog.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
+        main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(0, weight=1)
 
-        # Left panel - Presets
-        self.setup_presets_panel(main_frame)
+        # Horizontal PanedWindow for the three resizable panels
+        self._paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        self._paned.grid(row=0, column=0, sticky='nsew')
 
-        # Center panel - Interactive editor
-        self.setup_editor_panel(main_frame)
+        # Create wrapper frames for each pane (PanedWindow needs children
+        # added via .add(), not .grid())
+        self._presets_pane = ttk.Frame(self._paned)
+        self._editor_pane = ttk.Frame(self._paned)
+        self._points_pane = ttk.Frame(self._paned)
 
-        # Right panel - Control points list
-        self.setup_control_points_panel(main_frame)
+        self._paned.add(self._presets_pane, weight=0)
+        self._paned.add(self._editor_pane, weight=1)
+        self._paned.add(self._points_pane, weight=0)
 
-        # Bottom panel - Action buttons
+        # Make each pane's content fill it
+        for pane in (self._presets_pane, self._editor_pane, self._points_pane):
+            pane.columnconfigure(0, weight=1)
+            pane.rowconfigure(0, weight=1)
+
+        # Build panels inside their panes
+        self.setup_presets_panel(self._presets_pane)
+        self.setup_editor_panel(self._editor_pane)
+        self.setup_control_points_panel(self._points_pane)
+
+        # Bottom panel - Action buttons (below the paned window)
         self.setup_action_buttons(main_frame)
 
     def setup_presets_panel(self, parent):
-        """Setup the curve presets panel."""
+        """Setup the curve presets panel with built-in presets + user library."""
         presets_frame = ttk.LabelFrame(parent, text="Curve Presets", padding="5")
-        presets_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+        presets_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 2))
         presets_frame.columnconfigure(0, weight=1)
         presets_frame.rowconfigure(0, weight=1)
 
-        # Presets listbox
-        self.presets_listbox = tk.Listbox(presets_frame, width=20, height=12)
+        # Presets listbox — shows built-in presets, then a separator,
+        # then user-saved curves from the library.
+        self.presets_listbox = tk.Listbox(presets_frame, width=22, height=14)
         self.presets_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 5))
 
-        # Scrollbar for listbox
         scrollbar = ttk.Scrollbar(presets_frame, orient=tk.VERTICAL, command=self.presets_listbox.yview)
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.presets_listbox.config(yscrollcommand=scrollbar.set)
 
-        # Load preset button
-        load_preset_btn = ttk.Button(presets_frame, text="Load Preset", command=self.load_selected_preset)
-        load_preset_btn.grid(row=1, column=0, columnspan=2, pady=5)
+        # Buttons
+        btn_frame = ttk.Frame(presets_frame)
+        btn_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        btn_frame.columnconfigure(0, weight=1)
+        btn_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(btn_frame, text="Load",
+                   command=self.load_selected_preset).grid(row=0, column=0, sticky='ew', padx=(0, 2), pady=2)
+        ttk.Button(btn_frame, text="Save to Library",
+                   command=self._save_to_library).grid(row=0, column=1, sticky='ew', padx=(2, 0), pady=2)
+        ttk.Button(btn_frame, text="Delete from Library",
+                   command=self._delete_from_library).grid(row=1, column=0, sticky='ew', padx=(0, 2), pady=2)
+        ttk.Button(btn_frame, text="Rename",
+                   command=self._rename_in_library).grid(row=1, column=1, sticky='ew', padx=(2, 0), pady=2)
 
         # Bind listbox selection
         self.presets_listbox.bind('<<ListboxSelect>>', self.on_preset_select)
@@ -173,7 +217,7 @@ class CurveEditorDialog:
     def setup_editor_panel(self, parent):
         """Setup the interactive curve editor panel."""
         editor_frame = ttk.LabelFrame(parent, text=f"{self.axis_name} Curve Editor", padding="5")
-        editor_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        editor_frame.grid(row=0, column=0, sticky='nsew', padx=2)
         editor_frame.columnconfigure(0, weight=1)
         editor_frame.rowconfigure(0, weight=1)
 
@@ -206,7 +250,7 @@ class CurveEditorDialog:
     def setup_control_points_panel(self, parent):
         """Setup the control points list panel."""
         points_frame = ttk.LabelFrame(parent, text="Control Points", padding="5")
-        points_frame.grid(row=0, column=2, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
+        points_frame.grid(row=0, column=0, sticky='nsew', padx=(2, 0))
         points_frame.columnconfigure(0, weight=1)
         points_frame.rowconfigure(0, weight=1)
 
@@ -238,15 +282,28 @@ class CurveEditorDialog:
         self.y_entry = ttk.Entry(entry_frame, width=8)
         self.y_entry.grid(row=0, column=3)
 
-        # Add/Remove buttons
+        # Bind Enter in entry fields to add/update
+        self.x_entry.bind('<Return>', lambda e: self._add_or_update_point())
+        self.y_entry.bind('<Return>', lambda e: self._add_or_update_point())
+
+        # Point manipulation buttons
         button_frame = ttk.Frame(points_frame)
-        button_frame.grid(row=2, column=0, columnspan=2, pady=5)
+        button_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+        button_frame.columnconfigure(2, weight=1)
 
-        add_btn = ttk.Button(button_frame, text="Add Point", command=self.add_manual_point)
-        add_btn.grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(button_frame, text="Add Point",
+                   command=self.add_manual_point).grid(row=0, column=0, sticky='ew', padx=1)
+        ttk.Button(button_frame, text="Update Point",
+                   command=self._update_selected_point).grid(row=0, column=1, sticky='ew', padx=1)
+        ttk.Button(button_frame, text="Remove Point",
+                   command=self.remove_selected_point).grid(row=0, column=2, sticky='ew', padx=1)
 
-        remove_btn = ttk.Button(button_frame, text="Remove Point", command=self.remove_selected_point)
-        remove_btn.grid(row=0, column=1)
+        # Bulk entry button
+        ttk.Button(button_frame, text="Bulk Entry\u2026",
+                   command=self._open_bulk_entry).grid(
+            row=1, column=0, columnspan=3, sticky='ew', padx=1, pady=(4, 0))
 
         # Bind tree selection
         self.points_tree.bind('<<TreeviewSelect>>', self.on_point_select)
@@ -254,67 +311,206 @@ class CurveEditorDialog:
     def setup_action_buttons(self, parent):
         """Setup the action buttons panel."""
         buttons_frame = ttk.Frame(parent)
-        buttons_frame.grid(row=1, column=0, columnspan=3, pady=10)
+        buttons_frame.grid(row=1, column=0, pady=10)
 
-        # Reset button
+        # Restore Default — resets to the code-defined default for this axis
+        restore_btn = ttk.Button(buttons_frame, text="Restore Default",
+                                 command=self._restore_default)
+        restore_btn.grid(row=0, column=0, padx=(0, 10))
+
+        # Reset button — reverts to the curve as it was when the editor opened
         reset_btn = ttk.Button(buttons_frame, text="Reset", command=self.reset_curve)
-        reset_btn.grid(row=0, column=0, padx=(0, 10))
+        reset_btn.grid(row=0, column=1, padx=(0, 10))
 
         # Cancel button
         cancel_btn = ttk.Button(buttons_frame, text="Cancel", command=self.on_cancel)
-        cancel_btn.grid(row=0, column=1, padx=(0, 10))
+        cancel_btn.grid(row=0, column=2, padx=(0, 10))
 
         # Save button
         save_btn = ttk.Button(buttons_frame, text="Save Curve", command=self.on_save)
-        save_btn.grid(row=0, column=2)
+        save_btn.grid(row=0, column=3)
 
         # Bind keyboard shortcuts
         self.dialog.bind('<Escape>', lambda e: self.on_cancel())
         self.dialog.bind('<Return>', lambda e: self.on_save())
 
+    # Separator label used in the listbox between built-in and user curves
+    _SEPARATOR = '\u2500\u2500\u2500 Saved Curves \u2500\u2500\u2500'
+
     def load_presets(self):
-        """Load available curve presets into the listbox."""
+        """Load built-in presets + user library into the listbox."""
         self.presets = get_curve_presets()
+        self._user_curves = load_library()
+
+        # Build ordered list: (key, data, is_user) — None key = separator
+        self._preset_entries = []
+        for key, data in self.presets.items():
+            self._preset_entries.append((key, data, False))
+
+        if self._user_curves:
+            self._preset_entries.append((None, None, None))  # separator
+            for name in sorted(self._user_curves.keys()):
+                self._preset_entries.append(
+                    (name, self._user_curves[name], True))
 
         self.presets_listbox.delete(0, tk.END)
-        for preset_name, preset_data in self.presets.items():
-            display_name = preset_data['name']
-            self.presets_listbox.insert(tk.END, display_name)
+        for key, data, is_user in self._preset_entries:
+            if key is None:
+                self.presets_listbox.insert(tk.END, self._SEPARATOR)
+            elif is_user:
+                self.presets_listbox.insert(
+                    tk.END, f"\u2605 {data.get('name', key)}")
+            else:
+                self.presets_listbox.insert(tk.END, data['name'])
 
     def on_preset_select(self, event):
         """Handle preset selection in listbox."""
-        # This is called when user clicks on a preset, but doesn't load it yet
         pass
 
-    def load_selected_preset(self):
-        """Load the selected preset curve."""
+    def _get_selected_entry(self):
+        """Return (key, data, is_user) for the selected item, or None."""
         selection = self.presets_listbox.curselection()
         if not selection:
+            return None
+        idx = selection[0]
+        if idx >= len(self._preset_entries):
+            return None
+        key, data, is_user = self._preset_entries[idx]
+        if key is None:  # separator
+            return None
+        return key, data, is_user
+
+    def load_selected_preset(self):
+        """Load the selected preset or library curve."""
+        entry = self._get_selected_entry()
+        if entry is None:
             return
 
-        # Get selected preset
-        preset_names = list(self.presets.keys())
-        if selection[0] >= len(preset_names):
-            return
-
-        preset_key = preset_names[selection[0]]
-        preset_data = self.presets[preset_key]
+        preset_key, preset_data, is_user = entry
 
         # Update current curve
         self.current_curve = {
-            'name': preset_data['name'],
-            'description': preset_data['description'],
-            'control_points': preset_data['control_points'].copy()
+            'name': preset_data.get('name', preset_key),
+            'description': preset_data.get('description', ''),
+            'control_points': copy.deepcopy(
+                preset_data.get('control_points', [(0.0, 0.0), (1.0, 1.0)]))
         }
 
         # Update displays
         self.update_curve_display()
         self.update_points_list()
 
+    def _save_to_library(self):
+        """Save the current curve to the user library."""
+        _init_builtin_names()
+        from tkinter import simpledialog
+        current_name = self.current_curve.get('name', 'Custom')
+        # If the current name is a built-in, suggest "My <name>" instead
+        if current_name in _BUILTIN_PRESET_NAMES:
+            current_name = f"My {current_name}"
+        name = simpledialog.askstring(
+            "Save to Library",
+            "Curve name:",
+            initialvalue=current_name,
+            parent=self.dialog)
+        if not name or not name.strip():
+            return
+        name = name.strip()
+
+        # Block built-in names
+        if name in _BUILTIN_PRESET_NAMES:
+            messagebox.showerror(
+                "Reserved Name",
+                f"'{name}' is a built-in preset name and cannot be used.\n"
+                f"Try a different name, e.g. 'My {name}'.",
+                parent=self.dialog)
+            return
+
+        # Check for overwrite of existing user curve
+        existing = load_library()
+        if name in existing:
+            if not messagebox.askyesno(
+                    "Overwrite",
+                    f"A saved curve named '{name}' already exists. Overwrite?",
+                    parent=self.dialog):
+                return
+
+        # Save with the typed name as the curve's display name
+        curve_to_save = copy.deepcopy(self.current_curve)
+        curve_to_save['name'] = name
+        lib_save_curve(name, curve_to_save)
+        self.load_presets()  # refresh listbox
+        messagebox.showinfo("Saved", f"Curve '{name}' saved to library.",
+                            parent=self.dialog)
+
+    def _delete_from_library(self):
+        """Delete the selected user curve from the library."""
+        entry = self._get_selected_entry()
+        if entry is None:
+            messagebox.showinfo("Delete", "Select a saved curve first.",
+                                parent=self.dialog)
+            return
+        key, data, is_user = entry
+        if not is_user:
+            messagebox.showinfo(
+                "Delete",
+                "Built-in presets cannot be deleted. Only saved curves "
+                "(marked with \u2605) can be removed.",
+                parent=self.dialog)
+            return
+        if not messagebox.askyesno(
+                "Delete Curve",
+                f"Delete '{data.get('name', key)}' from the library?",
+                parent=self.dialog):
+            return
+        lib_delete_curve(key)
+        self.load_presets()
+
+    def _rename_in_library(self):
+        """Rename a user curve in the library."""
+        _init_builtin_names()
+        from tkinter import simpledialog
+        entry = self._get_selected_entry()
+        if entry is None:
+            messagebox.showinfo("Rename", "Select a saved curve first.",
+                                parent=self.dialog)
+            return
+        key, data, is_user = entry
+        if not is_user:
+            messagebox.showinfo(
+                "Rename",
+                "Built-in presets cannot be renamed.",
+                parent=self.dialog)
+            return
+        new_name = simpledialog.askstring(
+            "Rename Curve",
+            "New name:",
+            initialvalue=key,
+            parent=self.dialog)
+        if not new_name or not new_name.strip() or new_name.strip() == key:
+            return
+        new_name = new_name.strip()
+        if new_name in _BUILTIN_PRESET_NAMES:
+            messagebox.showerror(
+                "Reserved Name",
+                f"'{new_name}' is a built-in preset name and cannot be used.",
+                parent=self.dialog)
+            return
+        if not lib_rename_curve(key, new_name):
+            messagebox.showerror(
+                "Rename Failed",
+                f"A curve named '{new_name}' already exists.",
+                parent=self.dialog)
+            return
+        self.load_presets()
+
     def update_curve_display(self):
         """Update the matplotlib curve display."""
         if not MATPLOTLIB_AVAILABLE:
             return
+
+        # Auto-rename if the user modified a built-in preset's points
+        self._auto_rename_if_modified()
 
         # Clear the axes
         self.ax.clear()
@@ -552,9 +748,202 @@ class CurveEditorDialog:
             self.x_entry.delete(0, tk.END)
             self.y_entry.delete(0, tk.END)
 
+    def _update_selected_point(self):
+        """Overwrite the selected point's coordinates with the entry values."""
+        if self.selected_point_index is None:
+            messagebox.showinfo("No Selection",
+                                "Select a point in the list first, then edit X/Y and click Update.",
+                                parent=self.dialog)
+            return
+        try:
+            x = float(self.x_entry.get())
+            y = float(self.y_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid Values",
+                                 "X and Y must be numbers.",
+                                 parent=self.dialog)
+            return
+        if not (0.0 <= x <= 1.0) or not (0.0 <= y <= 1.0):
+            messagebox.showerror("Out of Range",
+                                 "X and Y must be between 0.0 and 1.0.",
+                                 parent=self.dialog)
+            return
+
+        cp = self.current_curve['control_points']
+        if self.selected_point_index < len(cp):
+            # Check for duplicate X (another point already has this X)
+            for i, (px, _) in enumerate(cp):
+                if i != self.selected_point_index and abs(px - x) < 0.001:
+                    messagebox.showerror("Duplicate X",
+                                         f"Another point already has X={px:.3f}.",
+                                         parent=self.dialog)
+                    return
+            cp[self.selected_point_index] = (x, y)
+            cp.sort(key=lambda p: p[0])
+            # Re-find the point index after sorting
+            for i, (px, py) in enumerate(cp):
+                if abs(px - x) < 0.001 and abs(py - y) < 0.001:
+                    self.selected_point_index = i
+                    break
+            self.update_curve_display()
+            self.update_points_list()
+            # Re-select the updated point in the tree
+            children = self.points_tree.get_children()
+            if self.selected_point_index < len(children):
+                self.points_tree.selection_set(children[self.selected_point_index])
+                self.points_tree.see(children[self.selected_point_index])
+
+    def _add_or_update_point(self):
+        """Smart Enter handler: update if a point is selected, add if not."""
+        if self.selected_point_index is not None:
+            self._update_selected_point()
+        else:
+            self.add_manual_point()
+
+    def _open_bulk_entry(self):
+        """Open a dialog for entering multiple X,Y coordinate pairs at once."""
+        bulk = tk.Toplevel(self.dialog)
+        bulk.title("Bulk Coordinate Entry")
+        bulk.geometry("400x350")
+        bulk.transient(self.dialog)
+        bulk.grab_set()
+
+        ttk.Label(bulk, text="Enter one X,Y pair per line (values 0.0-1.0):").pack(
+            padx=10, pady=(10, 2), anchor='w')
+        ttk.Label(bulk, text="Formats: \"0.5, 0.8\" or \"0.5  0.8\" or \"(0.5, 0.8)\"",
+                  foreground='#666').pack(padx=10, pady=(0, 5), anchor='w')
+
+        text_frame = ttk.Frame(bulk)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        text_frame.columnconfigure(0, weight=1)
+        text_frame.rowconfigure(0, weight=1)
+
+        text = tk.Text(text_frame, wrap=tk.WORD, font=('Menlo', 11), width=35, height=12)
+        text.grid(row=0, column=0, sticky='nsew')
+        sb = ttk.Scrollbar(text_frame, command=text.yview)
+        sb.grid(row=0, column=1, sticky='ns')
+        text.config(yscrollcommand=sb.set)
+
+        # Pre-fill with current points
+        for x, y in self.current_curve['control_points']:
+            text.insert(tk.END, f"{x:.3f}, {y:.3f}\n")
+
+        # Mode: replace all vs append
+        mode_var = tk.StringVar(value='replace')
+        mode_frame = ttk.Frame(bulk)
+        mode_frame.pack(padx=10, anchor='w')
+        ttk.Radiobutton(mode_frame, text="Replace all points",
+                        variable=mode_var, value='replace').pack(side=tk.LEFT)
+        ttk.Radiobutton(mode_frame, text="Append to existing",
+                        variable=mode_var, value='append').pack(side=tk.LEFT, padx=(10, 0))
+
+        def _apply():
+            raw = text.get('1.0', tk.END).strip()
+            if not raw:
+                messagebox.showerror("Empty", "No coordinates entered.",
+                                     parent=bulk)
+                return
+
+            parsed = []
+            for line_num, line in enumerate(raw.split('\n'), start=1):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                # Strip parens/brackets
+                line = line.replace('(', '').replace(')', '')
+                line = line.replace('[', '').replace(']', '')
+                # Split by comma, semicolon, or whitespace
+                import re
+                parts = re.split(r'[,;\s]+', line)
+                parts = [p for p in parts if p]
+                if len(parts) != 2:
+                    messagebox.showerror(
+                        "Parse Error",
+                        f"Line {line_num}: expected 2 values, got {len(parts)}.\n"
+                        f"Line: \"{line}\"",
+                        parent=bulk)
+                    return
+                try:
+                    x, y = float(parts[0]), float(parts[1])
+                except ValueError:
+                    messagebox.showerror(
+                        "Parse Error",
+                        f"Line {line_num}: not valid numbers.\nLine: \"{line}\"",
+                        parent=bulk)
+                    return
+                if not (0.0 <= x <= 1.0) or not (0.0 <= y <= 1.0):
+                    messagebox.showerror(
+                        "Out of Range",
+                        f"Line {line_num}: values must be 0.0-1.0.\n"
+                        f"Got X={x}, Y={y}",
+                        parent=bulk)
+                    return
+                parsed.append((x, y))
+
+            if len(parsed) < 2 and mode_var.get() == 'replace':
+                messagebox.showerror("Too Few Points",
+                                     "Need at least 2 points to define a curve.",
+                                     parent=bulk)
+                return
+
+            if mode_var.get() == 'replace':
+                self.current_curve['control_points'] = parsed
+            else:
+                self.current_curve['control_points'].extend(parsed)
+
+            # Remove duplicates by X (keep last), sort
+            seen = {}
+            for x, y in self.current_curve['control_points']:
+                seen[round(x, 6)] = (x, y)
+            self.current_curve['control_points'] = sorted(
+                seen.values(), key=lambda p: p[0])
+
+            self.selected_point_index = None
+            self.update_curve_display()
+            self.update_points_list()
+            bulk.destroy()
+
+        btn_frame = ttk.Frame(bulk)
+        btn_frame.pack(pady=10)
+        ttk.Button(btn_frame, text="Apply", command=_apply).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel",
+                   command=bulk.destroy).pack(side=tk.LEFT, padx=5)
+
+    def _restore_default(self):
+        """Restore this axis to its code-defined default curve."""
+        defaults = get_default_response_curves()
+        axis_key = self.axis_name.lower()  # 'E1' -> 'e1'
+        if axis_key not in defaults:
+            messagebox.showinfo(
+                "No Default",
+                f"No built-in default found for axis {self.axis_name}.",
+                parent=self.dialog)
+            return
+
+        default_curve = defaults[axis_key]
+        if not messagebox.askyesno(
+                "Restore Default",
+                f"Restore {self.axis_name} to the built-in default "
+                f"'{default_curve['name']}'?\n\n"
+                f"This will replace the current curve.",
+                parent=self.dialog):
+            return
+
+        self.current_curve = {
+            'name': default_curve['name'],
+            'description': default_curve['description'],
+            'control_points': copy.deepcopy(default_curve['control_points']),
+        }
+        self.selected_point_index = None
+        self.update_curve_display()
+        self.update_points_list()
+        self.x_entry.delete(0, tk.END)
+        self.y_entry.delete(0, tk.END)
+
     def reset_curve(self):
-        """Reset curve to original state."""
-        if messagebox.askyesno("Reset Curve", "Reset curve to original state? This will lose all changes."):
+        """Reset curve to the state it was when the editor opened."""
+        if messagebox.askyesno("Reset Curve", "Reset curve to the state when the editor opened?\n"
+                               "This will lose all changes made in this session."):
             self.current_curve = copy.deepcopy(self.original_curve)
             self.selected_point_index = None
 
@@ -566,8 +955,37 @@ class CurveEditorDialog:
             self.x_entry.delete(0, tk.END)
             self.y_entry.delete(0, tk.END)
 
+    def _is_builtin_modified(self):
+        """Check if the current curve uses a built-in name but has different points."""
+        _init_builtin_names()
+        name = self.current_curve.get('name', '')
+        if name not in _BUILTIN_PRESET_NAMES:
+            return False
+        # Find the built-in curve with this name
+        for data in get_curve_presets().values():
+            if data['name'] == name:
+                builtin_cp = sorted(
+                    [(round(x, 6), round(y, 6)) for x, y in data['control_points']])
+                current_cp = sorted(
+                    [(round(float(x), 6), round(float(y), 6))
+                     for x, y in self.current_curve['control_points']])
+                return builtin_cp != current_cp
+        return False
+
+    def _auto_rename_if_modified(self):
+        """If the curve is a modified built-in, rename to 'Custom (<name>)'."""
+        if self._is_builtin_modified():
+            original_name = self.current_curve['name']
+            self.current_curve['name'] = f"Custom ({original_name})"
+            self.current_curve['description'] = (
+                f"Modified from built-in '{original_name}'")
+
     def on_save(self):
         """Save the current curve configuration."""
+        # Auto-rename modified built-in curves so the built-in name
+        # doesn't get associated with wrong control points
+        self._auto_rename_if_modified()
+
         # Validate the current curve
         control_points = self.current_curve['control_points']
 

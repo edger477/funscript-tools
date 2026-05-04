@@ -2,12 +2,18 @@
   "general": {
     "rest_level": 0.4,
     "ramp_up_duration_after_rest": 5.0,
-    "speed_window_size": 2,
-    "accel_window_size": 3
+    "speed_window_size": 2.0,
+    "accel_window_size": 3.0
   },
   "speed": {
     "interpolation_interval": 0.02,
-    "normalization_method": "max"
+    "normalization_method": "max",
+    "method": "rolling_average",
+    "savgol_options": {
+      "poly_order": 3,
+      "fit_window_factor": 0.15,
+      "post_smooth_factor": 0.25
+    }
   },
   "alpha_beta_generation": {
     "points_per_second": 50,
@@ -28,7 +34,8 @@
     "pulse_freq_min": 0.5,
     "pulse_freq_max": 0.99,
     "frequency_ramp_combine_ratio": 3.7,
-    "pulse_frequency_combine_ratio": 3.0
+    "pulse_frequency_combine_ratio": 3.0,
+    "map_pulse_freq_to_position": false
   },
   "volume": {
     "volume_ramp_combine_ratio": 25.2,
@@ -39,7 +46,7 @@
   "pulse": {
     "pulse_width_min": 0.1,
     "pulse_width_max": 0.55,
-    "pulse_width_combine_ratio": 3.0,
+    "pulse_width_combine_ratio": 1.0,
     "beta_mirror_threshold": 0.5,
     "pulse_rise_min": 0.0,
     "pulse_rise_max": 0.8,
@@ -51,6 +58,120 @@
     "enable_frequency_inversion": false,
     "custom_output_directory": "",
     "pack_output_to_zip": false
+  },
+  "trochoid_quantization": {
+    "enabled": false,
+    "n_points": 23,
+    "projection": "radius",
+    "family": "hypo",
+    "deduplicate_holds": false,
+    "params_by_family": {
+      "hypo": {
+        "R": 5.0,
+        "r": 3.0,
+        "d": 2.0
+      },
+      "epi": {
+        "R": 5.0,
+        "r": 3.0,
+        "d": 2.0
+      },
+      "rose": {
+        "a": 1.0,
+        "k": 5.0
+      },
+      "lissajous": {
+        "A": 1.0,
+        "B": 1.0,
+        "a": 3.0,
+        "b": 2.0,
+        "delta": 1.5708
+      },
+      "butterfly": {
+        "scale": 1.0
+      },
+      "superformula": {
+        "a": 1.0,
+        "b": 1.0,
+        "m": 6.0,
+        "n1": 1.0,
+        "n2": 7.0,
+        "n3": 8.0
+      },
+      "custom": {
+        "x_expr": "sin(3*t)",
+        "y_expr": "cos(2*t)"
+      }
+    }
+  },
+  "trochoid_spatial": {
+    "enabled": false,
+    "family": "hypo",
+    "mapping": "directional",
+    "sharpness": 1.0,
+    "cycles_per_unit": 1.0,
+    "electrode_angles_deg": [
+      0.0,
+      90.0,
+      180.0,
+      270.0
+    ],
+    "params_by_family": {
+      "hypo": {
+        "R": 5.0,
+        "r": 3.0,
+        "d": 2.0
+      },
+      "epi": {
+        "R": 5.0,
+        "r": 3.0,
+        "d": 2.0
+      },
+      "rose": {
+        "a": 1.0,
+        "k": 5.0
+      },
+      "lissajous": {
+        "A": 1.0,
+        "B": 1.0,
+        "a": 3.0,
+        "b": 2.0,
+        "delta": 1.5708
+      },
+      "butterfly": {
+        "scale": 1.0
+      },
+      "superformula": {
+        "a": 1.0,
+        "b": 1.0,
+        "m": 6.0,
+        "n1": 1.0,
+        "n2": 7.0,
+        "n3": 8.0
+      },
+      "custom": {
+        "x_expr": "sin(3*t)",
+        "y_expr": "cos(2*t)"
+      }
+    }
+  },
+  "traveling_wave": {
+    "enabled": false,
+    "direction": "bounce",
+    "envelope_mode": "input",
+    "wave_speed_hz": 1.0,
+    "wave_width": 0.18,
+    "speed_mod": 0.0,
+    "sharpness": 1.0,
+    "velocity_window_s": 0.1,
+    "noise_gate": 0.1,
+    "exclusive": false,
+    "electrode_positions": [
+      0.85,
+      0.65,
+      0.45,
+      0.25
+    ]
   },
   "file_management": {
     "mode": "local",
@@ -73,12 +194,14 @@
     "phase_shift": {
       "enabled": true,
       "delay_percentage": 10.0,
-      "min_segment_duration": 0.25
+      "min_segment_duration": 0.25,
+      "delay_ms": 100.0
     },
     "motion_axis_phase_shift": {
       "enabled": false,
       "delay_percentage": 10.0,
-      "min_segment_duration": 0.25
+      "min_segment_duration": 0.25,
+      "delay_ms": 100.0
     },
     "e1": {
       "enabled": true,
@@ -91,7 +214,7 @@
             0.0
           ],
           [
-            0.75,
+            0.5,
             0.2
           ],
           [
@@ -99,6 +222,13 @@
             1.0
           ]
         ]
+      },
+      "modulation": {
+        "enabled": false,
+        "frequency_hz": 0.5,
+        "depth": 0.15,
+        "phase_deg": 0.0,
+        "phase_enabled": true
       }
     },
     "e2": {
@@ -128,6 +258,13 @@
             0.0
           ]
         ]
+      },
+      "modulation": {
+        "enabled": false,
+        "frequency_hz": 0.5,
+        "depth": 0.15,
+        "phase_deg": 180.0,
+        "phase_enabled": true
       }
     },
     "e3": {
@@ -149,6 +286,13 @@
             0.0
           ]
         ]
+      },
+      "modulation": {
+        "enabled": false,
+        "frequency_hz": 0.5,
+        "depth": 0.15,
+        "phase_deg": 90.0,
+        "phase_enabled": true
       }
     },
     "e4": {
@@ -178,6 +322,2124 @@
             1.0
           ]
         ]
+      },
+      "modulation": {
+        "enabled": false,
+        "frequency_hz": 0.5,
+        "depth": 0.15,
+        "phase_deg": 270.0,
+        "phase_enabled": true
+      }
+    },
+    "physical_model": {
+      "enabled": false,
+      "electrode_spacing_mm": 20.0,
+      "propagation_speed_mm_s": 300.0,
+      "sweep_direction": "e1_to_e4"
+    }
+  },
+  "motion_axis_presets": {
+    "active": "Default",
+    "presets": {
+      "Default": {
+        "motion_axis_phase_shift": {
+          "enabled": false,
+          "delay_ms": 100.0,
+          "min_segment_duration": 0.25
+        },
+        "e1": {
+          "enabled": true,
+          "curve": {
+            "name": "Ease In",
+            "description": "Gradual start, strong finish",
+            "control_points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                0.5,
+                0.2
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ]
+          },
+          "signal_angle": 0,
+          "modulation": {
+            "enabled": false,
+            "frequency_hz": 0.5,
+            "depth": 0.15,
+            "phase_deg": 0.0,
+            "phase_enabled": true
+          }
+        },
+        "e2": {
+          "enabled": true,
+          "curve": {
+            "name": "Sharp Peak",
+            "description": "Sharp emphasis on middle range",
+            "control_points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                0.4,
+                0.2
+              ],
+              [
+                0.5,
+                1.0
+              ],
+              [
+                0.6,
+                0.2
+              ],
+              [
+                1.0,
+                0.0
+              ]
+            ]
+          },
+          "signal_angle": 0,
+          "modulation": {
+            "enabled": false,
+            "frequency_hz": 0.5,
+            "depth": 0.15,
+            "phase_deg": 180.0,
+            "phase_enabled": true
+          }
+        },
+        "e3": {
+          "enabled": true,
+          "curve": {
+            "name": "Inverted",
+            "description": "Inverted linear mapping",
+            "control_points": [
+              [
+                0.0,
+                1.0
+              ],
+              [
+                0.25,
+                0.2
+              ],
+              [
+                1.0,
+                0.0
+              ]
+            ]
+          },
+          "signal_angle": 0,
+          "modulation": {
+            "enabled": false,
+            "frequency_hz": 0.5,
+            "depth": 0.15,
+            "phase_deg": 90.0,
+            "phase_enabled": true
+          }
+        },
+        "e4": {
+          "enabled": true,
+          "curve": {
+            "name": "Gentle Wave",
+            "description": "Gentle wave-like response",
+            "control_points": [
+              [
+                0.0,
+                0.9922077922077923
+              ],
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.5,
+                1.0
+              ],
+              [
+                0.75,
+                0.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ]
+          },
+          "signal_angle": 0,
+          "modulation": {
+            "enabled": false,
+            "frequency_hz": 0.5,
+            "depth": 0.15,
+            "phase_deg": 270.0,
+            "phase_enabled": true
+          }
+        }
+      }
+    }
+  },
+  "variants": {
+    "active": "D",
+    "slots": {
+      "A": {
+        "label": "A",
+        "enabled": true,
+        "config": {
+          "general": {
+            "rest_level": 0.4,
+            "ramp_up_duration_after_rest": 5.0,
+            "speed_window_size": 2.0,
+            "accel_window_size": 3.0
+          },
+          "speed": {
+            "interpolation_interval": 0.02,
+            "normalization_method": "max",
+            "method": "rolling_average",
+            "savgol_options": {
+              "poly_order": 3,
+              "fit_window_factor": 0.15,
+              "post_smooth_factor": 0.25
+            }
+          },
+          "alpha_beta_generation": {
+            "points_per_second": 50,
+            "algorithm": "top-left-right",
+            "min_distance_from_center": 0.2,
+            "speed_threshold_percent": 57,
+            "direction_change_probability": 0.2,
+            "speed_at_edge_hz": 2.0
+          },
+          "prostate_generation": {
+            "generate_prostate_files": true,
+            "generate_from_inverted": true,
+            "algorithm": "tear-shaped",
+            "points_per_second": 25,
+            "min_distance_from_center": 0.5
+          },
+          "frequency": {
+            "pulse_freq_min": 0.5,
+            "pulse_freq_max": 0.99,
+            "frequency_ramp_combine_ratio": 3.7,
+            "pulse_frequency_combine_ratio": 3.0,
+            "map_pulse_freq_to_position": false
+          },
+          "volume": {
+            "volume_ramp_combine_ratio": 25.2,
+            "prostate_volume_multiplier": 1.5,
+            "prostate_rest_level": 0.7,
+            "ramp_percent_per_hour": 10
+          },
+          "pulse": {
+            "pulse_width_min": 0.1,
+            "pulse_width_max": 0.55,
+            "pulse_width_combine_ratio": 1.0,
+            "beta_mirror_threshold": 0.5,
+            "pulse_rise_min": 0.0,
+            "pulse_rise_max": 0.8,
+            "pulse_rise_combine_ratio": 2.0
+          },
+          "advanced": {
+            "enable_pulse_frequency_inversion": false,
+            "enable_volume_inversion": false,
+            "enable_frequency_inversion": false,
+            "custom_output_directory": "",
+            "pack_output_to_zip": false
+          },
+          "trochoid_quantization": {
+            "enabled": false,
+            "n_points": 23,
+            "projection": "radius",
+            "family": "hypo",
+            "deduplicate_holds": false,
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "trochoid_spatial": {
+            "enabled": false,
+            "family": "hypo",
+            "mapping": "directional",
+            "sharpness": 1.0,
+            "cycles_per_unit": 1.0,
+            "electrode_angles_deg": [
+              0.0,
+              90.0,
+              180.0,
+              270.0
+            ],
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "traveling_wave": {
+            "enabled": false,
+            "direction": "bounce",
+            "envelope_mode": "input",
+            "wave_speed_hz": 1.0,
+            "wave_width": 0.18,
+            "speed_mod": 0.0,
+            "sharpness": 1.0,
+            "velocity_window_s": 0.1,
+            "noise_gate": 0.1,
+            "exclusive": false,
+            "electrode_positions": [
+              0.85,
+              0.65,
+              0.45,
+              0.25
+            ]
+          },
+          "file_management": {
+            "mode": "local",
+            "central_folder_path": "C:/temp/restim-scripts",
+            "create_backups": true,
+            "zip_output": false
+          },
+          "options": {
+            "normalize_volume": true,
+            "delete_intermediary_files": true,
+            "overwrite_existing_files": true
+          },
+          "ui": {
+            "dark_mode": false
+          },
+          "positional_axes": {
+            "mode": "motion_axis",
+            "generate_legacy": true,
+            "generate_motion_axis": true,
+            "phase_shift": {
+              "enabled": true,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "motion_axis_phase_shift": {
+              "enabled": false,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "e1": {
+              "enabled": true,
+              "curve": {
+                "name": "Ease In",
+                "description": "Gradual start, strong finish",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 0.0,
+                "phase_enabled": true
+              }
+            },
+            "e2": {
+              "enabled": true,
+              "curve": {
+                "name": "Sharp Peak",
+                "description": "Sharp emphasis on middle range",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.4,
+                    0.2
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.6,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 180.0,
+                "phase_enabled": true
+              }
+            },
+            "e3": {
+              "enabled": true,
+              "curve": {
+                "name": "Inverted",
+                "description": "Inverted linear mapping",
+                "control_points": [
+                  [
+                    0.0,
+                    1.0
+                  ],
+                  [
+                    0.25,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 90.0,
+                "phase_enabled": true
+              }
+            },
+            "e4": {
+              "enabled": true,
+              "curve": {
+                "name": "Gentle Wave",
+                "description": "Gentle wave-like response",
+                "control_points": [
+                  [
+                    0.0,
+                    0.9922077922077923
+                  ],
+                  [
+                    0.25,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.75,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 270.0,
+                "phase_enabled": true
+              }
+            },
+            "physical_model": {
+              "enabled": false,
+              "electrode_spacing_mm": 20.0,
+              "propagation_speed_mm_s": 300.0,
+              "sweep_direction": "e1_to_e4"
+            }
+          },
+          "motion_axis_presets": {
+            "active": "Default",
+            "presets": {
+              "Default": {
+                "motion_axis_phase_shift": {
+                  "enabled": false,
+                  "delay_ms": 100.0,
+                  "min_segment_duration": 0.25
+                },
+                "e1": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Ease In",
+                    "description": "Gradual start, strong finish",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 0.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e2": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Sharp Peak",
+                    "description": "Sharp emphasis on middle range",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.4,
+                        0.2
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.6,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 180.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e3": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Inverted",
+                    "description": "Inverted linear mapping",
+                    "control_points": [
+                      [
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        0.25,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 90.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e4": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Gentle Wave",
+                    "description": "Gentle wave-like response",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.9922077922077923
+                      ],
+                      [
+                        0.25,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.75,
+                        0.0
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 270.0,
+                    "phase_enabled": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "B": {
+        "label": "B",
+        "enabled": true,
+        "config": {
+          "general": {
+            "rest_level": 0.4,
+            "ramp_up_duration_after_rest": 5.0,
+            "speed_window_size": 2.0,
+            "accel_window_size": 3.0
+          },
+          "speed": {
+            "interpolation_interval": 0.02,
+            "normalization_method": "max",
+            "method": "rolling_average",
+            "savgol_options": {
+              "poly_order": 3,
+              "fit_window_factor": 0.15,
+              "post_smooth_factor": 0.25
+            }
+          },
+          "alpha_beta_generation": {
+            "points_per_second": 50,
+            "algorithm": "top-left-right",
+            "min_distance_from_center": 0.2,
+            "speed_threshold_percent": 57,
+            "direction_change_probability": 0.2,
+            "speed_at_edge_hz": 2.0
+          },
+          "prostate_generation": {
+            "generate_prostate_files": true,
+            "generate_from_inverted": true,
+            "algorithm": "tear-shaped",
+            "points_per_second": 25,
+            "min_distance_from_center": 0.5
+          },
+          "frequency": {
+            "pulse_freq_min": 0.5,
+            "pulse_freq_max": 0.99,
+            "frequency_ramp_combine_ratio": 3.7,
+            "pulse_frequency_combine_ratio": 3.0,
+            "map_pulse_freq_to_position": false
+          },
+          "volume": {
+            "volume_ramp_combine_ratio": 25.2,
+            "prostate_volume_multiplier": 1.5,
+            "prostate_rest_level": 0.7,
+            "ramp_percent_per_hour": 10
+          },
+          "pulse": {
+            "pulse_width_min": 0.1,
+            "pulse_width_max": 0.55,
+            "pulse_width_combine_ratio": 1.0,
+            "beta_mirror_threshold": 0.5,
+            "pulse_rise_min": 0.0,
+            "pulse_rise_max": 0.8,
+            "pulse_rise_combine_ratio": 2.0
+          },
+          "advanced": {
+            "enable_pulse_frequency_inversion": false,
+            "enable_volume_inversion": false,
+            "enable_frequency_inversion": false,
+            "custom_output_directory": "",
+            "pack_output_to_zip": false
+          },
+          "trochoid_quantization": {
+            "enabled": false,
+            "n_points": 23,
+            "projection": "radius",
+            "family": "hypo",
+            "deduplicate_holds": false,
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "trochoid_spatial": {
+            "enabled": false,
+            "family": "hypo",
+            "mapping": "directional",
+            "sharpness": 1.0,
+            "cycles_per_unit": 1.0,
+            "electrode_angles_deg": [
+              0.0,
+              90.0,
+              180.0,
+              270.0
+            ],
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "traveling_wave": {
+            "enabled": false,
+            "direction": "bounce",
+            "envelope_mode": "input",
+            "wave_speed_hz": 1.0,
+            "wave_width": 0.18,
+            "speed_mod": 0.0,
+            "sharpness": 1.0,
+            "velocity_window_s": 0.1,
+            "noise_gate": 0.1,
+            "exclusive": false,
+            "electrode_positions": [
+              0.85,
+              0.65,
+              0.45,
+              0.25
+            ]
+          },
+          "file_management": {
+            "mode": "local",
+            "central_folder_path": "C:/temp/restim-scripts",
+            "create_backups": true,
+            "zip_output": false
+          },
+          "options": {
+            "normalize_volume": true,
+            "delete_intermediary_files": true,
+            "overwrite_existing_files": true
+          },
+          "ui": {
+            "dark_mode": false
+          },
+          "positional_axes": {
+            "mode": "motion_axis",
+            "generate_legacy": true,
+            "generate_motion_axis": true,
+            "phase_shift": {
+              "enabled": true,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "motion_axis_phase_shift": {
+              "enabled": false,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "e1": {
+              "enabled": true,
+              "curve": {
+                "name": "Ease In",
+                "description": "Gradual start, strong finish",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 0.0,
+                "phase_enabled": true
+              }
+            },
+            "e2": {
+              "enabled": true,
+              "curve": {
+                "name": "Sharp Peak",
+                "description": "Sharp emphasis on middle range",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.4,
+                    0.2
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.6,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 180.0,
+                "phase_enabled": true
+              }
+            },
+            "e3": {
+              "enabled": true,
+              "curve": {
+                "name": "Inverted",
+                "description": "Inverted linear mapping",
+                "control_points": [
+                  [
+                    0.0,
+                    1.0
+                  ],
+                  [
+                    0.25,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 90.0,
+                "phase_enabled": true
+              }
+            },
+            "e4": {
+              "enabled": true,
+              "curve": {
+                "name": "Gentle Wave",
+                "description": "Gentle wave-like response",
+                "control_points": [
+                  [
+                    0.0,
+                    0.9922077922077923
+                  ],
+                  [
+                    0.25,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.75,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 270.0,
+                "phase_enabled": true
+              }
+            },
+            "physical_model": {
+              "enabled": false,
+              "electrode_spacing_mm": 20.0,
+              "propagation_speed_mm_s": 300.0,
+              "sweep_direction": "e1_to_e4"
+            }
+          },
+          "motion_axis_presets": {
+            "active": "Default",
+            "presets": {
+              "Default": {
+                "motion_axis_phase_shift": {
+                  "enabled": false,
+                  "delay_ms": 100.0,
+                  "min_segment_duration": 0.25
+                },
+                "e1": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Ease In",
+                    "description": "Gradual start, strong finish",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 0.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e2": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Sharp Peak",
+                    "description": "Sharp emphasis on middle range",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.4,
+                        0.2
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.6,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 180.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e3": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Inverted",
+                    "description": "Inverted linear mapping",
+                    "control_points": [
+                      [
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        0.25,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 90.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e4": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Gentle Wave",
+                    "description": "Gentle wave-like response",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.9922077922077923
+                      ],
+                      [
+                        0.25,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.75,
+                        0.0
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 270.0,
+                    "phase_enabled": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "C": {
+        "label": "C",
+        "enabled": true,
+        "config": {
+          "general": {
+            "rest_level": 0.4,
+            "ramp_up_duration_after_rest": 5.0,
+            "speed_window_size": 2.0,
+            "accel_window_size": 3.0
+          },
+          "speed": {
+            "interpolation_interval": 0.02,
+            "normalization_method": "max",
+            "method": "rolling_average",
+            "savgol_options": {
+              "poly_order": 3,
+              "fit_window_factor": 0.15,
+              "post_smooth_factor": 0.25
+            }
+          },
+          "alpha_beta_generation": {
+            "points_per_second": 50,
+            "algorithm": "top-left-right",
+            "min_distance_from_center": 0.2,
+            "speed_threshold_percent": 57,
+            "direction_change_probability": 0.2,
+            "speed_at_edge_hz": 2.0
+          },
+          "prostate_generation": {
+            "generate_prostate_files": true,
+            "generate_from_inverted": true,
+            "algorithm": "tear-shaped",
+            "points_per_second": 25,
+            "min_distance_from_center": 0.5
+          },
+          "frequency": {
+            "pulse_freq_min": 0.5,
+            "pulse_freq_max": 0.99,
+            "frequency_ramp_combine_ratio": 3.7,
+            "pulse_frequency_combine_ratio": 3.0,
+            "map_pulse_freq_to_position": false
+          },
+          "volume": {
+            "volume_ramp_combine_ratio": 25.2,
+            "prostate_volume_multiplier": 1.5,
+            "prostate_rest_level": 0.7,
+            "ramp_percent_per_hour": 10
+          },
+          "pulse": {
+            "pulse_width_min": 0.1,
+            "pulse_width_max": 0.55,
+            "pulse_width_combine_ratio": 1.0,
+            "beta_mirror_threshold": 0.5,
+            "pulse_rise_min": 0.0,
+            "pulse_rise_max": 0.8,
+            "pulse_rise_combine_ratio": 2.0
+          },
+          "advanced": {
+            "enable_pulse_frequency_inversion": false,
+            "enable_volume_inversion": false,
+            "enable_frequency_inversion": false,
+            "custom_output_directory": "",
+            "pack_output_to_zip": false
+          },
+          "trochoid_quantization": {
+            "enabled": false,
+            "n_points": 23,
+            "projection": "radius",
+            "family": "hypo",
+            "deduplicate_holds": false,
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "trochoid_spatial": {
+            "enabled": false,
+            "family": "hypo",
+            "mapping": "directional",
+            "sharpness": 1.0,
+            "cycles_per_unit": 1.0,
+            "electrode_angles_deg": [
+              0.0,
+              90.0,
+              180.0,
+              270.0
+            ],
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "traveling_wave": {
+            "enabled": false,
+            "direction": "bounce",
+            "envelope_mode": "input",
+            "wave_speed_hz": 1.0,
+            "wave_width": 0.18,
+            "speed_mod": 0.0,
+            "sharpness": 1.0,
+            "velocity_window_s": 0.1,
+            "noise_gate": 0.1,
+            "exclusive": false,
+            "electrode_positions": [
+              0.85,
+              0.65,
+              0.45,
+              0.25
+            ]
+          },
+          "file_management": {
+            "mode": "local",
+            "central_folder_path": "C:/temp/restim-scripts",
+            "create_backups": true,
+            "zip_output": false
+          },
+          "options": {
+            "normalize_volume": true,
+            "delete_intermediary_files": true,
+            "overwrite_existing_files": true
+          },
+          "ui": {
+            "dark_mode": false
+          },
+          "positional_axes": {
+            "mode": "motion_axis",
+            "generate_legacy": true,
+            "generate_motion_axis": true,
+            "phase_shift": {
+              "enabled": true,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "motion_axis_phase_shift": {
+              "enabled": false,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "e1": {
+              "enabled": true,
+              "curve": {
+                "name": "Ease In",
+                "description": "Gradual start, strong finish",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 0.0,
+                "phase_enabled": true
+              }
+            },
+            "e2": {
+              "enabled": true,
+              "curve": {
+                "name": "Sharp Peak",
+                "description": "Sharp emphasis on middle range",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.4,
+                    0.2
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.6,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 180.0,
+                "phase_enabled": true
+              }
+            },
+            "e3": {
+              "enabled": true,
+              "curve": {
+                "name": "Inverted",
+                "description": "Inverted linear mapping",
+                "control_points": [
+                  [
+                    0.0,
+                    1.0
+                  ],
+                  [
+                    0.25,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 90.0,
+                "phase_enabled": true
+              }
+            },
+            "e4": {
+              "enabled": true,
+              "curve": {
+                "name": "Gentle Wave",
+                "description": "Gentle wave-like response",
+                "control_points": [
+                  [
+                    0.0,
+                    0.9922077922077923
+                  ],
+                  [
+                    0.25,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.75,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 270.0,
+                "phase_enabled": true
+              }
+            },
+            "physical_model": {
+              "enabled": false,
+              "electrode_spacing_mm": 20.0,
+              "propagation_speed_mm_s": 300.0,
+              "sweep_direction": "e1_to_e4"
+            }
+          },
+          "motion_axis_presets": {
+            "active": "Default",
+            "presets": {
+              "Default": {
+                "motion_axis_phase_shift": {
+                  "enabled": false,
+                  "delay_ms": 100.0,
+                  "min_segment_duration": 0.25
+                },
+                "e1": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Ease In",
+                    "description": "Gradual start, strong finish",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 0.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e2": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Sharp Peak",
+                    "description": "Sharp emphasis on middle range",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.4,
+                        0.2
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.6,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 180.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e3": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Inverted",
+                    "description": "Inverted linear mapping",
+                    "control_points": [
+                      [
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        0.25,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 90.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e4": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Gentle Wave",
+                    "description": "Gentle wave-like response",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.9922077922077923
+                      ],
+                      [
+                        0.25,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.75,
+                        0.0
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 270.0,
+                    "phase_enabled": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "D": {
+        "label": "D",
+        "enabled": true,
+        "config": {
+          "general": {
+            "rest_level": 0.4,
+            "ramp_up_duration_after_rest": 5.0,
+            "speed_window_size": 2.0,
+            "accel_window_size": 3.0
+          },
+          "speed": {
+            "interpolation_interval": 0.02,
+            "normalization_method": "max",
+            "method": "rolling_average",
+            "savgol_options": {
+              "poly_order": 3,
+              "fit_window_factor": 0.15,
+              "post_smooth_factor": 0.25
+            }
+          },
+          "alpha_beta_generation": {
+            "points_per_second": 50,
+            "algorithm": "top-left-right",
+            "min_distance_from_center": 0.2,
+            "speed_threshold_percent": 57,
+            "direction_change_probability": 0.2,
+            "speed_at_edge_hz": 2.0
+          },
+          "prostate_generation": {
+            "generate_prostate_files": true,
+            "generate_from_inverted": true,
+            "algorithm": "tear-shaped",
+            "points_per_second": 25,
+            "min_distance_from_center": 0.5
+          },
+          "frequency": {
+            "pulse_freq_min": 0.5,
+            "pulse_freq_max": 0.99,
+            "frequency_ramp_combine_ratio": 3.7,
+            "pulse_frequency_combine_ratio": 3.0,
+            "map_pulse_freq_to_position": false
+          },
+          "volume": {
+            "volume_ramp_combine_ratio": 25.2,
+            "prostate_volume_multiplier": 1.5,
+            "prostate_rest_level": 0.7,
+            "ramp_percent_per_hour": 10
+          },
+          "pulse": {
+            "pulse_width_min": 0.1,
+            "pulse_width_max": 0.55,
+            "pulse_width_combine_ratio": 1.0,
+            "beta_mirror_threshold": 0.5,
+            "pulse_rise_min": 0.0,
+            "pulse_rise_max": 0.8,
+            "pulse_rise_combine_ratio": 2.0
+          },
+          "advanced": {
+            "enable_pulse_frequency_inversion": false,
+            "enable_volume_inversion": false,
+            "enable_frequency_inversion": false,
+            "custom_output_directory": "",
+            "pack_output_to_zip": false
+          },
+          "trochoid_quantization": {
+            "enabled": false,
+            "n_points": 23,
+            "projection": "radius",
+            "family": "hypo",
+            "deduplicate_holds": false,
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "trochoid_spatial": {
+            "enabled": false,
+            "family": "hypo",
+            "mapping": "directional",
+            "sharpness": 1.0,
+            "cycles_per_unit": 1.0,
+            "electrode_angles_deg": [
+              0.0,
+              90.0,
+              180.0,
+              270.0
+            ],
+            "params_by_family": {
+              "hypo": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "epi": {
+                "R": 5.0,
+                "r": 3.0,
+                "d": 2.0
+              },
+              "rose": {
+                "a": 1.0,
+                "k": 5.0
+              },
+              "lissajous": {
+                "A": 1.0,
+                "B": 1.0,
+                "a": 3.0,
+                "b": 2.0,
+                "delta": 1.5708
+              },
+              "butterfly": {
+                "scale": 1.0
+              },
+              "superformula": {
+                "a": 1.0,
+                "b": 1.0,
+                "m": 6.0,
+                "n1": 1.0,
+                "n2": 7.0,
+                "n3": 8.0
+              },
+              "custom": {
+                "x_expr": "sin(3*t)",
+                "y_expr": "cos(2*t)"
+              }
+            }
+          },
+          "traveling_wave": {
+            "enabled": false,
+            "direction": "bounce",
+            "envelope_mode": "input",
+            "wave_speed_hz": 1.0,
+            "wave_width": 0.18,
+            "speed_mod": 0.0,
+            "sharpness": 1.0,
+            "velocity_window_s": 0.1,
+            "noise_gate": 0.1,
+            "exclusive": false,
+            "electrode_positions": [
+              0.85,
+              0.65,
+              0.45,
+              0.25
+            ]
+          },
+          "file_management": {
+            "mode": "local",
+            "central_folder_path": "C:/temp/restim-scripts",
+            "create_backups": true,
+            "zip_output": false
+          },
+          "options": {
+            "normalize_volume": true,
+            "delete_intermediary_files": true,
+            "overwrite_existing_files": true
+          },
+          "ui": {
+            "dark_mode": false
+          },
+          "positional_axes": {
+            "mode": "motion_axis",
+            "generate_legacy": true,
+            "generate_motion_axis": true,
+            "phase_shift": {
+              "enabled": true,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "motion_axis_phase_shift": {
+              "enabled": false,
+              "delay_percentage": 10.0,
+              "min_segment_duration": 0.25,
+              "delay_ms": 100.0
+            },
+            "e1": {
+              "enabled": true,
+              "curve": {
+                "name": "Ease In",
+                "description": "Gradual start, strong finish",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 0.0,
+                "phase_enabled": true
+              }
+            },
+            "e2": {
+              "enabled": true,
+              "curve": {
+                "name": "Sharp Peak",
+                "description": "Sharp emphasis on middle range",
+                "control_points": [
+                  [
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.4,
+                    0.2
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.6,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 180.0,
+                "phase_enabled": true
+              }
+            },
+            "e3": {
+              "enabled": true,
+              "curve": {
+                "name": "Inverted",
+                "description": "Inverted linear mapping",
+                "control_points": [
+                  [
+                    0.0,
+                    1.0
+                  ],
+                  [
+                    0.25,
+                    0.2
+                  ],
+                  [
+                    1.0,
+                    0.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 90.0,
+                "phase_enabled": true
+              }
+            },
+            "e4": {
+              "enabled": true,
+              "curve": {
+                "name": "Gentle Wave",
+                "description": "Gentle wave-like response",
+                "control_points": [
+                  [
+                    0.0,
+                    0.9922077922077923
+                  ],
+                  [
+                    0.25,
+                    0.0
+                  ],
+                  [
+                    0.5,
+                    1.0
+                  ],
+                  [
+                    0.75,
+                    0.0
+                  ],
+                  [
+                    1.0,
+                    1.0
+                  ]
+                ]
+              },
+              "modulation": {
+                "enabled": false,
+                "frequency_hz": 0.5,
+                "depth": 0.15,
+                "phase_deg": 270.0,
+                "phase_enabled": true
+              }
+            },
+            "physical_model": {
+              "enabled": false,
+              "electrode_spacing_mm": 20.0,
+              "propagation_speed_mm_s": 300.0,
+              "sweep_direction": "e1_to_e4"
+            }
+          },
+          "motion_axis_presets": {
+            "active": "Default",
+            "presets": {
+              "Default": {
+                "motion_axis_phase_shift": {
+                  "enabled": false,
+                  "delay_ms": 100.0,
+                  "min_segment_duration": 0.25
+                },
+                "e1": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Ease In",
+                    "description": "Gradual start, strong finish",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 0.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e2": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Sharp Peak",
+                    "description": "Sharp emphasis on middle range",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.4,
+                        0.2
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.6,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 180.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e3": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Inverted",
+                    "description": "Inverted linear mapping",
+                    "control_points": [
+                      [
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        0.25,
+                        0.2
+                      ],
+                      [
+                        1.0,
+                        0.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 90.0,
+                    "phase_enabled": true
+                  }
+                },
+                "e4": {
+                  "enabled": true,
+                  "curve": {
+                    "name": "Gentle Wave",
+                    "description": "Gentle wave-like response",
+                    "control_points": [
+                      [
+                        0.0,
+                        0.9922077922077923
+                      ],
+                      [
+                        0.25,
+                        0.0
+                      ],
+                      [
+                        0.5,
+                        1.0
+                      ],
+                      [
+                        0.75,
+                        0.0
+                      ],
+                      [
+                        1.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "signal_angle": 0,
+                  "modulation": {
+                    "enabled": false,
+                    "frequency_hz": 0.5,
+                    "depth": 0.15,
+                    "phase_deg": 270.0,
+                    "phase_enabled": true
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

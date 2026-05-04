@@ -15,9 +15,16 @@ from processing.special_generators import make_volume_ramp
 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
 from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
 from processing.motion_axis_generation import (
-    generate_motion_axes, copy_existing_axis_files, validate_motion_axis_config
+    generate_motion_axes, copy_existing_axis_files, validate_motion_axis_config,
+    apply_modulation,
 )
 from processing.phase_shift_generation import generate_all_phase_shifted_funscripts
+from processing.trochoid_quantization import (
+    quantize_to_curve, deduplicate_holds,
+    FAMILY_DEFAULTS as _CURVE_FAMILY_DEFAULTS,
+)
+from processing.trochoid_spatial import generate_spatial_funscripts
+from processing.traveling_wave import generate_wave_funscripts
 
 
 class RestimProcessor:
@@ -275,6 +282,44 @@ events:
     def _execute_pipeline(self, main_funscript: Funscript, progress_callback: Optional[Callable]):
         """Execute the complete processing pipeline."""
 
+        # Trochoid quantization (pre-pipeline). Snap input positions to N
+        # discrete levels derived from a hypotrochoid sample. Applied to the
+        # main funscript so every downstream file inherits the quantized
+        # signal.
+        tq_cfg = self.params.get('trochoid_quantization', {})
+        if tq_cfg.get('enabled', False):
+            try:
+                n_pts = int(tq_cfg.get('n_points', 23))
+                projection = str(tq_cfg.get('projection', 'radius'))
+                # Family + params (with backward-compat for old flat config).
+                family = str(tq_cfg.get('family',
+                                        tq_cfg.get('curve_type', 'hypo')))
+                params_by_family = tq_cfg.get('params_by_family') or {}
+                family_params = dict(params_by_family.get(family) or {})
+                if not family_params and family in ('hypo', 'epi'):
+                    # Old-style flat keys
+                    family_params = {
+                        'R': float(tq_cfg.get('R', 5.0)),
+                        'r': float(tq_cfg.get('r', 3.0)),
+                        'd': float(tq_cfg.get('d', 2.0)),
+                    }
+                if not family_params:
+                    family_params = dict(
+                        _CURVE_FAMILY_DEFAULTS.get(family, {}).get('params', {}))
+                self._update_progress(
+                    progress_callback, 7,
+                    f"Quantizing input to {n_pts} {family} levels...")
+                main_funscript = quantize_to_curve(
+                    main_funscript, n_pts, family, family_params, projection)
+                if tq_cfg.get('deduplicate_holds', False):
+                    before = len(main_funscript.y)
+                    main_funscript = deduplicate_holds(main_funscript)
+                    print(f"  dedup_holds: {before} -> {len(main_funscript.y)} samples")
+                print(f"Trochoid quantization: family={family} n={n_pts} "
+                      f"params={family_params} projection={projection}")
+            except (ValueError, TypeError) as e:
+                print(f"Warning: trochoid quantization skipped: {e}")
+
         # Phase 1: Auxiliary File Preparation (10-20%)
         self._update_progress(progress_callback, 10, "Preparing auxiliary files...")
 
@@ -298,10 +343,14 @@ events:
             # Need speed funscript for alpha/beta generation
             if not speed_exists:
                 self._update_progress(progress_callback, 12, "Generating speed file for alpha/beta...")
+                speed_method = self.params['speed'].get('method', 'rolling_average')
+                savgol_opts = self.params['speed'].get('savgol_options', {})
                 speed_funscript = convert_to_speed(
                     main_funscript,
                     self.params['general']['speed_window_size'],
-                    self.params['speed']['interpolation_interval']
+                    self.params['speed']['interpolation_interval'],
+                    method=speed_method,
+                    savgol_options=savgol_opts
                 )
                 speed_funscript.save_to_path(self._get_temp_path("speed"))
                 speed_exists = True
@@ -358,8 +407,152 @@ events:
                 if not beta_prostate_exists:
                     beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
 
-        # Motion Axis Generation (18-19%)
-        if self.params.get('positional_axes', {}).get('generate_motion_axis', False):
+        # Traveling Wave mapping — time-driven crest along the shaft
+        # that fires each electrode as the crest passes its position.
+        # Highest-priority E1-E4 override: when enabled, both trochoid-
+        # spatial and response-curve generation below are skipped.
+        tw_cfg = self.params.get('traveling_wave', {}) or {}
+        wave_active = bool(tw_cfg.get('enabled', False))
+        if wave_active:
+            self._update_progress(progress_callback, 17,
+                                  "Generating traveling-wave E1-E4...")
+            try:
+                positions = tuple(
+                    float(p) for p in tw_cfg.get(
+                        'electrode_positions', [0.85, 0.65, 0.45, 0.25]))
+                direction = str(tw_cfg.get('direction', 'bounce'))
+                envelope = str(tw_cfg.get('envelope_mode', 'input'))
+                wave_speed = float(tw_cfg.get('wave_speed_hz', 1.0))
+                wave_width = float(tw_cfg.get('wave_width', 0.18))
+                speed_mod = float(tw_cfg.get('speed_mod', 0.0))
+                sharpness = float(tw_cfg.get('sharpness', 1.0))
+                vel_window = float(tw_cfg.get('velocity_window_s', 0.10))
+                noise_gate = float(tw_cfg.get('noise_gate', 0.10))
+                exclusive = bool(tw_cfg.get('exclusive', False))
+                wave_fs = generate_wave_funscripts(
+                    main_funscript,
+                    electrode_positions=positions,
+                    wave_speed_hz=wave_speed,
+                    wave_width=wave_width,
+                    direction=direction,
+                    envelope_mode=envelope,
+                    speed_mod=speed_mod,
+                    sharpness=sharpness,
+                    velocity_window_s=vel_window,
+                    noise_gate=noise_gate,
+                    exclusive=exclusive,
+                )
+                # Reuse the per-axis modulation block already used by the
+                # response-curve path. Each axis's modulation config lives
+                # under positional_axes.eN.modulation; if `enabled`, multiply
+                # the wave's intensity envelope by the configured LFO.
+                axes_cfg = self.params.get('positional_axes', {}) or {}
+                for key, fs in wave_fs.items():
+                    mod_cfg = ((axes_cfg.get(key) or {})
+                               .get('modulation') or {})
+                    mod_meta = None
+                    if mod_cfg.get('enabled', False):
+                        try:
+                            fs = apply_modulation(
+                                fs,
+                                frequency_hz=float(mod_cfg.get(
+                                    'frequency_hz', 0.5)),
+                                depth=float(mod_cfg.get('depth', 0.15)),
+                                phase_deg=float(mod_cfg.get(
+                                    'phase_deg', 0.0))
+                                    if mod_cfg.get('phase_enabled', True)
+                                    else 0.0,
+                            )
+                            mod_meta = {
+                                "frequency_hz": float(mod_cfg.get(
+                                    'frequency_hz', 0.5)),
+                                "depth": float(mod_cfg.get('depth', 0.15)),
+                                "phase_deg": float(mod_cfg.get(
+                                    'phase_deg', 0.0)),
+                            }
+                        except Exception as e:
+                            print(f"[traveling_wave] modulation "
+                                  f"on {key} skipped: {e}")
+                    extra = {
+                        "direction": direction,
+                        "envelope_mode": envelope,
+                        "wave_speed_hz": wave_speed,
+                        "wave_width": wave_width,
+                        "speed_mod": speed_mod,
+                        "sharpness": sharpness,
+                        "electrode_position": float(
+                            positions[int(key[1:]) - 1]),
+                    }
+                    if mod_meta:
+                        extra["modulation"] = mod_meta
+                    self._add_metadata(
+                        fs, f"motion_axis_{key}",
+                        f"Traveling-wave {direction} ({key.upper()})",
+                        extra)
+                    fs.save_to_path(self._get_temp_path(key))
+                print(f"Traveling wave: dir={direction} "
+                      f"env={envelope} speed={wave_speed} "
+                      f"width={wave_width} speed_mod={speed_mod}")
+            except (ValueError, TypeError) as e:
+                print(f"Warning: traveling wave skipped: {e}")
+                wave_active = False
+
+        # Trochoid Spatial mapping — alternative E1-E4 generator that
+        # parameterizes a 2D curve by the input position and projects each
+        # (x, y) onto N electrode directions. When enabled, OVERRIDES the
+        # response-curve motion-axis generation below for the e1-e4 files.
+        # Skipped if traveling-wave already produced e1-e4.
+        ts_cfg = self.params.get('trochoid_spatial', {}) or {}
+        spatial_active = (not wave_active) and bool(ts_cfg.get('enabled', False))
+        if spatial_active:
+            self._update_progress(progress_callback, 18,
+                                  "Generating trochoid-spatial E1-E4...")
+            try:
+                family = str(ts_cfg.get('family', 'hypo'))
+                params_by_family = ts_cfg.get('params_by_family') or {}
+                family_params = dict(params_by_family.get(family) or {})
+                if not family_params:
+                    family_params = dict(
+                        _CURVE_FAMILY_DEFAULTS.get(family, {})
+                        .get('params', {}))
+                angles = tuple(
+                    float(a) for a in ts_cfg.get(
+                        'electrode_angles_deg', [0, 90, 180, 270]))
+                spatial_fs = generate_spatial_funscripts(
+                    main_funscript, family, family_params,
+                    electrode_angles_deg=angles,
+                    mapping=str(ts_cfg.get('mapping', 'directional')),
+                    sharpness=float(ts_cfg.get('sharpness', 1.0)),
+                    cycles_per_unit=float(ts_cfg.get('cycles_per_unit', 1.0)),
+                )
+                for key, fs in spatial_fs.items():
+                    self._add_metadata(
+                        fs, f"motion_axis_{key}",
+                        f"Trochoid-spatial {family} mapping ({key.upper()})",
+                        {
+                            "family": family,
+                            "params": family_params,
+                            "mapping": str(ts_cfg.get('mapping', 'directional')),
+                            "sharpness": float(ts_cfg.get('sharpness', 1.0)),
+                            "cycles_per_unit": float(
+                                ts_cfg.get('cycles_per_unit', 1.0)),
+                            "electrode_angle_deg": float(
+                                angles[int(key[1:]) - 1]),
+                        })
+                    fs.save_to_path(self._get_temp_path(key))
+                print(f"Trochoid spatial: family={family} "
+                      f"mapping={ts_cfg.get('mapping')} "
+                      f"sharpness={ts_cfg.get('sharpness')} "
+                      f"cycles_per_unit={ts_cfg.get('cycles_per_unit')}")
+            except (ValueError, TypeError) as e:
+                print(f"Warning: trochoid spatial skipped: {e}")
+                spatial_active = False
+
+        # Motion Axis Generation (18-19%) — skipped if traveling-wave or
+        # trochoid-spatial already produced e1-e4 above.
+        if (not wave_active and not spatial_active
+                and self.params.get('positional_axes', {})
+                .get('generate_motion_axis', False)):
             self._update_progress(progress_callback, 18, "Generating motion axis files...")
             motion_config = self.params.get('positional_axes', {})
 
@@ -383,6 +576,11 @@ events:
                 axes_to_generate = [axis for axis in enabled_axes if axis not in copied_files]
                 if axes_to_generate:
                     generate_config = {axis: motion_config[axis] for axis in axes_to_generate}
+                    # Pass the physical_model block through so the
+                    # per-axis cascade shift can be applied inside
+                    # generate_motion_axes.
+                    if 'physical_model' in motion_config:
+                        generate_config['physical_model'] = motion_config['physical_model']
                     generated_files = generate_motion_axes(
                         main_funscript,
                         generate_config,
@@ -398,7 +596,8 @@ events:
             phase_shift_config = axes_config.get('phase_shift', {})
             if phase_shift_config.get('enabled', False):
                 self._update_progress(progress_callback, 19, "Generating phase-shifted versions (3P)...")
-                print(f"3P phase shift enabled: delay={phase_shift_config.get('delay_percentage')}%")
+                delay_pct = phase_shift_config.get('delay_percentage', 10.0)
+                print(f"3P phase shift enabled: delay={delay_pct}%")
                 funscripts_to_shift = {}
                 for key in ['alpha', 'beta']:
                     path = self._get_temp_path(key)
@@ -407,7 +606,7 @@ events:
                 if funscripts_to_shift:
                     shifted = generate_all_phase_shifted_funscripts(
                         funscripts_to_shift, main_funscript,
-                        phase_shift_config.get('delay_percentage', 10.0),
+                        delay_pct,
                         phase_shift_config.get('min_segment_duration', 0.25)
                     )
                     for key, funscript in shifted.items():
@@ -421,7 +620,8 @@ events:
             ma_phase_config = axes_config.get('motion_axis_phase_shift', axes_config.get('phase_shift', {}))
             if ma_phase_config.get('enabled', False):
                 self._update_progress(progress_callback, 19, "Generating phase-shifted versions (4P)...")
-                print(f"4P phase shift enabled: delay={ma_phase_config.get('delay_percentage')}%")
+                ma_delay_pct = ma_phase_config.get('delay_percentage', 10.0)
+                print(f"4P phase shift enabled: delay={ma_delay_pct}%")
                 funscripts_to_shift = {}
                 for axis in ['e1', 'e2', 'e3', 'e4']:
                     path = self._get_temp_path(axis)
@@ -430,7 +630,7 @@ events:
                 if funscripts_to_shift:
                     shifted = generate_all_phase_shifted_funscripts(
                         funscripts_to_shift, main_funscript,
-                        ma_phase_config.get('delay_percentage', 10.0),
+                        ma_delay_pct,
                         ma_phase_config.get('min_segment_duration', 0.25)
                     )
                     for key, funscript in shifted.items():
@@ -443,11 +643,15 @@ events:
         self._update_progress(progress_callback, 20, "Generating speed file...")
 
         # Generate speed if not already generated earlier
+        speed_method = self.params['speed'].get('method', 'rolling_average')
+        savgol_opts = self.params['speed'].get('savgol_options', {})
         if not speed_exists and speed_funscript is None:
             speed_funscript = convert_to_speed(
                 main_funscript,
                 self.params['general']['speed_window_size'],
-                self.params['speed']['interpolation_interval']
+                self.params['speed']['interpolation_interval'],
+                method=speed_method,
+                savgol_options=savgol_opts
             )
             speed_funscript.save_to_path(self._get_temp_path("speed"))
         elif speed_funscript is None:
@@ -459,11 +663,13 @@ events:
 
         self._update_progress(progress_callback, 25, "Generating acceleration file...")
 
-        # Generate acceleration from speed
+        # Generate acceleration from speed (same method used for speed-of-speed)
         accel_funscript = convert_to_speed(
             speed_funscript,
             self.params['general']['accel_window_size'],
-            self.params['speed']['interpolation_interval']
+            self.params['speed']['interpolation_interval'],
+            method=speed_method,
+            savgol_options=savgol_opts
         )
         accel_funscript.save_to_path(self._get_temp_path("accel"))
 
@@ -488,6 +694,19 @@ events:
         if not overwrite_existing and self._output_file_exists("pulse_frequency"):
             self._update_progress(progress_callback, 42, "Reusing existing pulse_frequency...")
             pulse_frequency = Funscript.from_file(self._get_output_path("pulse_frequency"))
+        elif self.params['frequency'].get('map_pulse_freq_to_position', False):
+            # Map pulse frequency directly from input position
+            pulse_frequency = map_funscript(
+                main_funscript,
+                self.params['frequency']['pulse_freq_min'],
+                self.params['frequency']['pulse_freq_max']
+            )
+            self._add_metadata(pulse_frequency, "pulse_frequency", "Pulse frequency mapped from position", {
+                "pulse_freq_min": self.params['frequency']['pulse_freq_min'],
+                "pulse_freq_max": self.params['frequency']['pulse_freq_max'],
+                "mode": "position_mapped"
+            })
+            pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
         else:
             # Load alpha funscript for pulse frequency generation
             alpha_funscript = Funscript.from_file(self._get_temp_path("alpha"))
