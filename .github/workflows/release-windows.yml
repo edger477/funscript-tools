@@ -24,6 +24,9 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
+    - name: Install VLC
+      run: choco install vlc --yes
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
