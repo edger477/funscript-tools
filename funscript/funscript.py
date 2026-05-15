@@ -47,7 +47,8 @@ class Funscript:
 
         with path.open(encoding='utf-8') as f:
             js = json.load(f)
-            for action in js['actions']:
+            actions = sorted(js['actions'], key=lambda a: a['at'])
+            for action in actions:
                 at = float(action['at']) / 1000
                 pos = float(action['pos']) * 0.01
                 x.append(at)

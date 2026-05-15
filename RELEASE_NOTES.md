@@ -1,3 +1,13 @@
+## What's New in v2.3.6
+
+### Bug Fixes
+
+1. **E1-E4 motion axes now interpolated at the configured interval** — previously, generated axis files only contained points where the original script had a keyframe. They now interpolate at the interval configured in the Speed tab (`interpolation_interval`), producing a smooth dense point grid identical to what the rest of the pipeline uses.
+
+2. **Fixed crash on funscripts with out-of-order entries** — some funscript files contain stray entries with incorrect timestamps (e.g. `{"at": 0, "pos": 0}` appended at the end). These caused an array index out-of-bounds exception in the processor. Actions are now sorted by timestamp on load, so any stray entry is placed correctly and processing continues normally.
+
+---
+
 ## What's New in v2.3.5
 
 ### Video Player Overhaul

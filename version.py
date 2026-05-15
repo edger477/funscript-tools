@@ -149,9 +149,14 @@ Version information for Restim Funscript Processor
         7. Clicking anywhere on the seek bar jumps directly to that position (was step-by-page)
         8. Time label now toggles between elapsed and remaining time on click
         9. Timeline auto-scrolls to follow the playhead during playback
+2.3.6 - Motion axis interpolation and funscript sorting bugfixes:
+        1. E1-E4 motion axes now interpolate at the configured interpolation interval (Speed tab) instead of
+           only emitting points where the original script had a keyframe
+        2. Fixed crash on funscripts with out-of-order entries (e.g. stray {at:0} at end of file) —
+           actions are now sorted by timestamp on load
 """
 
-__version__ = "2.3.5"
+__version__ = "2.3.6"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

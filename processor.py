@@ -383,11 +383,13 @@ events:
                 axes_to_generate = [axis for axis in enabled_axes if axis not in copied_files]
                 if axes_to_generate:
                     generate_config = {axis: motion_config[axis] for axis in axes_to_generate}
+                    interpolation_interval = self.params.get('speed', {}).get('interpolation_interval', 0.02)
                     generated_files = generate_motion_axes(
                         main_funscript,
                         generate_config,
                         self.temp_dir,
-                        self.filename_only
+                        self.filename_only,
+                        interpolation_interval=interpolation_interval
                     )
 
         # Phase-Shifted Output Generation (19%) — handled independently per mode

@@ -445,11 +445,13 @@ class MainWindow:
                 output_dir = input_path.parent
 
             # Generate motion axis files
+            interpolation_interval = self.current_config.get('speed', {}).get('interpolation_interval', 0.02)
             generated_files = generate_motion_axes(
                 main_funscript,
                 motion_config,
                 output_dir,
-                input_path.stem  # Use input filename without extension
+                input_path.stem,
+                interpolation_interval=interpolation_interval
             )
 
             self.update_progress(80, "Saving motion axis files...")

@@ -5,7 +5,7 @@ Generates motion axis files using linear mapping with configurable response curv
 as an alternative to traditional alpha/beta generation.
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from funscript import Funscript
 from .linear_mapping import (
@@ -13,13 +13,15 @@ from .linear_mapping import (
     get_default_response_curves,
     validate_control_points
 )
+from .speed_processing import add_interpolated_points
 
 
 def generate_motion_axes(
     main_funscript: Funscript,
     config: Dict[str, Any],
     output_directory: Path,
-    filename_base: str = None
+    filename_base: str = None,
+    interpolation_interval: Optional[float] = None
 ) -> Dict[str, Path]:
     """
     Generate all enabled motion axis files (E1-E4) from main funscript.
@@ -35,6 +37,12 @@ def generate_motion_axes(
     """
     generated_files = {}
     default_curves = get_default_response_curves()
+
+    # Interpolate source funscript once so all axes share the denser point grid
+    if interpolation_interval is not None and interpolation_interval > 0:
+        source_funscript = add_interpolated_points(main_funscript.copy(), interpolation_interval)
+    else:
+        source_funscript = main_funscript
 
     for axis_name in ['e1', 'e2', 'e3', 'e4']:
         axis_config = config.get(axis_name, {})
@@ -53,7 +61,7 @@ def generate_motion_axes(
 
         # Generate axis funscript
         axis_funscript = apply_response_curve_to_funscript(
-            main_funscript,
+            source_funscript,
             control_points
         )
 
