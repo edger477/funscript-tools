@@ -5,7 +5,24 @@ sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
 
 
-def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=25, min_distance_from_center=0.1, speed_threshold_percent=50):
+def _gaussian_smooth(arr: np.ndarray, sigma: float) -> np.ndarray:
+    """
+    Gaussian smoothing with edge-clamped padding.
+    sigma is in samples; returns array of same length.
+    """
+    if sigma <= 0 or len(arr) < 3:
+        return arr.copy()
+    r = max(1, int(3.0 * sigma + 0.5))
+    x = np.arange(-r, r + 1, dtype=float)
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    padded = np.pad(arr, r, mode='edge')
+    return np.convolve(padded, kernel, mode='valid')
+
+
+def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=25,
+                              min_distance_from_center=0.1, speed_threshold_percent=50,
+                              radius_smoothing=0.0, output_smoothing=0.0):
     """
     Convert a 1D funscript into 2D (alpha/beta) using circular conversion.
 
@@ -79,6 +96,11 @@ def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=
     # Map per-segment radius to each global time point
     target_radius = 0.5 * radius_scale_per_seg[seg_idx]
 
+    # Smooth radius transitions before computing coordinates.
+    # This prevents abrupt snapping to/from center when speed changes between segments.
+    if radius_smoothing > 0:
+        target_radius = _gaussian_smooth(target_radius, radius_smoothing)
+
     # Convert funscript position to angle (0-180 degrees for semicircle)
     # Position 1.0 -> 0°, Position 0.0 -> 180°
     position_angles = (1.0 - current_positions) * np.pi
@@ -86,6 +108,11 @@ def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=
     # Generate alpha (x-axis) and beta (y-axis) from global center
     x_out = 0.5 + target_radius * np.cos(position_angles)
     y_out = 0.5 + target_radius * np.sin(position_angles)
+
+    # Smooth final coordinates to dampen large inter-point jumps.
+    if output_smoothing > 0:
+        x_out = _gaussian_smooth(x_out, output_smoothing)
+        y_out = _gaussian_smooth(y_out, output_smoothing)
 
     return Funscript(t_global, x_out), Funscript(t_global, y_out)
 
@@ -150,10 +177,10 @@ def convert_funscript_restim_original(funscript, random_direction_change_probabi
         x = center + r * np.cos(theta)
         y = r * dir * np.sin(theta) + 0.5
 
-        # Append to output arrays
-        t_out += list(t + start_t)
-        x_out += list(x)
-        y_out += list(y)
+        # Append to output arrays (extend avoids O(n²) list copying)
+        t_out.extend(t + start_t)
+        x_out.extend(x)
+        y_out.extend(y)
 
     # Create alpha and beta funscripts
     alpha_funscript = Funscript(t_out, x_out)

@@ -58,12 +58,20 @@ def convert_funscript_prostate(funscript, points_per_second=25, algorithm="stand
         # Import the basic circular conversion function
         from processing.funscript_1d_to_2d import convert_funscript_radial
 
-        # Use the basic circular algorithm directly with the working funscript
-        # Uses defaults: speed_threshold_percent=50, min_distance_from_center=0.1
+        # Smoothing parameters (in samples at the given points_per_second):
+        #   radius_smoothing: spreads radius transitions over ~200 ms so the output
+        #     doesn't snap abruptly to/from center when motion slows or stops.
+        #   output_smoothing: dampens large coordinate jumps over ~120 ms so alpha/beta
+        #     never jumps across the circle in a single step.
+        radius_smoothing = 5.0 * (points_per_second / 25.0)
+        output_smoothing = 3.0 * (points_per_second / 25.0)
+
         alpha_funscript, beta_funscript = convert_funscript_radial(
             working_funscript,
             points_per_second=points_per_second,
-            min_distance_from_center=0.1  # Use basic algorithm default
+            min_distance_from_center=0.1,
+            radius_smoothing=radius_smoothing,
+            output_smoothing=output_smoothing,
         )
 
     return alpha_funscript, beta_funscript

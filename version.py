@@ -154,9 +154,17 @@ Version information for Restim Funscript Processor
            only emitting points where the original script had a keyframe
         2. Fixed crash on funscripts with out-of-order entries (e.g. stray {at:0} at end of file) —
            actions are now sorted by timestamp on load
+2.4.0 - Funscript Generator and alpha-prostate smoothing:
+        1. Added Funscript Generator window: generate funscripts from line/sin/triangle/sawtooth/sin-half/square
+           with interpolated amplitude, center, and frequency parameters; each parameter supports manual
+           From/To values or a loaded funscript source; frequency has a scaling multiplier; center overflow
+           can crop or shift; auto-generated filename; square wave emits hold-point pairs for clean transitions
+        2. Fixed alpha-prostate standard algorithm: Gaussian smoothing on radius (≈200ms window) eliminates
+           abrupt snap-to-center when motion stops; second Gaussian pass on output coordinates (≈120ms)
+           eliminates large inter-point jumps; both windows scale with points-per-second; basic 3P unchanged
 """
 
-__version__ = "2.3.6"
+__version__ = "2.4.0"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

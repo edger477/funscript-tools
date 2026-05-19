@@ -1,3 +1,24 @@
+## What's New in v2.4.0
+
+### New Features
+
+1. **Funscript Generator** — new standalone window (opened via the "Funscript Generator" button on the main screen) for generating funscripts from parametric waveforms:
+   - **Length**: minutes + seconds
+   - **Function**: line, sin, triangle, sawtooth, sin-half, square
+   - **Amplitude** (0–100), **Center** (0–100), **Frequency** (0.01–50 Hz) — each with From/To manual entries (linearly interpolated over the duration) or a "Load Funscript" button to drive the parameter from a funscript file over time; a Clear button resets back to manual entry
+   - **Frequency multiplier** (×, range 0.01–10) scales funscript-loaded frequency values so any 0–100 shaped script can map to any Hz range
+   - **Center overflow**: Crop (clamp output to 0/100) or Shift (move center so the full amplitude always fits within 0–100)
+   - Output folder browser and auto-generated filename (`{min}min-{func}_amp{from}-{to}_center{from}-{to}_freq{from}-{to}.funscript`), editable before generating
+   - Square wave emits hold-point pairs 1 ms apart at each transition so devices snap instead of linearly ramp
+
+### Bug Fixes
+
+2. **Alpha-prostate standard algorithm — smoothed radius and coordinate transitions** — two artefacts eliminated:
+   - *Snap to center on pause*: when the source funscript slowed or stopped, the per-segment radius dropped instantly to the minimum, yanking alpha/beta to the center. A Gaussian filter (≈ 200 ms window at default 25 pps) is now applied to the radius before computing coordinates so the transition is gradual.
+   - *Large inter-point jumps* (e.g. alpha 0.25 → 0.75 in one step): caused by radius scale changing at the same time as position, multiplying into a large coordinate step. A second Gaussian filter (≈ 120 ms window) is applied to the final alpha/beta coordinates. Both windows scale proportionally when points-per-second is changed. The basic 3P conversion is unchanged.
+
+---
+
 ## What's New in v2.3.6
 
 ### Bug Fixes

@@ -18,6 +18,7 @@ from processor import RestimProcessor
 from ui.parameter_tabs import ParameterTabs
 from ui.conversion_tabs import ConversionTabs
 from ui.custom_events_builder import CustomEventsBuilderDialog
+from ui.funscript_generator_dialog import FunscriptGeneratorDialog
 import ui.theme as _theme
 
 
@@ -128,6 +129,8 @@ class MainWindow:
 
         ttk.Button(buttons_frame, text="Custom Event Builder", command=self.open_custom_events_builder).pack(side=tk.LEFT, padx=(0, 10))
 
+        ttk.Button(buttons_frame, text="Funscript Generator", command=self.open_funscript_generator).pack(side=tk.LEFT, padx=(0, 10))
+
         ttk.Button(buttons_frame, text="Save Config", command=self.save_config).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(buttons_frame, text="Reset to Defaults", command=self.reset_config).pack(side=tk.LEFT, padx=(0, 10))
 
@@ -149,6 +152,11 @@ class MainWindow:
                 pass  # Silently fail if drag-and-drop setup fails
 
 
+
+    def open_funscript_generator(self):
+        """Open the standalone Funscript Generator window."""
+        dlg = FunscriptGeneratorDialog(self.root)
+        dlg.focus_set()
 
     def open_custom_events_builder(self):
         """Open the new visual custom events builder."""
