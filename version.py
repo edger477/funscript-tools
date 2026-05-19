@@ -162,9 +162,14 @@ Version information for Restim Funscript Processor
         2. Fixed alpha-prostate standard algorithm: Gaussian smoothing on radius (≈200ms window) eliminates
            abrupt snap-to-center when motion stops; second Gaussian pass on output coordinates (≈120ms)
            eliminates large inter-point jumps; both windows scale with points-per-second; basic 3P unchanged
+2.4.1 - Tear-shaped prostate algorithm fix:
+        1. Replaced per-point direction lookahead with segment-based direction assignment; direction is now
+           fixed for the full monotone segment between consecutive local extrema, eliminating sudden large
+           alpha/beta jumps when the source funscript crosses value 0.5; light Gaussian smoothing (σ≈2)
+           bridges discontinuities at segment boundaries where adjacent stroke ranges differ
 """
 
-__version__ = "2.4.0"
+__version__ = "2.4.1"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

@@ -3,21 +3,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
-
-
-def _gaussian_smooth(arr: np.ndarray, sigma: float) -> np.ndarray:
-    """
-    Gaussian smoothing with edge-clamped padding.
-    sigma is in samples; returns array of same length.
-    """
-    if sigma <= 0 or len(arr) < 3:
-        return arr.copy()
-    r = max(1, int(3.0 * sigma + 0.5))
-    x = np.arange(-r, r + 1, dtype=float)
-    kernel = np.exp(-0.5 * (x / sigma) ** 2)
-    kernel /= kernel.sum()
-    padded = np.pad(arr, r, mode='edge')
-    return np.convolve(padded, kernel, mode='valid')
+from processing.basic_transforms import gaussian_smooth as _gaussian_smooth
 
 
 def convert_funscript_radial(funscript, speed_funscript=None, points_per_second=25,

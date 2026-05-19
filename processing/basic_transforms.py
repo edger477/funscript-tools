@@ -45,6 +45,21 @@ def normalize_funscript(funscript):
     return Funscript(funscript.x.copy(), new_y)
 
 
+def gaussian_smooth(arr: np.ndarray, sigma: float) -> np.ndarray:
+    """
+    Gaussian smoothing with edge-clamped padding.
+    sigma is in samples; returns an array of the same length.
+    """
+    if sigma <= 0 or len(arr) < 3:
+        return arr.copy()
+    r = max(1, int(3.0 * sigma + 0.5))
+    x = np.arange(-r, r + 1, dtype=float)
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    padded = np.pad(arr, r, mode='edge')
+    return np.convolve(padded, kernel, mode='valid')
+
+
 def mirror_up_funscript(funscript, threshold):
     """Mirror values below threshold above it."""
     new_y = np.where(funscript.y < threshold, 2 * threshold - funscript.y, funscript.y)
