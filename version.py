@@ -172,9 +172,15 @@ Version information for Restim Funscript Processor
            (strokes staying within a narrower band) render as proportional linear motion (beta=0.5,
            alpha tracks position) so small oscillations glide smoothly instead of restarting the
            tear loop every cycle
+2.4.3 - Performance improvements and config default tuning:
+        1. Vectorized speed calculation: O(n²) double loop → O(n) cumulative-sum rolling window
+        2. Vectorized ramp-up transitions: O(n×M) nearest-transition search → O(n log M) searchsorted
+        3. Vectorized response curve application: Python for loop → np.interp + np.clip
+        4. Pulse width range widened: min 0.10→0.05, max 0.55→0.65
+        5. Volume ramp combine ratio adjusted: 25.2→20.0
 """
 
-__version__ = "2.4.2"
+__version__ = "2.4.3"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

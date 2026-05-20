@@ -34,47 +34,28 @@ def combine_funscripts(left_funscript, right_funscript, ratio, rest_level=0.5, r
 
     # Apply ramp-up after rest periods if duration > 0
     if ramp_up_duration > 0:
-        # Find all rest->active transition points
-        transition_times = []
-        for i in range(1, len(is_rest)):
-            if is_rest[i-1] and not is_rest[i]:
-                # Transition from rest to active at index i
-                transition_times.append(x[i])
-
-        # For each point, calculate time relative to nearest rest->active transition
-        # Ramp is centered on the transition: starts at -duration/2, ends at +duration/2
-        time_relative_to_transition = np.full_like(x, np.inf)
         half_duration = ramp_up_duration / 2.0
 
-        for i in range(len(x)):
-            # Find the nearest transition time
-            if len(transition_times) > 0:
-                # Calculate time difference to each transition
-                time_diffs = [x[i] - t for t in transition_times]
+        # Find rest->active transition indices (vectorized)
+        transition_indices = np.where(is_rest[:-1] & ~is_rest[1:])[0] + 1
+        transition_arr = x[transition_indices]  # sorted, since x is sorted
 
-                # Find the transition that this point is closest to (and after or near)
-                # We want transitions where the point is within the ramp window
-                for t in transition_times:
-                    time_diff = x[i] - t
-                    # Check if point is within ramp window: from -half_duration to +half_duration
-                    if -half_duration <= time_diff <= half_duration:
-                        time_relative_to_transition[i] = time_diff
-                        break
+        time_relative_to_transition = np.full(len(x), np.inf)
 
-        # Calculate ramp progress centered on transition
-        # At transition - half_duration: ramp_progress = 0 (start of ramp, at rest_level)
-        # At transition: ramp_progress = 0.5 (middle of ramp)
-        # At transition + half_duration: ramp_progress = 1.0 (end of ramp, at normal level)
-        ramp_progress = (time_relative_to_transition + half_duration) / ramp_up_duration
-        ramp_progress = np.clip(ramp_progress, 0.0, 1.0)
+        if len(transition_arr) > 0:
+            # For each point x[i], find the first transition t where t ∈ [x[i]-hd, x[i]+hd].
+            # Since transition_arr is sorted, use searchsorted for O(n log M) instead of O(n×M).
+            left_idx = np.searchsorted(transition_arr, x - half_duration, side='left')
+            valid = left_idx < len(transition_arr)
+            candidate_t = transition_arr[np.minimum(left_idx, len(transition_arr) - 1)]
+            in_window = valid & (candidate_t <= x + half_duration)
+            time_relative_to_transition = np.where(in_window, x - candidate_t, np.inf)
 
-        # Interpolate from rest_level to 1.0
+        ramp_progress = np.clip(
+            (time_relative_to_transition + half_duration) / ramp_up_duration, 0.0, 1.0
+        )
         ramp_multiplier = rest_level + (1.0 - rest_level) * ramp_progress
-
-        # Determine which points are in a ramp window
         in_ramp_window = np.isfinite(time_relative_to_transition)
-
-        # Apply ramp multiplier to points in ramp window, rest_level to rest points outside ramp
         y_final = np.where(in_ramp_window, y * ramp_multiplier, y_with_rest)
     else:
         # No ramp-up, use immediate rest_level application

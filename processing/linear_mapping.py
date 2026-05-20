@@ -60,19 +60,11 @@ def apply_response_curve_to_funscript(
     Returns:
         New funscript with curve applied
     """
-    # Get time and position arrays
-    times = funscript.x.copy()
-    positions = funscript.y.copy()  # Already normalized 0-1
-
-    # Apply response curve to each position
-    new_positions = []
-    for pos in positions:
-        # Apply response curve and clamp to valid range
-        mapped_pos = apply_linear_response_curve(pos, control_points)
-        final_pos = max(0.0, min(1.0, mapped_pos))
-        new_positions.append(final_pos)
-
-    return Funscript(times, new_positions)
+    sorted_points = sorted(control_points, key=lambda p: p[0])
+    cp_x = np.array([p[0] for p in sorted_points])
+    cp_y = np.array([p[1] for p in sorted_points])
+    new_y = np.clip(np.interp(np.asarray(funscript.y), cp_x, cp_y), 0.0, 1.0)
+    return Funscript(funscript.x, new_y)
 
 
 def get_default_response_curves() -> Dict[str, Dict[str, Any]]:

@@ -33,61 +33,46 @@ def add_interpolated_points(funscript_data, interval=0.1):
 
 def calculate_speed_windowed(funscript, window_seconds=5):
     """Calculate the rolling average speed of change over the last n seconds."""
-    x = []
-    y = []
-    max_speed = 0
-    time_window = window_seconds
-    shift = int(time_window * 5)  # 5 points per second after interpolation
+    x = np.asarray(funscript.x, dtype=np.float64)
+    y = np.asarray(funscript.y, dtype=np.float64)
+    n = len(x)
 
-    # Start with zero speed
-    x.append(funscript.x[0])
-    y.append(0)
+    shift = int(window_seconds * 5)  # 5 points per second after interpolation
 
-    for i in range(1 + shift, len(funscript.x)):
-        current_time = funscript.x[i]
+    # Uniform spacing is guaranteed by add_interpolated_points
+    interval = x[1] - x[0]
+    window_size = int(round(window_seconds / interval))
 
-        # Initialize variables for rolling sum
-        total_speed = 0
-        count = 0
+    # Instantaneous speed per segment: |dy|/dt (vectorized, O(n))
+    point_speeds = np.abs(np.diff(y)) / interval  # shape: (n-1,)
 
-        # Look back at all points within the last n seconds
-        for j in range(i, -1, -1):
-            if current_time - funscript.x[j] > time_window:
-                break  # Stop if we're outside the n-second window
+    # Cumulative sum enables O(1) rolling window queries
+    cs = np.empty(n, dtype=np.float64)
+    cs[0] = 0.0
+    np.cumsum(point_speeds, out=cs[1:])
 
-            if j == 0:
-                break
-
-            time_diff = funscript.x[j] - funscript.x[j-1]  # Time difference in seconds
-            pos_diff = abs(funscript.y[j] - funscript.y[j-1])  # Absolute position change
-
-            # Avoid division by zero if time_diff is zero
-            if time_diff != 0:
-                speed = pos_diff / time_diff  # Speed (change per second)
-                total_speed += speed
-                count += 1
-
-        # Calculate the average speed over the rolling window
-        avg_speed = (total_speed / count) if count > 0 else 0
-
-        if avg_speed > max_speed:
-            max_speed = avg_speed
-
-        # Append with shift compensation
-        x.append(funscript.x[i-shift])
-        y.append(avg_speed)
-
-    # Add final point with zero speed
-    x.append(funscript.x[len(funscript.x)-1])
-    y.append(0)
+    # Compute rolling mean for all outer-loop indices at once
+    valid_i = np.arange(1 + shift, n)
+    start_idx = np.maximum(valid_i - window_size, 0)
+    counts = valid_i - start_idx
+    avg_speeds = (cs[valid_i] - cs[start_idx]) / counts
 
     # Normalize to 0-1 range
+    max_speed = avg_speeds.max() if len(avg_speeds) > 0 else 0.0
     if max_speed > 0:
-        factor = 1 / max_speed
-        for i in range(len(y)):
-            y[i] = y[i] * factor
+        avg_speeds /= max_speed
 
-    return Funscript(x, y)
+    # Build output: leading zero, rolling averages (time-shifted by shift), trailing zero
+    out_x = np.empty(len(valid_i) + 2, dtype=np.float64)
+    out_y = np.empty(len(valid_i) + 2, dtype=np.float64)
+    out_x[0] = x[0]
+    out_y[0] = 0.0
+    out_x[1:-1] = x[valid_i - shift]
+    out_y[1:-1] = avg_speeds
+    out_x[-1] = x[-1]
+    out_y[-1] = 0.0
+
+    return Funscript(out_x, out_y)
 
 
 def convert_to_speed(funscript, window_seconds=5, interpolation_interval=0.1):
