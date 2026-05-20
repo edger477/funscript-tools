@@ -178,9 +178,16 @@ Version information for Restim Funscript Processor
         3. Vectorized response curve application: Python for loop → np.interp + np.clip
         4. Pulse width range widened: min 0.10→0.05, max 0.55→0.65
         5. Volume ramp combine ratio adjusted: 25.2→20.0
+2.4.4 - Tear-shaped prostate algorithm complete rewrite:
+        1. Replaced segment-based polar arc algorithm with a sine-arc formula:
+           alpha = position directly; beta = 0.5 + bulge*sin(t*π) per stroke
+        2. sin(0)=sin(π)=0 guarantees beta=0.5 at every extremum → zero jumps
+        3. Bulge scales with stroke range (bulge=range/2); narrow side uses
+           min_distance_from_center as the narrow/wide ratio
+        4. Strokes < 25% range produce no arc so short oscillations stay linear
 """
 
-__version__ = "2.4.3"
+__version__ = "2.4.4"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

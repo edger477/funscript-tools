@@ -101,51 +101,40 @@ def _find_local_extrema(positions):
     return extrema
 
 
-def _tear_radius(circle_radius, angle_deg, min_distance_from_center):
-    """Variable radius for tear shape based on angle (degrees, 0-360)."""
-    a = angle_deg % 360
-    if a <= 120:
-        progress = a / 120.0
-        return circle_radius * (1.0 - progress * (1.0 - min_distance_from_center))
-    elif a <= 240:
-        return circle_radius * min_distance_from_center
-    else:
-        progress = (a - 240) / 120.0
-        return circle_radius * (min_distance_from_center + progress * (1.0 - min_distance_from_center))
-
-
 def _convert_tear_shaped(funscript_positions, min_distance_from_center,
-                          low_threshold=0.3, high_threshold=0.7):
+                          stroke_threshold=0.25):
     """
-    Tear-shaped motion traced segment-by-segment between local extrema.
+    Tear-shaped 2D motion from a 1D funscript.
 
-    Full tear arc is only drawn for strokes that span the full range from
-    low_threshold (0.3) to high_threshold (0.7).  Strokes that stay within
-    a narrower band — i.e. oscillations that never cross both thresholds —
-    are rendered as proportional linear motion (beta stays at 0.5, alpha
-    tracks position) so the output oscillates smoothly without restarting
-    the tear arc every cycle.  This hysteresis prevents the "tear resets
-    from scratch on every small oscillation" artifact.
+    Each monotone stroke is mapped to a sine arc in beta around the
+    beta=0.5 axis:
+      - Upstrokes arc ABOVE beta=0.5 (wide side of the tear).
+      - Downstrokes arc BELOW beta=0.5 scaled by min_distance_from_center
+        (narrow side of the tear).
 
-    Direction is assigned once per monotone segment (never flipped mid-segment).
-    A light Gaussian pass (sigma ≈ 2 samples) smooths boundary discontinuities.
+    Alpha tracks the funscript position directly (0→1 = left→right).
+    Because sin(0) = sin(π) = 0, beta is exactly 0.5 at every stroke
+    extremum — consecutive strokes connect with zero discontinuity and the
+    tear never "resets" mid-oscillation.
+
+    Strokes shorter than stroke_threshold produce no arc (beta stays 0.5)
+    so short oscillations glide smoothly without tiny restart loops.
+
+    Parameters:
+        min_distance_from_center: ratio of narrow-side bulge to wide-side
+            bulge (0.0 = flat return, 1.0 = symmetric oval, default 0.5).
+        stroke_threshold: minimum stroke range (0–1) to trigger the arc
+            (default 0.25).
     """
     n = len(funscript_positions)
-    alpha_values = np.zeros(n)
-    beta_values = np.zeros(n)
+    alpha_values = np.asarray(funscript_positions, dtype=float).copy()
+    beta_values = np.full(n, 0.5)
 
     extrema = _find_local_extrema(funscript_positions)
 
     if len(extrema) < 2:
-        # Fallback: horizontal line at alpha position matching funscript value
-        for i in range(n):
-            pos = funscript_positions[i]
-            alpha_values[i] = (0.5 - min_distance_from_center) + pos * (0.5 + min_distance_from_center)
-            beta_values[i] = 0.5
-        return np.clip(alpha_values, 0.0, 1.0), np.clip(beta_values, 0.0, 1.0)
+        return np.clip(alpha_values, 0.0, 1.0), beta_values.copy()
 
-    # Build boundary list: [virtual_start, extrema..., virtual_end]
-    # Each consecutive pair defines one monotone segment with a known direction.
     boundaries = (
         [{'index': 0, 'value': funscript_positions[0]}]
         + [{'index': e['index'], 'value': e['value']} for e in extrema]
@@ -158,43 +147,21 @@ def _convert_tear_shaped(funscript_positions, min_distance_from_center,
         i0, i1 = b0['index'], b1['index']
         v0, v1 = b0['value'], b1['value']
 
-        going_up = v1 >= v0
-        local_min_val = min(v0, v1)
-        local_max_val = max(v0, v1)
-        range_size = local_max_val - local_min_val
+        stroke_range = abs(v1 - v0)
+        if stroke_range < stroke_threshold or stroke_range < 1e-9:
+            # Short stroke: alpha = position, beta = 0.5 (already initialised)
+            continue
 
-        center_val = (local_max_val + local_min_val) / 2.0
-        center_alpha = (0.5 - min_distance_from_center) + center_val * (0.5 + min_distance_from_center)
-        circle_radius = min(range_size / 2.0, 0.5)
-
-        # Hysteresis: only trace the tear arc for strokes that cross both thresholds.
-        # Partial oscillations (e.g. 40↔60) stay linear so the output oscillates
-        # proportionally instead of restarting the tear loop on every cycle.
-        is_full_tear = (local_min_val <= low_threshold) and (local_max_val >= high_threshold)
+        going_up = v1 > v0
+        bulge_wide = min(stroke_range / 2.0, 0.5)
+        beta_dir = bulge_wide if going_up else -(bulge_wide * min_distance_from_center)
 
         for i in range(i0, i1 + 1):
-            pos = funscript_positions[i]
+            t = np.clip((funscript_positions[i] - v0) / (v1 - v0), 0.0, 1.0)
+            beta_values[i] = 0.5 + beta_dir * np.sin(t * np.pi)
+            # alpha_values[i] already set to funscript_positions[i]
 
-            if range_size < 1e-6:
-                angle = 0.0
-                radius = circle_radius
-            else:
-                pos_in_range = np.clip((pos - local_min_val) / range_size, 0.0, 1.0)
-                # Going up: angle sweeps 0 → π (right → top → left)
-                # Going down: angle sweeps 2π → π (right ← bottom ← left, i.e. the return arc)
-                angle = pos_in_range * np.pi if going_up else (2.0 * np.pi - pos_in_range * np.pi)
-                if is_full_tear:
-                    angle_deg = np.degrees(angle) % 360
-                    radius = _tear_radius(circle_radius, angle_deg, min_distance_from_center)
-                else:
-                    radius = circle_radius  # uniform: no tear-shape radius variation
-
-            alpha_values[i] = center_alpha + radius * np.cos(angle)
-            beta_values[i] = 0.5 + radius * np.sin(angle) if is_full_tear else 0.5
-
-    # Light smoothing to bridge the discontinuities at segment boundaries
-    # (adjacent strokes with different ranges produce different centers/radii).
-    # sigma=2 ≈ 80 ms at 25 pps — smooths transitions without dulling motion.
+    # Smooth out any derivative kinks at segment boundaries.
     alpha_values = gaussian_smooth(alpha_values, sigma=2.0)
     beta_values = gaussian_smooth(beta_values, sigma=2.0)
 

@@ -1,17 +1,14 @@
-## What's New in v2.4.3
+## What's New in v2.4.4
 
-### Performance Improvements
+### Bug Fixes
 
-1. **Vectorized speed calculation** (`calculate_speed_windowed`) — replaced the O(n²) double loop with a cumulative-sum rolling window; O(n) time regardless of window size or funscript length.
-
-2. **Vectorized ramp-up transitions** (`combine_funscripts`) — replaced the O(n × M) per-point nearest-transition search with a sorted `searchsorted` pass; O(n log M) where M is the number of rest→active transitions.
-
-3. **Vectorized response curve application** (`apply_response_curve_to_funscript`) — replaced a Python `for` loop with `np.interp` + `np.clip` over the whole array in one call.
-
-### Config Default Tuning
-
-4. **Pulse width range widened** — `pulse_width_min` 0.10 → 0.05, `pulse_width_max` 0.55 → 0.65 for a broader pulse shape range.
-
-5. **Volume ramp combine ratio adjusted** — `volume_ramp_combine_ratio` 25.2 → 20.0.
+1. **Tear-shaped prostate algorithm — complete rewrite** — replaced the segment-based polar arc algorithm with a simpler, provably correct formula:
+   - **Alpha** tracks the funscript position directly (0→1 maps to left→right).
+   - **Beta** traces a sine arc above or below 0.5 for each stroke:
+     - Upstrokes arc **above** β=0.5 (wide side of the tear).
+     - Downstrokes arc **below** β=0.5 using `min_distance_from_center` as the narrow/wide ratio.
+     - Arc height scales with stroke range: `bulge = stroke_range / 2`, capped at 0.5.
+   - Because `sin(0) = sin(π) = 0`, beta is **exactly 0.5 at every stroke extremum** — consecutive strokes connect with zero discontinuity and the tear shape never resets mid-oscillation.
+   - Strokes shorter than 25% of the full range produce no arc (beta stays at 0.5), so small oscillations glide smoothly along the alpha axis without generating tiny restart loops.
 
 ---
