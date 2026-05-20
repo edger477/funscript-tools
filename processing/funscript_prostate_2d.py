@@ -114,19 +114,21 @@ def _tear_radius(circle_radius, angle_deg, min_distance_from_center):
         return circle_radius * (min_distance_from_center + progress * (1.0 - min_distance_from_center))
 
 
-def _convert_tear_shaped(funscript_positions, min_distance_from_center):
+def _convert_tear_shaped(funscript_positions, min_distance_from_center,
+                          low_threshold=0.3, high_threshold=0.7):
     """
     Tear-shaped motion traced segment-by-segment between local extrema.
 
-    Each monotone segment (consecutive extrema) has a fixed direction and a
-    fixed center/radius derived from that segment's min and max values.
-    Direction is assigned once per segment — never flipped mid-segment — which
-    prevents the beta jump that occurred when point-by-point lookahead misread
-    the direction near value 0.5.
+    Full tear arc is only drawn for strokes that span the full range from
+    low_threshold (0.3) to high_threshold (0.7).  Strokes that stay within
+    a narrower band — i.e. oscillations that never cross both thresholds —
+    are rendered as proportional linear motion (beta stays at 0.5, alpha
+    tracks position) so the output oscillates smoothly without restarting
+    the tear arc every cycle.  This hysteresis prevents the "tear resets
+    from scratch on every small oscillation" artifact.
 
-    After all segments are computed a light Gaussian pass (sigma ≈ 2 samples)
-    smooths the discontinuities at segment boundaries where adjacent stroke
-    ranges differ.
+    Direction is assigned once per monotone segment (never flipped mid-segment).
+    A light Gaussian pass (sigma ≈ 2 samples) smooths boundary discontinuities.
     """
     n = len(funscript_positions)
     alpha_values = np.zeros(n)
@@ -165,22 +167,30 @@ def _convert_tear_shaped(funscript_positions, min_distance_from_center):
         center_alpha = (0.5 - min_distance_from_center) + center_val * (0.5 + min_distance_from_center)
         circle_radius = min(range_size / 2.0, 0.5)
 
+        # Hysteresis: only trace the tear arc for strokes that cross both thresholds.
+        # Partial oscillations (e.g. 40↔60) stay linear so the output oscillates
+        # proportionally instead of restarting the tear loop on every cycle.
+        is_full_tear = (local_min_val <= low_threshold) and (local_max_val >= high_threshold)
+
         for i in range(i0, i1 + 1):
             pos = funscript_positions[i]
 
             if range_size < 1e-6:
                 angle = 0.0
+                radius = circle_radius
             else:
                 pos_in_range = np.clip((pos - local_min_val) / range_size, 0.0, 1.0)
                 # Going up: angle sweeps 0 → π (right → top → left)
                 # Going down: angle sweeps 2π → π (right ← bottom ← left, i.e. the return arc)
                 angle = pos_in_range * np.pi if going_up else (2.0 * np.pi - pos_in_range * np.pi)
-
-            angle_deg = np.degrees(angle) % 360
-            radius = _tear_radius(circle_radius, angle_deg, min_distance_from_center)
+                if is_full_tear:
+                    angle_deg = np.degrees(angle) % 360
+                    radius = _tear_radius(circle_radius, angle_deg, min_distance_from_center)
+                else:
+                    radius = circle_radius  # uniform: no tear-shape radius variation
 
             alpha_values[i] = center_alpha + radius * np.cos(angle)
-            beta_values[i] = 0.5 + radius * np.sin(angle)
+            beta_values[i] = 0.5 + radius * np.sin(angle) if is_full_tear else 0.5
 
     # Light smoothing to bridge the discontinuities at segment boundaries
     # (adjacent strokes with different ranges produce different centers/radii).

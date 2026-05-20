@@ -167,9 +167,14 @@ Version information for Restim Funscript Processor
            fixed for the full monotone segment between consecutive local extrema, eliminating sudden large
            alpha/beta jumps when the source funscript crosses value 0.5; light Gaussian smoothing (σ≈2)
            bridges discontinuities at segment boundaries where adjacent stroke ranges differ
+2.4.2 - Tear-shaped prostate hysteresis:
+        1. Full tear arc now only drawn for strokes that span from ≤30% to ≥70%; partial oscillations
+           (strokes staying within a narrower band) render as proportional linear motion (beta=0.5,
+           alpha tracks position) so small oscillations glide smoothly instead of restarting the
+           tear loop every cycle
 """
 
-__version__ = "2.4.1"
+__version__ = "2.4.2"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

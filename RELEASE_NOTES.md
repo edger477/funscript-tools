@@ -1,9 +1,9 @@
-## What's New in v2.4.1
+## What's New in v2.4.2
 
 ### Bug Fixes
 
-1. **Tear-shaped prostate algorithm — segment-based direction assignment** — eliminated sudden large jumps in alpha/beta when the source funscript crosses value 0.5:
-   - *Root cause*: direction was determined per-point using a 3-sample lookahead. Near value 0.5 or at noisy peaks, the trend could flip, mapping the same `pos_in_range = 0.5` to both the upper arc (β = 0.5 + r) and the lower arc (β = 0.5 − r) in successive frames.
-   - *Fix*: the algorithm now identifies monotone segments between consecutive local extrema and assigns a single fixed direction to all points in each segment. Direction never changes mid-segment, so the arc is traced smoothly from boundary to boundary. A light Gaussian smoothing pass (σ ≈ 2 samples, ~80 ms at 25 pps) bridges the discontinuities where adjacent segments have different stroke ranges.
+1. **Tear-shaped prostate algorithm — hysteresis thresholds** — eliminated the "tear shape restarts every oscillation" artifact:
+   - *Root cause*: every monotone segment, no matter how small, traced a full tear-shaped arc (looping through top arc on upstroke, narrow bottom arc on downstroke). Small oscillations around a midpoint (e.g. 40↔60) produced a tiny repeating tear loop that visually restarted from scratch on each cycle.
+   - *Fix*: a stroke must span the full range from ≤ 30% up to ≥ 70% (or vice versa) to qualify as a full tear arc. Strokes that stay within a narrower band are rendered as proportional linear motion — beta stays at 0.5 and alpha tracks position — so partial oscillations glide smoothly without the restart artifact.
 
 ---
