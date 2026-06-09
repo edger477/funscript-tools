@@ -788,6 +788,494 @@ definitions:
           ramp_out_ms: $ramp_ms
           mode: additive
 
+  # === EXTRACT / RELENTLESS MODE (OVERWRITE) ===
+  # Replicates SC's polesCtrl snapping between N (theta=0°) and L/cock (theta=120°) poles.
+  # Uses overwrite mode: replaces alpha/beta entirely, suppressing the base funscript stroke.
+  # Pole coordinates (r=0.5 from center):
+  #   N (neutral): alpha=1.0, beta=0.5
+  #   L (cock):    alpha=0.25, beta=0.933
+  # Triangle wave at ~0.67 Hz (1.5s period = 0.75s dwell per pole, matching SC ~dur=0.75).
+  # NOTE: Only affects 3P (alpha/beta) mode. In 4P (e1-e4) mode only pulse_frequency fires.
+
+  mcb_extract:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40           # SC Extract uses 40 Hz pulse frequency
+      switch_freq: 0.67        # 1/1.5s cycle — 0.75s dwell per pole (matches SC ~dur=0.75)
+      ramp_ms: 1500
+
+    steps:
+      # 40 Hz pulse frequency — overwrite any base value
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      # Alpha: N=1.0, L=0.25 — center 0.625, half-range 0.375
+      # phase=180 so wave starts at +1 (N pole) at t=0
+      - operation: apply_modulation
+        axis: alpha
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: 0.375
+          max_level_offset: 0.625
+          phase: 180
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      # Beta: N=0.5, L=0.933 — center 0.717, half-range 0.217
+      # phase=0 so wave starts at -1 → beta=0.5 (N pole) when alpha is at N
+      - operation: apply_modulation
+        axis: beta
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: 0.217
+          max_level_offset: 0.717
+          phase: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+  # === EXTRACT / RELENTLESS MODE (ADDITIVE) ===
+  # Same N↔L pole-switching but layered on top of the base funscript stroke (additive mode).
+  # Less faithful to original SC behavior but preserves underlying stroke motion.
+  # Reduce alpha_amp/beta_amp if clipping occurs.
+
+  mcb_extract_additive:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40           # SC Extract uses 40 Hz pulse frequency
+      switch_freq: 0.67        # ~0.67 Hz switching
+      alpha_amp: 0.25          # Pole-switching depth on alpha axis
+      beta_amp: 0.15           # Pole-switching depth on beta axis
+      ramp_ms: 1500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: alpha
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: $alpha_amp
+          max_level_offset: 0
+          phase: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: beta
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: $beta_amp
+          max_level_offset: 0
+          phase: 180
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === EXTRACT MODE (4P ? UPWARD PULL) ===
+  # Sequential e4?e3?e2?e1 pull at switch_freq (default 1 Hz = 1 s per cycle).
+  # step_ratio controls each step window; e1 dwells for the remainder (no all-off gap).
+  # Sharp variant: square pulses on all electrodes.
+  # NOTE: Only affects 4P (e1-e4) mode. In 3P mode only pulse_frequency fires.
+
+  mcb_extract_4p:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40           # SC Extract uses 40 Hz pulse frequency
+      switch_freq: 1.0         # 1 s per pull cycle
+      step_ratio: 0.15         # e4/e3/e2 each 15%; e1 dwell 55%
+      ramp_ms: 1500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e4
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e3
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e3_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e2
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e2_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e1
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $e1_duty
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e1_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+  # === EXTRACT MODE (4P ADDITIVE ? UPWARD PULL, STROKE-PRESERVING) ===
+  # Same e4?e1 sequencing as mcb_extract_4p but additive over the base stroke motion.
+  # Reduce e_amp if clipping occurs on high-intensity strokes.
+  # NOTE: Only affects 4P (e1-e4) mode. In 3P mode only pulse_frequency fires.
+
+  mcb_extract_4p_additive:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40
+      switch_freq: 1.0
+      step_ratio: 0.15
+      e_amp: 0.3
+      ramp_ms: 1500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e4
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e3
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e3_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e2
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $step_ratio
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e2_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e1
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $e1_duty
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e1_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+  # === EXTRACT MODE (4P SMOOTH ? UPWARD PULL) ===
+  # Triangle peaks on e4?e2 (smooth climb), square dwell on e1. Same timing as sharp variant.
+
+  mcb_extract_4p_smooth:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40
+      switch_freq: 1.0
+      step_ratio: 0.15
+      ramp_ms: 1500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e4
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: 180
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e3
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e3_tri_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e2
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e2_tri_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e1
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $e1_duty
+          amplitude: 0.5
+          max_level_offset: 0.5
+          phase: $e1_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+  # === EXTRACT MODE (4P SMOOTH ADDITIVE ? UPWARD PULL) ===
+
+  mcb_extract_4p_smooth_additive:
+    default_params:
+      duration_ms: 30000
+      pulse_rate: 40
+      switch_freq: 1.0
+      step_ratio: 0.15
+      e_amp: 0.3
+      ramp_ms: 1500
+
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: $pulse_rate
+          end_value: $pulse_rate
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: overwrite
+
+      - operation: apply_modulation
+        axis: e4
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: 180
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e3
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e3_tri_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e2
+        params:
+          waveform: triangle
+          frequency: $switch_freq
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e2_tri_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e1
+        params:
+          waveform: square
+          frequency: $switch_freq
+          duty_cycle: $e1_duty
+          amplitude: $e_amp
+          max_level_offset: 0
+          phase: $e1_phase
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+
+  # === CORRUPT (4P — INHARMONIC DRIFT) ===
+  # Four electrodes each driven by sawtooth waves at inharmonic rates — none share common factors,
+  # so they never phase-lock with each other or with the stroke. The sharp sawtooth resets add
+  # a glitchy discontinuous quality. Starting phases are deliberately irregular to prevent any
+  # coherent pattern at the onset. Base stroke beat remains perceptible underneath (additive).
+  # NOTE: Only affects 4P (e1-e4) mode.
+
+  corrupt_4p:
+    default_params:
+      duration_ms: 30000
+      amplitude: 0.3               # Drift depth — reduce if overwhelming, raise for more chaos
+      ramp_ms: 2000
+
+    steps:
+      - operation: apply_modulation
+        axis: e1
+        params:
+          waveform: sawtooth
+          frequency: 0.71
+          amplitude: $amplitude
+          max_level_offset: 0
+          phase: 0
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e2
+        params:
+          waveform: sawtooth
+          frequency: 1.13
+          amplitude: $amplitude
+          max_level_offset: 0
+          phase: 127
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e3
+        params:
+          waveform: sawtooth
+          frequency: 0.89
+          amplitude: $amplitude
+          max_level_offset: 0
+          phase: 251
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
+      - operation: apply_modulation
+        axis: e4
+        params:
+          waveform: sawtooth
+          frequency: 1.47
+          amplitude: $amplitude
+          max_level_offset: 0
+          phase: 73
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_ms
+          ramp_out_ms: $ramp_ms
+          mode: additive
+
   # === DENIAL EFFECT ===
   # Temporary reduction of stimulation
 

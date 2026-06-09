@@ -192,6 +192,17 @@ Version information for Restim Funscript Processor
         3. All generated funscripts pass through RDP simplification when epsilon > 0,
            including speed, alpha/beta, prostate, motion axes, phase-shifted, and all output files
         4. Added pybind11-rdp>=0.1.5 dependency
+2.4.5 - MCB extract events, modulation density fix, and Custom Event Builder improvements:
+        1. Added MCB extract event definitions: mcb_extract, mcb_extract_additive,
+           mcb_extract_4p, mcb_extract_4p_additive (4P e4->e1 upward pull with step_ratio),
+           mcb_extract_4p_smooth, mcb_extract_4p_smooth_additive (smooth climb variant),
+           and corrupt_4p (4P inharmonic drift)
+        2. Fixed modulation waveform accuracy: _ensure_dense_timestamps() pre-inserts interpolated
+           points before applying modulation so waveforms are faithfully represented at any resolution
+        3. Custom Event Builder: Funscript snap mode (default), proportional event block drawing,
+           stable lane layout, waveform downsampling, debounced zoom/pan redraw, VLC seek-bar fixes
+        4. Dark mode: blue info labels use lighter accent color for readability
+        5. Windows build: PyInstaller onefile spec; release package copies exe and docs to versioned folder
 2.4.6 - Custom Events Builder performance and crash fixes:
         1. Fixed crash ("NoneType is not iterable") when loading or applying events that have an
            empty steps list (steps: with no items in YAML) — affects both the UI preview and

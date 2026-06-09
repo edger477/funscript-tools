@@ -88,10 +88,10 @@ def build_windows_exe():
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("Build successful!")
 
-        # Show output files — search recursively to support onedir builds
+        # Show output files
         windows_dist = Path("dist/windows")
         if windows_dist.exists():
-            exe_files = list(windows_dist.rglob("*.exe"))
+            exe_files = list(windows_dist.glob("*.exe"))
             if exe_files:
                 exe_file = exe_files[0]
                 file_size = exe_file.stat().st_size / (1024 * 1024)  # MB
@@ -115,25 +115,17 @@ def create_release_package():
     """Create a release package with the executable and documentation."""
     print("Creating release package...")
 
-    app_dir_name = f"RestimFunscriptProcessor-v{__version__}"
-    archive_name = f"{app_dir_name}-Windows"
+    release_dir = Path(f"dist/RestimFunscriptProcessor-v{__version__}-Windows")
+    release_dir.mkdir(parents=True, exist_ok=True)
 
-    # Locate the onedir build folder (PyInstaller puts it at dist/windows/<name>/)
+    # Copy executable
     windows_dist = Path("dist/windows")
-    app_dir = windows_dist / app_dir_name
-
-    if app_dir.exists():
-        # onedir build — the whole folder is the distributable
-        release_dir = app_dir
-        print(f"Using onedir build: {release_dir}")
-    else:
-        # Fallback: assemble from loose exe (onefile build)
-        release_dir = Path(f"dist/{archive_name}")
-        release_dir.mkdir(parents=True, exist_ok=True)
-        exe_files = list(windows_dist.rglob("*.exe"))
-        if exe_files:
-            shutil.copy2(exe_files[0], release_dir / "RestimFunscriptProcessor.exe")
-            print(f"Copied executable")
+    exe_files = list(windows_dist.glob("*.exe"))
+    if exe_files:
+        exe_file = exe_files[0]
+        target_exe = release_dir / f"RestimFunscriptProcessor.exe"
+        shutil.copy2(exe_file, target_exe)
+        print(f"Copied executable to: {target_exe}")
 
     # Copy documentation
     docs_to_copy = [
@@ -154,7 +146,7 @@ def create_release_package():
     if Path("config.json").exists():
         shutil.copy2("config.json", release_dir / "config.json")
         print("Copied: config.json")
-    
+
     if Path("config.event_definitions.yml").exists():
         shutil.copy2("config.event_definitions.yml", release_dir / "config.event_definitions.yml")
         print("Copied: config.event_definitions.yml")
@@ -193,7 +185,9 @@ VERSION: {__version__}
     print(f"Created installation guide: {install_guide}")
 
     # Create ZIP archive
+    archive_name = f"RestimFunscriptProcessor-v{__version__}-Windows"
     print(f"Creating ZIP archive: {archive_name}.zip")
+
     shutil.make_archive(
         f"dist/{archive_name}",
         'zip',

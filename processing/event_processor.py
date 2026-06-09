@@ -117,6 +117,24 @@ def _backup_files(files_to_backup: List[Path]) -> Path:
     return zip_filename
 
 
+def _derive_step_ratio_params(final_params: dict, event_name: str) -> None:
+    if 'step_ratio' not in final_params:
+        return
+    sr = float(final_params['step_ratio'])
+    if not (0 < sr < 1 / 3):
+        raise EventProcessorError(
+            f"Event '{event_name}': step_ratio must be in (0, 1/3), got {sr}"
+        )
+    final_params.update({
+        'e3_phase': (1 - sr) * 360,
+        'e2_phase': (1 - 2 * sr) * 360,
+        'e1_duty': 1 - 3 * sr,
+        'e1_phase': (1 - 3 * sr) * 360,
+        'e3_tri_phase': (0.5 - sr) * 360,
+        'e2_tri_phase': (0.5 - 2 * sr) * 360,
+    })
+
+
 def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Parses a user's YAML event file and performs basic validation against definitions.
@@ -154,7 +172,9 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
         final_params = definition.get('default_params', {}).copy()
         if 'params' in user_event:
             final_params.update(user_event['params'])
-        
+
+        _derive_step_ratio_params(final_params, event_name)
+
         # Token substitution for step parameters
         processed_steps = []
         for step_idx, step in enumerate(definition.get('steps') or [], start=1):

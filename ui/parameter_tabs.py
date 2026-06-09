@@ -4,6 +4,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from typing import Dict, Any
 
+import ui.theme as _theme
+
 
 def calculate_combine_percentages(ratio):
     """Calculate the percentages for combine ratio."""
@@ -46,6 +48,16 @@ class CombineRatioControl:
         # Percentage display
         self.percentage_label = ttk.Label(parent, text="", foreground="blue")
         self.percentage_label.grid(row=row, column=3, sticky=tk.W, padx=5, pady=5)
+
+        # Keep label color in sync with theme
+        def _pct_theme(dark: bool, lbl=self.percentage_label):
+            lbl.config(foreground='#5bc8f5' if dark else 'blue')
+        _pct_theme(_theme.is_dark())
+        _theme.register(_pct_theme)
+        self.percentage_label.bind(
+            '<Destroy>',
+            lambda e, cb=_pct_theme: _theme.unregister(cb) if e.widget is self.percentage_label else None
+        )
 
         # Initial update
         self._update_percentage_display()
@@ -512,6 +524,16 @@ class ParameterTabs(ttk.Notebook):
         # Create label for current value and per-minute calculation
         self.ramp_value_label = ttk.Label(frame, text="", foreground="blue")
         self.ramp_value_label.grid(row=row, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Keep label color in sync with theme
+        def _ramp_theme(dark: bool, lbl=self.ramp_value_label):
+            lbl.config(foreground='#5bc8f5' if dark else 'blue')
+        _ramp_theme(_theme.is_dark())
+        _theme.register(_ramp_theme)
+        self.ramp_value_label.bind(
+            '<Destroy>',
+            lambda e, cb=_ramp_theme: _theme.unregister(cb) if e.widget is self.ramp_value_label else None
+        )
 
         # Initial update
         self._update_ramp_display()
