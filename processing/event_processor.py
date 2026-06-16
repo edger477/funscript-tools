@@ -10,6 +10,12 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
 from processing.funscript_editor import FunscriptEditor, FunscriptEditorError
+from processing.chapter_export import (
+    ChapterExportOptions,
+    ChapterExportError,
+    event_file_base_name,
+    export_chapters,
+)
 
 
 class EventProcessorError(Exception):
@@ -223,7 +229,7 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
     return sorted(validated_events, key=lambda x: x['time']) # Sort by time
 
 
-def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, config: dict = None) -> Tuple[str, List[str], Path]:
+def process_events(event_file_path_str: str, perform_backup: bool, definitions_path: Path, volume_headroom: int = 10, config: dict = None, chapter_options: ChapterExportOptions = None) -> Tuple[str, List[str], Path]:
     """
     Main entry point for processing custom events.
     Orchestrates finding files, backing up, parsing, and applying events using FunscriptEditor.
@@ -234,6 +240,7 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
         definitions_path (Path): Path to the event_definitions.yml file.
         volume_headroom (int): Amount of headroom to create above highest volume point (0-20, default 10).
         config (dict): Optional configuration dict with file_management settings.
+        chapter_options (ChapterExportOptions): Optional chapter export settings.
 
     Returns:
         Tuple[str, List[str], Path]: A success message, list of names of modified files, and backup path (None if no backup).
@@ -274,9 +281,14 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
 
     # 5. Backup files if requested
     backup_path = None
+    base_name = event_file_base_name(event_file_path)
+    base_funscript_path = event_file_path.parent / f"{base_name}.funscript"
+
     if perform_backup:
-        # Backup only the output funscripts (not the events file, which is source)
         files_to_backup = list(target_funscript_paths_by_axis.values())
+        if chapter_options and chapter_options.write_funscript and base_funscript_path.exists():
+            if base_funscript_path not in files_to_backup:
+                files_to_backup.append(base_funscript_path)
         backup_path = _backup_files(files_to_backup)
         print(f"Backup created at: {backup_path}")
 
@@ -337,5 +349,18 @@ def process_events(event_file_path_str: str, perform_backup: bool, definitions_p
     success_message = f"Successfully applied {len(user_events)} events to {len(modified_files)} files."
     if perform_backup and backup_path:
         success_message += f"\nBackup created at {backup_path.name}."
+
+    if chapter_options and chapter_options.write_funscript:
+        try:
+            chapter_result = export_chapters(
+                user_events,
+                base_name,
+                event_file_path.parent,
+                chapter_options,
+            )
+            if chapter_result.messages:
+                success_message += "\n" + "\n".join(chapter_result.messages)
+        except ChapterExportError as e:
+            success_message += f"\nChapter export warning: {e}"
 
     return success_message, modified_files, backup_path

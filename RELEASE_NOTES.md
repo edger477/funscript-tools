@@ -5,8 +5,12 @@
 1. **MCB extract / Relentless mode events** — new custom event definitions replicating SC Extract pole-switching:
    - `mcb_extract` and `mcb_extract_additive` (3P alpha/beta)
    - `mcb_extract_4p` and `mcb_extract_4p_additive` (4P e4→e1 upward pull, configurable `step_ratio`)
-   - `mcb_extract_4p_smooth` and `mcb_extract_4p_smooth_additive` (smooth triangle climb on e4–e2)
    - `corrupt_4p` (4P inharmonic sawtooth drift)
+
+2. **Chapter export** — custom events can be written as OFS chapters in the base `.funscript` `metadata.chapters`:
+   - Toggle in Custom Event Builder options bar ("Chapters: Funscript", default on)
+   - Preserves existing chapters and appends new ones from the event timeline
+   - Uses the same display names as the UI (General / Clutch / MCB prefixes)
 
 ### Improvements
 
