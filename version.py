@@ -224,14 +224,11 @@ Version information for Restim Funscript Processor
            first attempt to prevent <Configure> event storms that caused continuous redraws
         8. Video tick playhead update uses a fast path that only redraws the playhead canvas
            item, falling back to a full redraw only when the view needs to auto-scroll
-           and corrupt_4p (4P inharmonic drift)
-        2. Export custom events as OFS chapters in base .funscript metadata; optional
-           "Chapters: Funscript" checkbox in Custom Event Builder; merges with existing chapters
-        3. Shared format_event_display_name() for UI and chapter export labels
-        4. Fixed modulation waveform accuracy: _ensure_dense_timestamps() pre-inserts interpolated
-           points before applying modulation so waveforms are faithfully represented at any resolution
-        5. Custom Event Builder: Funscript snap mode (default), proportional event block drawing,
-           stable lane layout, waveform downsampling, debounced zoom/pan redraw, VLC seek-bar fixes
+2.4.6 - External volume blend (two-stage volume combine):
+        1. Optional combine 2: blend generated volume (ramp+speed) with a user-selected external .funscript
+        2. Volume tab: enable checkbox, file browse, Generated | External ratio control, optional output range
+        3. CLI: preview volume-blend; volume preview respects combine 2 when enabled in config
+        4. Preserves external file when output path overlaps (temp copy before blend)
 """
 
 __version__ = "2.4.6"

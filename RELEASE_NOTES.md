@@ -1,3 +1,21 @@
+## What's New in v2.4.6
+
+### New Features
+
+1. **External volume blend (combine 2)** — optional second volume combine after ramp+speed:
+   - Blend tool-generated volume with a browsed external `.funscript` (e.g. released volume files)
+   - Volume tab: enable checkbox, file browse, **Generated | External** ratio (same UX as Ramp | Speed)
+   - Optional output range min/max to compress full 0–100 envelopes for restim
+   - Normalization runs after both combines when enabled
+
+2. **CLI** — `python cli.py preview volume-blend [--ratio N] [--json]` describes combine 2 settings
+
+### Documentation
+
+- USER_GUIDE and CLI_REFERENCE updated for two-stage volume processing
+
+---
+
 ## What's New in v2.4.5
 
 ### New Features

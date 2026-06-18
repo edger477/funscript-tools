@@ -34,7 +34,12 @@
     "volume_ramp_combine_ratio": 20.0,
     "prostate_volume_multiplier": 1.5,
     "prostate_rest_level": 0.7,
-    "ramp_percent_per_hour": 10
+    "ramp_percent_per_hour": 10,
+    "enable_volume_blend": false,
+    "supplied_volume_path": "",
+    "supplied_volume_combine_ratio": 4.0,
+    "supplied_volume_output_min": 0.0,
+    "supplied_volume_output_max": 1.0
   },
   "pulse": {
     "pulse_width_min": 0.05,
