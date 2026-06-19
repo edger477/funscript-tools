@@ -64,7 +64,8 @@ DEFAULT_CONFIG = {
     "options": {
         "normalize_volume": True,
         "delete_intermediary_files": True,
-        "overwrite_existing_files": False
+        "overwrite_existing_files": False,
+        "rdp_epsilon": 0.002
     },
     "ui": {
         "dark_mode": False

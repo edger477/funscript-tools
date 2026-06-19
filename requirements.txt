@@ -5,3 +5,4 @@ PyYAML>=6.0
 tkinterdnd2>=0.3.0
 python-vlc>=3.0.0  # Windows only; gracefully disabled on other platforms
 sv-ttk>=2.6.0
+pybind11-rdp>=0.1.5

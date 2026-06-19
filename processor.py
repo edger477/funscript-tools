@@ -217,6 +217,14 @@ class RestimProcessor:
         if progress_callback:
             progress_callback(percent, message)
 
+    def _save(self, funscript: Funscript, path: Path):
+        """Save a funscript, applying RDP simplification if configured."""
+        from processing.basic_transforms import simplify_funscript
+        epsilon = self.params.get('options', {}).get('rdp_epsilon', 0.0)
+        if epsilon > 0:
+            funscript = simplify_funscript(funscript, epsilon)
+        funscript.save_to_path(path)
+
     def _get_temp_path(self, suffix: str) -> Path:
         """Get path for a temporary file."""
         return self.temp_dir / f"{self.filename_only}.{suffix}.funscript"
@@ -303,7 +311,7 @@ events:
                     self.params['general']['speed_window_size'],
                     self.params['speed']['interpolation_interval']
                 )
-                speed_funscript.save_to_path(self._get_temp_path("speed"))
+                self._save(speed_funscript, self._get_temp_path("speed"))
                 speed_exists = True
             else:
                 speed_funscript = Funscript.from_file(self._get_temp_path("speed"))
@@ -325,11 +333,11 @@ events:
             )
 
             if not alpha_exists:
-                alpha_funscript.save_to_path(self._get_temp_path("alpha"))
+                self._save(alpha_funscript, self._get_temp_path("alpha"))
                 alpha_exists = True
 
             if not beta_exists:
-                beta_funscript.save_to_path(self._get_temp_path("beta"))
+                self._save(beta_funscript, self._get_temp_path("beta"))
                 beta_exists = True
 
         # Generate prostate alpha and beta files if prostate generation is enabled
@@ -354,9 +362,9 @@ events:
                 )
 
                 if not alpha_prostate_exists:
-                    alpha_prostate_funscript.save_to_path(self._get_temp_path("alpha-prostate"))
+                    self._save(alpha_prostate_funscript, self._get_temp_path("alpha-prostate"))
                 if not beta_prostate_exists:
-                    beta_prostate_funscript.save_to_path(self._get_temp_path("beta-prostate"))
+                    self._save(beta_prostate_funscript, self._get_temp_path("beta-prostate"))
 
         # Motion Axis Generation (18-19%)
         if self.params.get('positional_axes', {}).get('generate_motion_axis', False):
@@ -384,12 +392,14 @@ events:
                 if axes_to_generate:
                     generate_config = {axis: motion_config[axis] for axis in axes_to_generate}
                     interpolation_interval = self.params.get('speed', {}).get('interpolation_interval', 0.02)
+                    rdp_epsilon = self.params.get('options', {}).get('rdp_epsilon', 0.0)
                     generated_files = generate_motion_axes(
                         main_funscript,
                         generate_config,
                         self.temp_dir,
                         self.filename_only,
-                        interpolation_interval=interpolation_interval
+                        interpolation_interval=interpolation_interval,
+                        rdp_epsilon=rdp_epsilon
                     )
 
         # Phase-Shifted Output Generation (19%) — handled independently per mode
@@ -413,7 +423,7 @@ events:
                         phase_shift_config.get('min_segment_duration', 0.25)
                     )
                     for key, funscript in shifted.items():
-                        funscript.save_to_path(self._get_temp_path(key))
+                        self._save(funscript, self._get_temp_path(key))
                         print(f"  Saved phase-shifted file: {self._get_temp_path(key).name}")
                 else:
                     print("  Warning: No alpha/beta funscripts found to phase-shift (3P)")
@@ -436,7 +446,7 @@ events:
                         ma_phase_config.get('min_segment_duration', 0.25)
                     )
                     for key, funscript in shifted.items():
-                        funscript.save_to_path(self._get_temp_path(key))
+                        self._save(funscript, self._get_temp_path(key))
                         print(f"  Saved phase-shifted file: {self._get_temp_path(key).name}")
                 else:
                     print("  Warning: No E1-E4 funscripts found to phase-shift (4P)")
@@ -451,13 +461,13 @@ events:
                 self.params['general']['speed_window_size'],
                 self.params['speed']['interpolation_interval']
             )
-            speed_funscript.save_to_path(self._get_temp_path("speed"))
+            self._save(speed_funscript, self._get_temp_path("speed"))
         elif speed_funscript is None:
             speed_funscript = Funscript.from_file(self._get_temp_path("speed"))
 
         # Invert speed
         speed_inverted = invert_funscript(speed_funscript)
-        speed_inverted.save_to_path(self._get_temp_path("speed_inverted"))
+        self._save(speed_inverted, self._get_temp_path("speed_inverted"))
 
         self._update_progress(progress_callback, 25, "Generating acceleration file...")
 
@@ -467,7 +477,7 @@ events:
             self.params['general']['accel_window_size'],
             self.params['speed']['interpolation_interval']
         )
-        accel_funscript.save_to_path(self._get_temp_path("accel"))
+        self._save(accel_funscript, self._get_temp_path("accel"))
 
         self._update_progress(progress_callback, 30, "Generating volume ramp...")
 
@@ -475,13 +485,13 @@ events:
         if not ramp_exists:
             ramp_percent_per_hour = self.params.get('volume', {}).get('ramp_percent_per_hour', 15)
             ramp_funscript = make_volume_ramp(main_funscript, ramp_percent_per_hour)
-            ramp_funscript.save_to_path(self._get_temp_path("ramp"))
+            self._save(ramp_funscript, self._get_temp_path("ramp"))
         else:
             ramp_funscript = Funscript.from_file(self._get_temp_path("ramp"))
 
         # Invert ramp
         ramp_inverted = invert_funscript(ramp_funscript)
-        ramp_inverted.save_to_path(self._get_temp_path("ramp_inverted"))
+        self._save(ramp_inverted, self._get_temp_path("ramp_inverted"))
 
         # Phase 3: Frequency Processing (40-50%)
         self._update_progress(progress_callback, 40, "Processing frequency data...")
@@ -513,13 +523,13 @@ events:
                 "pulse_freq_max": self.params['frequency']['pulse_freq_max'],
                 "pulse_frequency_combine_ratio": self.params['frequency']['pulse_frequency_combine_ratio']
             })
-            pulse_frequency.save_to_path(self._get_output_path("pulse_frequency"))
+            self._save(pulse_frequency, self._get_output_path("pulse_frequency"))
 
         # Generate alpha-prostate output using inverted main funscript (only if enabled)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
             main_inverted = invert_funscript(main_funscript)
             self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
-            main_inverted.save_to_path(self._get_output_path("alpha-prostate"))
+            self._save(main_inverted, self._get_output_path("alpha-prostate"))
         else:
             main_inverted = invert_funscript(main_funscript)
 
@@ -537,7 +547,7 @@ events:
             self._add_metadata(frequency, "frequency", "Primary frequency modulation", {
                 "frequency_ramp_combine_ratio": self.params['frequency']['frequency_ramp_combine_ratio']
             })
-            frequency.save_to_path(self._get_output_path("frequency"))
+            self._save(frequency, self._get_output_path("frequency"))
 
         # Phase 4: Volume Processing (50-70%)
         self._update_progress(progress_callback, 50, "Processing volume data...")
@@ -559,7 +569,7 @@ events:
             # Volume normalization
             if self.params['options']['normalize_volume']:
                 volume_not_normalized = volume.copy()
-                volume_not_normalized.save_to_path(self._get_temp_path("volume_not_normalized"))
+                self._save(volume_not_normalized, self._get_temp_path("volume_not_normalized"))
                 volume = normalize_funscript(volume)
 
             self._add_metadata(volume, "volume", "Standard volume control", {
@@ -568,7 +578,7 @@ events:
                 "ramp_up_duration_after_rest": self.params['general']['ramp_up_duration_after_rest'],
                 "normalized": self.params['options']['normalize_volume']
             })
-            volume.save_to_path(self._get_output_path("volume"))
+            self._save(volume, self._get_output_path("volume"))
 
         # Prostate volume (only if enabled)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
@@ -589,7 +599,7 @@ events:
                     "prostate_rest_level": self.params['volume']['prostate_rest_level'],
                     "ramp_up_duration_after_rest": self.params['general']['ramp_up_duration_after_rest']
                 })
-                prostate_volume.save_to_path(self._get_output_path("volume-prostate"))
+                self._save(prostate_volume, self._get_output_path("volume-prostate"))
 
         # Phase 5: Pulse Parameters (70-90%)
         self._update_progress(progress_callback, 70, "Processing pulse parameters...")
@@ -615,7 +625,7 @@ events:
                 "pulse_rise_min": self.params['pulse']['pulse_rise_min'],
                 "pulse_rise_max": self.params['pulse']['pulse_rise_max']
             })
-            pulse_rise_time.save_to_path(self._get_output_path("pulse_rise_time"))
+            self._save(pulse_rise_time, self._get_output_path("pulse_rise_time"))
 
         # Check if pulse_width already exists
         if not overwrite_existing and self._output_file_exists("pulse_width"):
@@ -628,7 +638,7 @@ events:
                 self.params['pulse']['pulse_width_min'],
                 self.params['pulse']['pulse_width_max']
             )
-            pulse_width_main.save_to_path(self._get_temp_path("pulse_width-main"))
+            self._save(pulse_width_main, self._get_temp_path("pulse_width-main"))
 
             # Combine with speed for final pulse width
             pulse_width = combine_funscripts(
@@ -641,7 +651,7 @@ events:
                 "pulse_width_max": self.params['pulse']['pulse_width_max'],
                 "pulse_width_combine_ratio": self.params['pulse']['pulse_width_combine_ratio']
             })
-            pulse_width.save_to_path(self._get_output_path("pulse_width"))
+            self._save(pulse_width, self._get_output_path("pulse_width"))
 
         # Phase 6: Copy remaining outputs (90-95%)
         self._update_progress(progress_callback, 90, "Finalizing outputs...")
@@ -705,7 +715,7 @@ events:
             else:
                 pulse_freq_inverted = invert_funscript(pulse_frequency)
                 self._add_metadata(pulse_freq_inverted, "pulse_frequency_inverted", "Inverted pulse frequency modulation")
-                pulse_freq_inverted.save_to_path(self._get_output_path("pulse_frequency_inverted"))
+                self._save(pulse_freq_inverted, self._get_output_path("pulse_frequency_inverted"))
 
         if self.params['advanced']['enable_volume_inversion']:
             if not overwrite_existing and self._output_file_exists("volume_inverted"):
@@ -713,7 +723,7 @@ events:
             else:
                 volume_inverted = invert_funscript(volume)
                 self._add_metadata(volume_inverted, "volume_inverted", "Inverted volume control")
-                volume_inverted.save_to_path(self._get_output_path("volume_inverted"))
+                self._save(volume_inverted, self._get_output_path("volume_inverted"))
 
         if self.params['advanced']['enable_frequency_inversion']:
             if not overwrite_existing and self._output_file_exists("frequency_inverted"):
@@ -721,4 +731,4 @@ events:
             else:
                 freq_inverted = invert_funscript(frequency)
                 self._add_metadata(freq_inverted, "frequency_inverted", "Inverted frequency modulation")
-                freq_inverted.save_to_path(self._get_output_path("frequency_inverted"))
+                self._save(freq_inverted, self._get_output_path("frequency_inverted"))

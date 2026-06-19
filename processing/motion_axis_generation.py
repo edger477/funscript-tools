@@ -14,6 +14,7 @@ from .linear_mapping import (
     validate_control_points
 )
 from .speed_processing import add_interpolated_points
+from .basic_transforms import simplify_funscript
 
 
 def generate_motion_axes(
@@ -21,7 +22,8 @@ def generate_motion_axes(
     config: Dict[str, Any],
     output_directory: Path,
     filename_base: str = None,
-    interpolation_interval: Optional[float] = None
+    interpolation_interval: Optional[float] = None,
+    rdp_epsilon: float = 0.0
 ) -> Dict[str, Path]:
     """
     Generate all enabled motion axis files (E1-E4) from main funscript.
@@ -84,6 +86,8 @@ def generate_motion_axes(
         if filename_base is None:
             filename_base = output_directory.stem
         output_path = output_directory / f"{filename_base}.{axis_name}.funscript"
+        if rdp_epsilon > 0:
+            axis_funscript = simplify_funscript(axis_funscript, rdp_epsilon)
         axis_funscript.save_to_path(output_path)
         generated_files[axis_name] = output_path
 

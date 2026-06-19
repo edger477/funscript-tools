@@ -53,7 +53,7 @@
     "pack_output_to_zip": false
   },
   "file_management": {
-    "mode": "local",
+    "mode": "central",
     "central_folder_path": "C:/temp/restim-scripts",
     "create_backups": true,
     "zip_output": false
@@ -61,7 +61,8 @@
   "options": {
     "normalize_volume": true,
     "delete_intermediary_files": true,
-    "overwrite_existing_files": true
+    "overwrite_existing_files": true,
+    "rdp_epsilon": 0.001
   },
   "ui": {
     "dark_mode": false

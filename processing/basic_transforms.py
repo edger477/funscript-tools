@@ -64,3 +64,19 @@ def mirror_up_funscript(funscript, threshold):
     """Mirror values below threshold above it."""
     new_y = np.where(funscript.y < threshold, 2 * threshold - funscript.y, funscript.y)
     return Funscript(funscript.x.copy(), new_y)
+
+
+def simplify_funscript(funscript, epsilon: float) -> 'Funscript':
+    """
+    Reduce point count using the Ramer-Douglas-Peucker algorithm.
+
+    epsilon controls the maximum perpendicular deviation (in the same units as
+    the (time_seconds, position_0-1) space) that the simplified curve may have
+    from the original.  First and last points are always preserved.
+    """
+    if epsilon <= 0 or len(funscript.x) < 3:
+        return Funscript(funscript.x.copy(), funscript.y.copy())
+    from pybind11_rdp import rdp
+    points = np.column_stack([funscript.x, funscript.y])
+    mask = rdp(points, epsilon=epsilon, return_mask=True).astype(bool)
+    return Funscript(funscript.x[mask], funscript.y[mask])
