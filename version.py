@@ -185,9 +185,16 @@ Version information for Restim Funscript Processor
         3. Bulge scales with stroke range (bulge=range/2); narrow side uses
            min_distance_from_center as the narrow/wide ratio
         4. Strokes < 25% range produce no arc so short oscillations stay linear
+2.4.5 - RDP simplification for generated funscripts:
+        1. Added simplify_funscript() using Ramer-Douglas-Peucker algorithm (pybind11-rdp)
+           to reduce point count while preserving curve shape within a configurable tolerance
+        2. New rdp_epsilon config option (options.rdp_epsilon, default 0.002); set to 0 to disable
+        3. All generated funscripts pass through RDP simplification when epsilon > 0,
+           including speed, alpha/beta, prostate, motion axes, phase-shifted, and all output files
+        4. Added pybind11-rdp>=0.1.5 dependency
 """
 
-__version__ = "2.4.4"
+__version__ = "2.4.5"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
