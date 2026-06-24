@@ -2,7 +2,7 @@
   "general": {
     "rest_level": 0.4,
     "ramp_up_duration_after_rest": 5.0,
-    "speed_window_size": 2,
+    "speed_window_size": 5,
     "accel_window_size": 3
   },
   "speed": {
@@ -27,7 +27,7 @@
   "frequency": {
     "pulse_freq_min": 0.5,
     "pulse_freq_max": 0.99,
-    "frequency_ramp_combine_ratio": 3.7,
+    "frequency_ramp_combine_ratio": 4.0,
     "pulse_frequency_combine_ratio": 3.0
   },
   "volume": {
@@ -39,7 +39,7 @@
   "pulse": {
     "pulse_width_min": 0.05,
     "pulse_width_max": 0.65,
-    "pulse_width_combine_ratio": 3.0,
+    "pulse_width_combine_ratio": 5.0,
     "beta_mirror_threshold": 0.5,
     "pulse_rise_min": 0.0,
     "pulse_rise_max": 0.8,

@@ -508,7 +508,9 @@ events:
             pulse_frequency_combined = combine_funscripts(
                 speed_funscript,
                 alpha_funscript,
-                self.params['frequency']['pulse_frequency_combine_ratio']
+                self.params['frequency']['pulse_frequency_combine_ratio'],
+                self.params['general']['rest_level'],
+                self.params['general']['ramp_up_duration_after_rest']
             )
 
             # Map the combined result to the pulse frequency range (min/max)
@@ -644,7 +646,9 @@ events:
             pulse_width = combine_funscripts(
                 speed_funscript,
                 pulse_width_main,
-                self.params['pulse']['pulse_width_combine_ratio']
+                self.params['pulse']['pulse_width_combine_ratio'],
+                self.params['general']['rest_level'],
+                self.params['general']['ramp_up_duration_after_rest']
             )
             self._add_metadata(pulse_width, "pulse_width", "Pulse width modulation", {
                 "pulse_width_min": self.params['pulse']['pulse_width_min'],

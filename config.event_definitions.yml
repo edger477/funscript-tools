@@ -1,5 +1,29 @@
 # This file defines the building blocks of custom events.
 # Each event is a sequence of fundamental operations.
+#
+# Allowed parameter enums:
+#
+# operation:
+#   - apply_linear_change   — ramps a parameter linearly from start_value to end_value
+#   - apply_modulation      — applies oscillating modulation to an axis
+#
+# axis:
+#   - pulse_frequency       — pulse rate in Hz (normalized by normalization.pulse_frequency.max)
+#   - pulse_width           — pulse width as percentage (normalized by normalization.pulse_width.max)
+#   - frequency             — carrier frequency in Hz (normalized by normalization.frequency.max)
+#   - volume                — main channel output level (0.0–1.0)
+#   - volume-prostate       — prostate channel output level (0.0–1.0)
+#   - alpha                 — alpha channel modulation parameter
+#   - beta                  — beta channel modulation parameter
+#   Multiple axes can be targeted simultaneously using comma separation (e.g. "volume,volume-prostate")
+#
+# waveform (apply_modulation only):
+#   - sin                   — smooth sinusoidal oscillation
+#   - square                — abrupt on/off switching; supports optional duty_cycle (0.0–1.0)
+#
+# mode:
+#   - additive              — adds the effect on top of the current axis value
+#   - overwrite             — replaces the current axis value entirely
 
 # Axis normalization settings
 # These define the maximum values used to normalize raw parameters to 0.0-1.0 range
@@ -35,6 +59,10 @@ groups:
   - name: "Test events - use with care"
     prefix: "test_"
     description: "These events are for testing features of the app"
+
+  - name: "CH events (for colored bars)"
+    prefix: "CH_"
+    description: "Events to be added to the ch for their colored bars"
 
 definitions:
   cum:
@@ -569,6 +597,126 @@ definitions:
           duration_ms: $duration_ms
           ramp_in_ms: 1000
           ramp_out_ms: 1000
+          mode: additive
+
+  
+  CH_slow-tease:
+    default_params:
+      duration_ms: 15000
+      volume_boost: -0.01
+      ramp_up_ms: 250
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: 5
+          end_value: 5
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: volume,volume-prostate
+        params:
+          start_value: $volume_boost
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: -30
+          end_value: -30
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+
+
+  CH_normal:
+    default_params:
+      duration_ms: 15000
+    steps:
+
+  CH_edge:
+    default_params:
+      duration_ms: 15000
+      volume_boost: 0.01
+      ramp_up_ms: 250
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: 5
+          end_value: 35
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: volume,volume-prostate
+        params:
+          start_value: 0
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: 10
+          end_value: 30
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: square
+          frequency: 3
+          amplitude: 10
+          duty_cycle: 0.3
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+
+  CH_cum_tease:
+    default_params:
+      duration_ms: 15000
+      volume_boost: 0.05
+      ramp_up_ms: 250
+    steps:
+      - operation: apply_linear_change
+        axis: pulse_frequency
+        params:
+          start_value: 15
+          end_value: 45
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: volume,volume-prostate
+        params:
+          start_value: 0
+          end_value: $volume_boost
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_linear_change
+        axis: pulse_width
+        params:
+          start_value: 15
+          end_value: 40
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
+          mode: additive
+      - operation: apply_modulation
+        axis: pulse_width
+        params:
+          waveform: square
+          frequency: 6
+          amplitude: 30
+          duty_cycle: 0.5
+          duration_ms: $duration_ms
+          ramp_in_ms: $ramp_up_ms
           mode: additive
 
   # Event Definitions from AquariumParrot's MCB 
