@@ -15,7 +15,7 @@ Usage (command line):
 
 Usage (Python):
     from cli import load_file, process, get_default_config
-    from cli import preview_electrode_path, preview_frequency_blend, preview_pulse_shape
+    from cli import preview_electrode_path, preview_frequency_blend, preview_volume_blend, preview_pulse_shape
 """
 
 from __future__ import annotations
@@ -298,6 +298,38 @@ def preview_frequency_blend(
     }
 
 
+def preview_volume_blend(
+    supplied_volume_combine_ratio: float = 4.0,
+) -> dict:
+    """
+    Return plain-language description of the external volume blend (combine 2).
+
+    Combine 1 (ramp + speed) always runs first. This describes combine 2 only:
+    blending the generated volume with a user-selected external volume file.
+
+    The combine ratio R means: (R-1)/R generated + 1/R external.
+    """
+    r = max(1.0, float(supplied_volume_combine_ratio))
+    generated_pct = round((r - 1) / r * 100, 1)
+    external_pct = round(100 - generated_pct, 1)
+
+    label = f"{generated_pct:.0f}% generated volume + {external_pct:.0f}% external volume"
+
+    if generated_pct >= 75:
+        character = "gentle — mostly tool-generated envelope"
+    elif external_pct >= 50:
+        character = "authored — external file shapes the result"
+    else:
+        character = "balanced — mixes generated and external envelopes"
+
+    return {
+        "generated_pct": generated_pct,
+        "external_pct": external_pct,
+        "volume_label": label,
+        "overall_label": f"External volume blend (combine 2): {character}",
+    }
+
+
 def preview_pulse_shape(
     width_min: float = 0.1,
     width_max: float = 0.45,
@@ -423,15 +455,31 @@ def preview_output(
             out = combine_funscripts(ramp, speed_fs, config["frequency"]["frequency_ramp_combine_ratio"])
 
         elif output_type == "volume":
-            from processing.combining import combine_funscripts  # upstream
+            from processing.combining import combine_funscripts, blend_supplied_volume  # upstream
             from processing.special_generators import make_volume_ramp  # upstream
             ramp = make_volume_ramp(main_fs, config.get("volume", {}).get("ramp_percent_per_hour", 15))
-            out = combine_funscripts(
+            generated = combine_funscripts(
                 ramp, speed_fs,
                 config["volume"]["volume_ramp_combine_ratio"],
                 config["general"]["rest_level"],
                 config["general"]["ramp_up_duration_after_rest"],
             )
+            vol_cfg = config.get("volume", {})
+            if vol_cfg.get("enable_volume_blend") and (vol_cfg.get("supplied_volume_path") or "").strip():
+                ext_path = Path(vol_cfg["supplied_volume_path"])
+                if ext_path.exists():
+                    external = Funscript.from_file(ext_path)
+                    out = blend_supplied_volume(
+                        generated,
+                        external,
+                        vol_cfg.get("supplied_volume_combine_ratio", 4.0),
+                        vol_cfg.get("supplied_volume_output_min", 0.0),
+                        vol_cfg.get("supplied_volume_output_max", 1.0),
+                    )
+                else:
+                    out = generated
+            else:
+                out = generated
 
         else:
             base["label"] = f"{output_type} (preview not available — run Process)"
@@ -526,6 +574,18 @@ def _cmd_preview_pulse(args):
         print(f"  Width (mid): {result['width']}")
         print(f"  Rise  (mid): {result['rise']}")
         print(f"  Sharpness:   {result['sharpness']}")
+
+
+def _cmd_preview_volume(args):
+    result = preview_volume_blend(
+        supplied_volume_combine_ratio=args.ratio,
+    )
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  {result['overall_label']}")
+        print(f"  Combine 2:  {result['volume_label']}")
+        print("  (Combine 1 is ramp + speed — see volume.volume_ramp_combine_ratio in config)")
 
 
 def _cmd_info(args):
@@ -823,6 +883,29 @@ def main():
     )
     p_freq.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    p_vol = prev_sub.add_parser(
+        "volume-blend",
+        help="Show plain-language description of external volume blend (combine 2)",
+        description=(
+            "Translate the external volume combine ratio into plain English.\n"
+            "This is combine 2 only — it runs after the ramp+speed combine (combine 1).\n"
+            "Use the Volume tab or config JSON to enable blending and set the external file path."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  python cli.py preview volume-blend\n"
+            "  python cli.py preview volume-blend --ratio 10\n"
+            "  python cli.py preview volume-blend --json"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_vol.add_argument(
+        "--ratio", type=float, default=4.0,
+        metavar="2-40",
+        help="External volume combine ratio: generated | external (default: 4.0)"
+    )
+    p_vol.add_argument("--json", action="store_true", help="Output raw JSON")
+
     p_pulse = prev_sub.add_parser(
         "pulse-shape",
         help="Show pulse silhouette for given width and rise time settings",
@@ -869,6 +952,8 @@ def main():
             _cmd_preview_electrode(args)
         elif args.preview_command == "frequency-blend":
             _cmd_preview_frequency(args)
+        elif args.preview_command == "volume-blend":
+            _cmd_preview_volume(args)
         elif args.preview_command == "pulse-shape":
             _cmd_preview_pulse(args)
 

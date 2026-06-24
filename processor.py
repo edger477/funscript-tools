@@ -10,7 +10,7 @@ from processing.basic_transforms import (
     invert_funscript, map_funscript, limit_funscript,
     normalize_funscript, mirror_up_funscript
 )
-from processing.combining import combine_funscripts
+from processing.combining import combine_funscripts, blend_supplied_volume
 from processing.special_generators import make_volume_ramp
 from processing.funscript_1d_to_2d import generate_alpha_beta_from_main
 from processing.funscript_prostate_2d import generate_alpha_beta_prostate_from_main
@@ -232,6 +232,54 @@ class RestimProcessor:
     def _get_output_path(self, suffix: str) -> Path:
         """Get path for a final output file."""
         return self.output_dir / f"{self.filename_only}.{suffix}.funscript"
+
+    def _apply_volume_blend_if_enabled(self, generated_volume, progress_callback):
+        """Combine 2: optionally blend generated volume with user-selected external volume."""
+        volume_cfg = self.params.get("volume", {})
+        if not volume_cfg.get("enable_volume_blend", False):
+            return generated_volume, {}
+
+        path_str = (volume_cfg.get("supplied_volume_path") or "").strip()
+        if not path_str:
+            return generated_volume, {}
+
+        external_path = Path(path_str)
+        if not external_path.is_absolute():
+            external_path = (self.input_path.parent / external_path).resolve()
+
+        if not external_path.exists():
+            self._update_progress(
+                progress_callback, -1,
+                f"Warning: External volume not found, using generated volume only: {external_path}"
+            )
+            return generated_volume, {}
+
+        output_path = self._get_output_path("volume")
+        if external_path.resolve() == output_path.resolve():
+            temp_path = self._get_temp_path("volume_source")
+            shutil.copy2(external_path, temp_path)
+            load_path = temp_path
+        else:
+            load_path = external_path
+
+        external_volume = Funscript.from_file(load_path)
+        blended = blend_supplied_volume(
+            generated_volume,
+            external_volume,
+            volume_cfg["supplied_volume_combine_ratio"],
+            volume_cfg.get("supplied_volume_output_min", 0.0),
+            volume_cfg.get("supplied_volume_output_max", 1.0),
+        )
+
+        extra_metadata = {
+            "blended_with_supplied": True,
+            "supplied_volume_path": str(external_path),
+            "supplied_volume_combine_ratio": volume_cfg["supplied_volume_combine_ratio"],
+            "supplied_volume_output_min": volume_cfg.get("supplied_volume_output_min", 0.0),
+            "supplied_volume_output_max": volume_cfg.get("supplied_volume_output_max", 1.0),
+        }
+        return blended, extra_metadata
+
 
     def _copy_if_exists(self, source_suffix: str, dest_suffix: str) -> bool:
         """Copy auxiliary file if it exists."""
@@ -528,12 +576,11 @@ events:
             self._save(pulse_frequency, self._get_output_path("pulse_frequency"))
 
         # Generate alpha-prostate output using inverted main funscript (only if enabled)
+        main_inverted = invert_funscript(main_funscript)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
-            main_inverted = invert_funscript(main_funscript)
-            self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
-            self._save(main_inverted, self._get_output_path("alpha-prostate"))
-        else:
-            main_inverted = invert_funscript(main_funscript)
+            if overwrite_existing or not self._output_file_exists("alpha-prostate"):
+                self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
+                self._save(main_inverted, self._get_output_path("alpha-prostate"))
 
         # Check if frequency already exists
         if not overwrite_existing and self._output_file_exists("frequency"):
@@ -559,8 +606,8 @@ events:
             self._update_progress(progress_callback, 52, "Reusing existing volume...")
             volume = Funscript.from_file(self._get_output_path("volume"))
         else:
-            # Standard volume
-            volume = combine_funscripts(
+            # Combine 1: ramp + speed -> generated volume
+            generated_volume = combine_funscripts(
                 ramp_funscript,
                 speed_funscript,
                 self.params['volume']['volume_ramp_combine_ratio'],
@@ -568,18 +615,25 @@ events:
                 self.params['general']['ramp_up_duration_after_rest']
             )
 
-            # Volume normalization
+            # Combine 2: optional blend with external volume file
+            volume, blend_metadata = self._apply_volume_blend_if_enabled(
+                generated_volume, progress_callback
+            )
+
+            # Volume normalization (after both combines)
             if self.params['options']['normalize_volume']:
                 volume_not_normalized = volume.copy()
                 self._save(volume_not_normalized, self._get_temp_path("volume_not_normalized"))
                 volume = normalize_funscript(volume)
 
-            self._add_metadata(volume, "volume", "Standard volume control", {
+            volume_metadata = {
                 "volume_ramp_combine_ratio": self.params['volume']['volume_ramp_combine_ratio'],
                 "rest_level": self.params['general']['rest_level'],
                 "ramp_up_duration_after_rest": self.params['general']['ramp_up_duration_after_rest'],
                 "normalized": self.params['options']['normalize_volume']
-            })
+            }
+            volume_metadata.update(blend_metadata)
+            self._add_metadata(volume, "volume", "Standard volume control", volume_metadata)
             self._save(volume, self._get_output_path("volume"))
 
         # Prostate volume (only if enabled)

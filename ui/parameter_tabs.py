@@ -2,7 +2,10 @@ import copy
 import json
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
+from pathlib import Path
 from typing import Dict, Any
+
+import ui.theme as _theme
 
 
 def calculate_combine_percentages(ratio):
@@ -46,6 +49,16 @@ class CombineRatioControl:
         # Percentage display
         self.percentage_label = ttk.Label(parent, text="", foreground="blue")
         self.percentage_label.grid(row=row, column=3, sticky=tk.W, padx=5, pady=5)
+
+        # Keep label color in sync with theme
+        def _pct_theme(dark: bool, lbl=self.percentage_label):
+            lbl.config(foreground='#5bc8f5' if dark else 'blue')
+        _pct_theme(_theme.is_dark())
+        _theme.register(_pct_theme)
+        self.percentage_label.bind(
+            '<Destroy>',
+            lambda e, cb=_pct_theme: _theme.unregister(cb) if e.widget is self.percentage_label else None
+        )
 
         # Initial update
         self._update_percentage_display()
@@ -513,8 +526,85 @@ class ParameterTabs(ttk.Notebook):
         self.ramp_value_label = ttk.Label(frame, text="", foreground="blue")
         self.ramp_value_label.grid(row=row, column=2, sticky=tk.W, padx=5, pady=5)
 
+        # Keep label color in sync with theme
+        def _ramp_theme(dark: bool, lbl=self.ramp_value_label):
+            lbl.config(foreground='#5bc8f5' if dark else 'blue')
+        _ramp_theme(_theme.is_dark())
+        _theme.register(_ramp_theme)
+        self.ramp_value_label.bind(
+            '<Destroy>',
+            lambda e, cb=_ramp_theme: _theme.unregister(cb) if e.widget is self.ramp_value_label else None
+        )
+
         # Initial update
         self._update_ramp_display()
+
+        row += 1
+
+        # External Volume Blend (Combine 2)
+        ttk.Separator(frame, orient=tk.HORIZONTAL).grid(
+            row=row, column=0, columnspan=4, sticky=(tk.W, tk.E), padx=5, pady=(15, 5)
+        )
+        row += 1
+
+        ttk.Label(
+            frame,
+            text="External Volume Blend (second combine — blends generated volume with an external file):",
+            wraplength=600,
+        ).grid(row=row, column=0, columnspan=4, sticky=tk.W, padx=5, pady=(0, 5))
+        row += 1
+
+        var = tk.BooleanVar(value=self.config['volume'].get('enable_volume_blend', False))
+        self.parameter_vars['volume']['enable_volume_blend'] = var
+        enable_check = ttk.Checkbutton(
+            frame,
+            text="Blend with external volume file",
+            variable=var,
+            command=self._update_volume_blend_controls_state,
+        )
+        enable_check.grid(row=row, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        row += 1
+
+        ttk.Label(frame, text="External Volume File:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        path_var = tk.StringVar(value=self.config['volume'].get('supplied_volume_path', ''))
+        self.parameter_vars['volume']['supplied_volume_path'] = path_var
+        path_entry = ttk.Entry(frame, textvariable=path_var, width=50)
+        path_entry.grid(row=row, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        browse_btn = ttk.Button(frame, text="Browse...", command=self._browse_supplied_volume)
+        browse_btn.grid(row=row, column=2, sticky=tk.W, padx=5, pady=5)
+        row += 1
+
+        supplied_volume_control = CombineRatioControl(
+            frame, "External Volume Combine Ratio (Generated | External):",
+            "Generated", "External",
+            self.config['volume'].get('supplied_volume_combine_ratio', 4.0),
+            min_val=2.0, max_val=40.0, row=row
+        )
+        self.parameter_vars['volume']['supplied_volume_combine_ratio'] = supplied_volume_control.var
+        self.combine_ratio_controls['supplied_volume_combine_ratio'] = supplied_volume_control
+        row += 1
+
+        ttk.Label(frame, text="Output Range Min:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.DoubleVar(value=self.config['volume'].get('supplied_volume_output_min', 0.0))
+        self.parameter_vars['volume']['supplied_volume_output_min'] = var
+        min_entry = ttk.Entry(frame, textvariable=var, width=10)
+        min_entry.grid(row=row, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(frame, text="(0.0-1.0) Floor after blend; 0.0 = no remapping").grid(row=row, column=2, sticky=tk.W, padx=5)
+        row += 1
+
+        ttk.Label(frame, text="Output Range Max:").grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+        var = tk.DoubleVar(value=self.config['volume'].get('supplied_volume_output_max', 1.0))
+        self.parameter_vars['volume']['supplied_volume_output_max'] = var
+        max_entry = ttk.Entry(frame, textvariable=var, width=10)
+        max_entry.grid(row=row, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(frame, text="(0.0-1.0) Ceiling after blend; 1.0 = no remapping").grid(row=row, column=2, sticky=tk.W, padx=5)
+
+        self._volume_blend_widgets = [
+            path_entry, browse_btn, supplied_volume_control.slider,
+            supplied_volume_control.entry, supplied_volume_control.percentage_label,
+            min_entry, max_entry,
+        ]
+        self._update_volume_blend_controls_state()
 
     def setup_pulse_tab(self):
         """Setup the Pulse parameters tab."""
@@ -1229,6 +1319,38 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         except Exception as e:
             print(f"Error updating curve name display: {e}")
 
+    def _browse_supplied_volume(self):
+        """Open file dialog to select an external volume funscript."""
+        current_path = self.parameter_vars['volume']['supplied_volume_path'].get()
+        initial_dir = None
+        if current_path:
+            path = Path(current_path)
+            initial_dir = str(path.parent if path.is_file() else path)
+
+        selected = filedialog.askopenfilename(
+            title="Select External Volume Funscript",
+            initialdir=initial_dir,
+            filetypes=[("Funscript files", "*.funscript"), ("All files", "*.*")],
+        )
+        if selected:
+            self.parameter_vars['volume']['supplied_volume_path'].set(selected)
+
+    def _update_volume_blend_controls_state(self):
+        """Enable or disable external volume blend controls based on checkbox."""
+        enabled = False
+        try:
+            enabled = bool(self.parameter_vars['volume']['enable_volume_blend'].get())
+        except (KeyError, AttributeError, tk.TclError):
+            pass
+
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for widget in getattr(self, '_volume_blend_widgets', []):
+            try:
+                widget.config(state=state)
+            except tk.TclError:
+                pass
+
+
     def _browse_central_folder(self):
         """Open file dialog to browse for central restim folder."""
         # Get current directory if set
@@ -1394,6 +1516,9 @@ Enable/disable individual axes and edit curves to customize the motion pattern."
         # Update ramp display if it exists
         if hasattr(self, 'ramp_value_label'):
             self._update_ramp_display()
+
+        if hasattr(self, '_update_volume_blend_controls_state'):
+            self._update_volume_blend_controls_state()
 
         # Update embedded conversion tabs if they exist
         if hasattr(self, 'embedded_conversion_tabs'):
