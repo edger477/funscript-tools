@@ -157,7 +157,7 @@ def _parse_and_validate_user_events(event_file_path: Path, event_definitions: Di
         
         # Token substitution for step parameters
         processed_steps = []
-        for step_idx, step in enumerate(definition.get('steps', []), start=1):
+        for step_idx, step in enumerate(definition.get('steps') or [], start=1):
             # Validate required step fields
             if 'operation' not in step:
                 raise EventProcessorError(f"Event '{event_name}': step {step_idx} is missing required 'operation' field.")

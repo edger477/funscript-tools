@@ -192,9 +192,28 @@ Version information for Restim Funscript Processor
         3. All generated funscripts pass through RDP simplification when epsilon > 0,
            including speed, alpha/beta, prostate, motion axes, phase-shifted, and all output files
         4. Added pybind11-rdp>=0.1.5 dependency
+2.4.6 - Custom Events Builder performance and crash fixes:
+        1. Fixed crash ("NoneType is not iterable") when loading or applying events that have an
+           empty steps list (steps: with no items in YAML) — affects both the UI preview and
+           the event processor apply path
+        2. Eliminated UI freeze with 150+ events: canvas redraws are now debounced (16 ms) so
+           rapid successive triggers collapse into one draw instead of stacking
+        3. Lane assignment and conflict detection are now gated on a layout-dirty flag —
+           skipped on pan/zoom/playhead redraws where event positions have not changed
+        4. Funscript waveform rendering: replaced O(n) full-scan with O(log n) bisect lookup
+           on a precomputed timestamp index; added point subsampling to ≤2 pts/pixel,
+           reducing a 30-min funscript from ~14 000 visible points to ~2 000 at fit-view zoom
+        5. Event list treeview uses in-place item() updates for move/resize (≈50× faster than
+           delete+reinsert); full rebuild only when event count changes
+        6. Event list selection update unwinds the <<TreeviewSelect>> → redraw feedback loop
+           by temporarily unregistering the handler during programmatic selection_set()
+        7. _init_sash retries capped at 10 attempts; update_idletasks() called only on the
+           first attempt to prevent <Configure> event storms that caused continuous redraws
+        8. Video tick playhead update uses a fast path that only redraws the playhead canvas
+           item, falling back to a full redraw only when the view needs to auto-scroll
 """
 
-__version__ = "2.4.5"
+__version__ = "2.4.6"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

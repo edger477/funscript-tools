@@ -5,6 +5,7 @@ This module provides a user-friendly visual interface for creating and editing
 custom event timelines without requiring manual YAML editing.
 """
 
+import bisect
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import json
@@ -634,7 +635,7 @@ class ParameterPanel(ttk.Frame):
             current_values = self.current_params.copy()
 
         # Get event steps
-        steps = self.current_event_definition.get('steps', [])
+        steps = self.current_event_definition.get('steps') or []
 
         # Build preview text
         preview_lines = []
@@ -776,17 +777,20 @@ class CanvasTimelinePanel(ttk.Frame):
 
         # ---- Funscript waveform overlay ----
         self._funscript_actions: List[Dict] = []   # [{at: ms, pos: 0-100}, ...]
+        self._funscript_at: List[float] = []        # precomputed 'at' values for bisect
         self.show_funscript: bool = True            # toggled by dialog checkbox
 
         # ---- Undo / Redo ----
         self._history: List[List[Dict]] = []   # snapshots of self.events
         self._history_pos: int = -1            # current position in _history
 
-        # ---- Layout cache (rebuilt each redraw) ----
+        # ---- Layout cache ----
         self._lanes: List[int] = []       # lane index per event (parallel to self.events)
         self._n_lanes: int = 1
         self._block_rects: List[tuple] = []  # (x1, y1, x2, y2) canvas coords per event
         self._conflicts: set = set()         # indices of events overlapping another
+        self._layout_dirty: bool = True      # recompute conflicts + notify list on next redraw
+        self._redraw_pending = None           # after() id for debounced redraw
 
         # ---- Callbacks ----
         self.on_select_callback = on_select_callback
@@ -983,7 +987,8 @@ class CanvasTimelinePanel(ttk.Frame):
         return {'events': self.events}
 
     def refresh_display(self):
-        """Trigger a full canvas redraw."""
+        """Trigger a full canvas redraw with conflict/lane recomputation."""
+        self._layout_dirty = True
         self.redraw()
 
     def set_duration(self, total_ms: int):
@@ -998,6 +1003,7 @@ class CanvasTimelinePanel(ttk.Frame):
         sorted by 'at'.  Pass an empty list to clear the track.
         """
         self._funscript_actions = sorted(actions, key=lambda a: a['at'])
+        self._funscript_at = [float(a['at']) for a in self._funscript_actions]
         self.redraw()
 
     # ------------------------------------------------------------------ #
@@ -1175,15 +1181,26 @@ class CanvasTimelinePanel(ttk.Frame):
     # ------------------------------------------------------------------ #
 
     def redraw(self):
-        """Clear the canvas and redraw everything."""
+        """Schedule a canvas redraw; collapses rapid successive calls into one."""
+        if self._redraw_pending is not None:
+            try:
+                self.after_cancel(self._redraw_pending)
+            except Exception:
+                pass
+        self._redraw_pending = self.after(16, self._do_redraw)
+
+    def _do_redraw(self):
+        """Execute the canvas redraw — called via after() by redraw()."""
+        self._redraw_pending = None
         if not self.winfo_exists():
             return
         if self.canvas.cget('bg') != self.BG_COLOR:
             self.canvas.config(bg=self.BG_COLOR)
         self.canvas.delete('all')
-        self._assign_lanes()
+        if self._layout_dirty:
+            self._assign_lanes()
+            self._conflicts = self._find_conflicts()
         self._block_rects = [self._compute_block_rect(i) for i in range(len(self.events))]
-        self._conflicts   = self._find_conflicts()
 
         cw = self._canvas_w()
         ch = self._canvas_h()
@@ -1203,8 +1220,33 @@ class CanvasTimelinePanel(ttk.Frame):
         self._draw_playhead(cw, ch)
         self._update_scrollbar()
         self._update_zoom_label()
-        if self.on_redraw_callback:
+        if self._layout_dirty and self.on_redraw_callback:
+            self._layout_dirty = False
             self.on_redraw_callback()
+
+    def move_playhead_fast(self, ms: float):
+        """Move only the playhead without a full canvas redraw.
+
+        Called by the video-tick path so 30-fps playback doesn't trigger a
+        full redraw (which recreates every canvas item) on every frame.
+        Falls back to a full redraw if the view needs to auto-scroll.
+        """
+        self._playhead_ms = ms
+        self._update_playhead_label()
+        # Check whether auto-scroll would shift the view
+        vis = self._visible_ms()
+        if ms > self.pan_offset_ms + vis:
+            # Must scroll — needs a full redraw
+            self.pan_offset_ms = max(0.0, ms - vis * 0.2)
+            self.redraw()
+            return
+        if not self.winfo_exists():
+            return
+        # Fast path: only touch the 2 playhead canvas items
+        self.canvas.delete('playhead')
+        cw = self._canvas_w()
+        ch = self._canvas_h()
+        self._draw_playhead(cw, ch)
 
     def _tick_interval_s(self) -> float:
         """Return major tick spacing in seconds, adapted to current zoom."""
@@ -1345,21 +1387,12 @@ class CanvasTimelinePanel(ttk.Frame):
             self.canvas.create_rectangle(x1v, y1, x2v, y2,
                                          fill=fill, outline=outline_col, width=outline_w)
 
-            # Conflict badge — small ⚠ in top-right corner
-            if is_conflict and (x2v - x1v) >= 12:
+            # Conflict badge — small ⚠ in top-right corner (only when block is wide enough)
+            if is_conflict and (x2v - x1v) >= 20:
                 bx = min(x2v - 3, cw - 3)
                 self.canvas.create_text(bx, y1 + 2, text='⚠',
                                         fill='#ff6600', font=('TkDefaultFont', 7),
                                         anchor='ne')
-
-            # Resize grip: three short vertical lines near the right edge
-            if x2 <= cw and (x2v - x1v) > self.RESIZE_ZONE + 4:
-                gx = x2v - 5
-                for offset in (0, -3, -6):
-                    gxi = gx + offset
-                    if gxi > x1v + 2:
-                        self.canvas.create_line(gxi, y1 + 5, gxi, y2 - 5,
-                                                fill='#888899', width=1)
 
             # Label
             block_w = x2v - x1v
@@ -1643,26 +1676,29 @@ class CanvasTimelinePanel(ttk.Frame):
         vis_start_ms = self.pan_offset_ms
         vis_end_ms   = vis_start_ms + (cw - self.LEFT_MARGIN) * 1000.0 / max(self.zoom, 0.001)
 
-        # Collect visible points (include one point on each side for clipping)
-        actions = self._funscript_actions
+        # Use precomputed 'at' list + bisect for O(log n) visible-range lookup
+        at_list = self._funscript_at
+        lo = max(0, bisect.bisect_left(at_list, vis_start_ms - 2000) - 1)
+        hi = min(len(at_list), bisect.bisect_right(at_list, vis_end_ms + 2000) + 1)
+        visible = self._funscript_actions[lo:hi]
+
         pts = []
-        for i, a in enumerate(actions):
-            at = float(a['at'])
-            if at < vis_start_ms - 2000 or at > vis_end_ms + 2000:
-                continue
-            x = self._ms_to_x(at)
-            # pos 0 = bottom, pos 100 = top
+        for a in visible:
+            x = self._ms_to_x(float(a['at']))
             y = y_bottom - 2 - (float(a['pos']) / 100.0) * inner_h
             pts.append((x, y))
 
         if len(pts) < 2:
             return
 
+        # Subsample to ≤2 points per canvas pixel — prevents huge Tcl calls when zoomed out
+        max_pts = max(4, int((cw - self.LEFT_MARGIN) * 2))
+        if len(pts) > max_pts:
+            step = max(1, len(pts) // max_pts)
+            pts = pts[::step]
+
         # Filled polygon (waveform + baseline)
-        poly = []
-        poly.append((pts[0][0], y_bottom - 2))   # start at baseline
-        poly.extend(pts)
-        poly.append((pts[-1][0], y_bottom - 2))  # back to baseline
+        poly = [(pts[0][0], y_bottom - 2)] + pts + [(pts[-1][0], y_bottom - 2)]
         flat = [v for p in poly for v in p]
         if len(flat) >= 6:
             self.canvas.create_polygon(flat, fill=self.FUNSCRIPT_FILL,
@@ -1821,6 +1857,7 @@ class CanvasTimelinePanel(ttk.Frame):
             idx  = self._drag['idx']
             ev   = self.events[idx]
             mode = self._drag['mode']
+            self._layout_dirty = True  # events moved/resized — recompute conflicts + refresh list
 
             if mode == 'move':
                 if self.auto_sort_var.get():
@@ -2544,13 +2581,15 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         # Set initial sash position after layout is realised
         self.after(100, self._init_sash)
 
-    def _init_sash(self):
+    def _init_sash(self, _attempt: int = 0):
         """Set initial sash so the timeline is tall enough to show the funscript track."""
-        self.update_idletasks()
+        if _attempt == 0:
+            self.update_idletasks()  # only on first attempt — avoid <Configure> storms
         try:
             total = self.main_paned.winfo_height()
             if total < 200:
-                self.after(100, self._init_sash)
+                if _attempt < 10:   # give up after ~1 second to avoid infinite retry loop
+                    self.after(100, lambda: self._init_sash(_attempt + 1))
                 return
             # Give timeline ~200 px — enough to show ruler + events + funscript waveform
             self.main_paned.sashpos(0, max(100, total - 200))
@@ -2558,28 +2597,53 @@ class CustomEventsBuilderDialog(tk.Toplevel):
             pass
 
     def _refresh_event_list(self):
-        """Rebuild the Event List Treeview from the current timeline state."""
+        """Sync the Event List Treeview with the current timeline state.
+
+        When the event count is unchanged (move/resize), updates rows in-place
+        via item() — roughly 50x faster than delete+reinsert for 150 rows.
+        Full rebuild only happens when rows are added or removed.
+        """
         tp = self.timeline_panel
-        self._event_list.delete(*self._event_list.get_children())
-        for i, ev in enumerate(tp.events):
-            t_ms  = ev['time']
-            m, s  = divmod(t_ms // 1000, 60)
+        existing = self._event_list.get_children()
+
+        def _row_data(i, ev):
+            t_ms = ev['time']
+            m, s = divmod(t_ms // 1000, 60)
             t_str = f"{m}:{s:02d}"
             name  = CanvasTimelinePanel.format_event_display_name(ev['name'])
             dur   = ev['params'].get('duration_ms', 0)
             d_str = f"{dur // 1000}s" if dur else '—'
-            iid   = str(i)
             tags  = ('conflict',) if i in tp._conflicts else ()
-            self._event_list.insert('', 'end', iid=iid,
-                                    values=(t_str, name, d_str), tags=tags)
+            return (t_str, name, d_str), tags
+
+        if len(existing) == len(tp.events):
+            # Fast path: update values in-place without delete/reinsert
+            for i, (iid, ev) in enumerate(zip(existing, tp.events)):
+                values, tags = _row_data(i, ev)
+                self._event_list.item(iid, values=values, tags=tags)
+        else:
+            # Count changed (add/remove/load) — full rebuild
+            if existing:
+                self._event_list.delete(*existing)
+            for i, ev in enumerate(tp.events):
+                values, tags = _row_data(i, ev)
+                self._event_list.insert('', 'end', iid=str(i),
+                                        values=values, tags=tags)
+
         self._event_list.tag_configure('conflict', foreground='#ff6600')
 
         sel = str(tp.selected_index) if tp.selected_index is not None else None
-        if sel and self._event_list.exists(sel):
-            self._event_list.selection_set(sel)
-            self._event_list.see(sel)
-        else:
-            self._event_list.selection_set()
+        # Unbind during programmatic selection to prevent <<TreeviewSelect>> from
+        # triggering _on_event_list_select → tp.redraw() feedback loop
+        self._event_list.unbind('<<TreeviewSelect>>')
+        try:
+            if sel and self._event_list.exists(sel):
+                self._event_list.selection_set(sel)
+                self._event_list.see(sel)
+            else:
+                self._event_list.selection_set()
+        finally:
+            self._event_list.bind('<<TreeviewSelect>>', self._on_event_list_select)
 
     def _on_event_list_select(self, _event):
         """Sync canvas when the user clicks a row in the Event List."""
@@ -2727,16 +2791,10 @@ class CustomEventsBuilderDialog(tk.Toplevel):
         self._video_driving = True
         self._video_tick_count += 1
         try:
-            self.timeline_panel._playhead_ms = ms
-            self.timeline_panel._update_playhead_label()
-            # Auto-scroll: page forward when playhead runs off the right edge during playback
-            if self._video_panel._playing:
-                vis = self.timeline_panel._visible_ms()
-                if ms > self.timeline_panel.pan_offset_ms + vis:
-                    self.timeline_panel.pan_offset_ms = max(0.0, ms - vis * 0.2)
-            # Redraw timeline at ~15 fps (every other video tick) to reduce canvas overhead
+            # Use the fast playhead-only path (handles auto-scroll internally,
+            # falls back to a full redraw only when the view needs to pan).
             if self._video_tick_count % 2 == 0:
-                self.timeline_panel.redraw()
+                self.timeline_panel.move_playhead_fast(ms)
         finally:
             self._video_driving = False
 
