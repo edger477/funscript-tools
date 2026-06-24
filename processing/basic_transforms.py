@@ -74,9 +74,10 @@ def simplify_funscript(funscript, epsilon: float) -> 'Funscript':
     the (time_seconds, position_0-1) space) that the simplified curve may have
     from the original.  First and last points are always preserved.
     """
+    meta = funscript.metadata.copy() if funscript.metadata else {}
     if epsilon <= 0 or len(funscript.x) < 3:
-        return Funscript(funscript.x.copy(), funscript.y.copy())
+        return Funscript(funscript.x.copy(), funscript.y.copy(), meta)
     from pybind11_rdp import rdp
     points = np.column_stack([funscript.x, funscript.y])
     mask = rdp(points, epsilon=epsilon, return_mask=True).astype(bool)
-    return Funscript(funscript.x[mask], funscript.y[mask])
+    return Funscript(funscript.x[mask], funscript.y[mask], meta)

@@ -10,7 +10,6 @@ from pathlib import Path
 import yaml
 import numpy as np
 import json
-import shutil
 
 # Add parent directory to path to allow sibling imports
 import sys
@@ -18,6 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
 from funscript.funscript import funscript_cache
 from processing.event_processor import process_events, EventProcessorError
+from processing.chapter_export import ChapterExportOptions
 
 
 class TestEventProcessor(unittest.TestCase):
@@ -28,12 +28,15 @@ class TestEventProcessor(unittest.TestCase):
         self.test_dir = tempfile.TemporaryDirectory()
         self.test_path = Path(self.test_dir.name)
 
-        # Create a dummy event_definitions.yml
+        # Create a minimal event_definitions.yml for tests (do not append to the full config file)
         self.event_definitions_path = self.test_path / "event_definitions.yml"
-        shutil.copyfile(Path(__file__).parent.parent / "config" / "event_definitions.yml", self.event_definitions_path)
-        
-        with open(self.event_definitions_path, 'a') as f:
+        with open(self.event_definitions_path, 'w') as f:
             f.write("""
+normalization:
+  volume: {max: 1.0}
+  pulse_frequency: {max: 200.0}
+  pulse_width: {max: 100.0}
+definitions:
   good_slave_test:
     default_params:
       duration_ms: 1000
@@ -134,9 +137,35 @@ class TestEventProcessor(unittest.TestCase):
         # Verify values outside event ranges are unchanged
         before_indices = np.where(mod_volume_fs.x < 0.5)[0]
         after_indices = np.where(mod_volume_fs.x >= 2.5)[0]
+        after_pf_indices = np.where(mod_pulse_freq_fs.x >= 2.5)[0]
         self.assertTrue(np.allclose(mod_volume_fs.y[before_indices], 0.5))
         self.assertTrue(np.allclose(mod_volume_fs.y[after_indices], 0.5))
-        self.assertTrue(np.allclose(mod_pulse_freq_fs.y[after_indices], 0.25))
+        self.assertTrue(np.allclose(mod_pulse_freq_fs.y[after_pf_indices], 0.25))
+
+
+    def test_chapter_export_to_base_funscript(self):
+        base_path = self.test_path / "test.funscript"
+        with open(base_path, "w") as f:
+            json.dump({"actions": self.actions, "creator": "test", "metadata": {"chapters": [{"name": "Old", "startTime": "00:00:00.000", "endTime": "00:00:00.200"}]}}, f)
+
+        options = ChapterExportOptions(write_funscript=True)
+        process_events(
+            str(self.event_file_path),
+            False,
+            self.event_definitions_path,
+            10,
+            None,
+            options,
+        )
+
+        with open(base_path, "r") as f:
+            data = json.load(f)
+        chapters = data["metadata"]["chapters"]
+        self.assertEqual(len(chapters), 3)
+        self.assertEqual(chapters[0]["name"], "Old")
+        self.assertEqual(chapters[1]["name"], "General - Good Slave Test")
+        self.assertEqual(chapters[1]["startTime"], "00:00:00.500")
+        self.assertEqual(chapters[1]["endTime"], "00:00:01.500")
 
 if __name__ == "__main__":
     print("Running Custom Event Processor Tests (New Architecture)...")

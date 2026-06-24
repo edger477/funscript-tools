@@ -64,6 +64,42 @@ class FunscriptEditor:
 
         return target_axes
 
+    def _ensure_dense_timestamps(self, axis: str, start_time_s: float, end_time_s: float, points_per_second: float = 25.0):
+        """Insert evenly-spaced timestamps within [start_time_s, end_time_s] for the given axis.
+
+        Positions at new timestamps are linearly interpolated from existing data.
+        Timestamps already within 10% of a step size are skipped (no-op for dense axes like alpha/beta).
+        This ensures event modulation waveforms have enough data points to be accurately represented.
+        """
+        fs = self.funscripts[axis]
+        step = 1.0 / points_per_second
+
+        dense_times = np.arange(start_time_s, end_time_s, step)
+        if len(dense_times) == 0:
+            return
+
+        # Vectorised near-duplicate check: skip any dense time already covered
+        tolerance = step * 0.1
+        nearest_idx = np.searchsorted(fs.x, dense_times, side='left')
+        prev_idx = np.clip(nearest_idx - 1, 0, len(fs.x) - 1)
+        next_idx = np.clip(nearest_idx, 0, len(fs.x) - 1)
+        dist = np.minimum(
+            np.abs(fs.x[prev_idx] - dense_times),
+            np.abs(fs.x[next_idx] - dense_times)
+        )
+        new_times = dense_times[dist > tolerance]
+
+        if len(new_times) == 0:
+            return
+
+        new_positions = np.interp(new_times, fs.x, fs.y)
+
+        all_times = np.concatenate([fs.x, new_times])
+        all_positions = np.concatenate([fs.y, new_positions])
+        sort_idx = np.argsort(all_times, kind='stable')
+        fs.x = all_times[sort_idx]
+        fs.y = all_positions[sort_idx]
+
     def _get_indices_for_range(self, fs: Funscript, start_time_ms: int, duration_ms: int) -> np.ndarray:
         """Returns the numpy array indices for a given time window (in ms)."""
         start_time_s = start_time_ms / 1000.0
@@ -274,6 +310,7 @@ class FunscriptEditor:
                                   mode: str = 'additive', duty_cycle: float = 0.5):
         """Internal method to apply modulation to a single axis."""
         fs = self.funscripts[axis]
+        self._ensure_dense_timestamps(axis, start_time_ms / 1000.0, (start_time_ms + duration_ms) / 1000.0)
         indices = self._get_indices_for_range(fs, start_time_ms, duration_ms)
 
         if indices.size == 0:

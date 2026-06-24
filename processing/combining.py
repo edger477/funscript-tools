@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from funscript import Funscript
+from processing.basic_transforms import map_funscript
 
 
 def combine_funscripts(left_funscript, right_funscript, ratio, rest_level=0.5, ramp_up_duration=0.0):
@@ -62,6 +63,15 @@ def combine_funscripts(left_funscript, right_funscript, ratio, rest_level=0.5, r
         y_final = y_with_rest
 
     return Funscript(x, y_final)
+
+
+
+def blend_supplied_volume(generated, external, ratio, output_min=0.0, output_max=1.0):
+    """Combine 2: blend generated volume (from ramp+speed combine) with external volume."""
+    blended = combine_funscripts(generated, external, ratio, rest_level=1.0, ramp_up_duration=0.0)
+    if output_min != 0.0 or output_max != 1.0:
+        blended = map_funscript(blended, output_min, output_max)
+    return blended
 
 
 def multiply_funscripts(left_funscript, right_funscript):

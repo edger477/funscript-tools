@@ -2,16 +2,16 @@
 """
 PyInstaller spec for RestimFunscriptProcessor
 Bundles VLC (libvlc.dll, libvlccore.dll, plugins/) for self-contained video playback.
-Uses onedir mode — zip the output folder for distribution.
+Uses onefile mode — single portable executable, no sidecar folder required.
 """
 import os
 import glob
-from PyInstaller.utils.hooks import collect_all, collect_data_files
+import re
+from PyInstaller.utils.hooks import collect_all
 
 # ---------------------------------------------------------------------------
 # Version (read from version.py without importing the whole app)
 # ---------------------------------------------------------------------------
-import re
 with open('version.py') as _f:
     _m = re.search(r'__version__\s*=\s*"([^"]+)"', _f.read())
 _version = _m.group(1) if _m else 'unknown'
@@ -29,12 +29,12 @@ if os.path.exists('config.json'):
 binaries = []
 
 if os.path.exists(VLC_DIR):
-    # Core DLLs — placed in the exe root so python-vlc finds them
+    # Core DLLs — placed at the exe root so python-vlc finds them via _MEIPASS
     for dll in ('libvlc.dll', 'libvlccore.dll'):
         src = os.path.join(VLC_DIR, dll)
         if os.path.exists(src):
             binaries.append((src, '.'))
-    # Plugin DLLs — placed in plugins/<subdir>/ relative to exe root
+    # Plugin DLLs — preserve plugins/<subdir>/ structure relative to exe root
     for src in glob.glob(os.path.join(VLC_DIR, 'plugins', '**', '*.dll'),
                          recursive=True):
         rel_dest = os.path.relpath(os.path.dirname(src), VLC_DIR)
@@ -101,11 +101,15 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+# ---------------------------------------------------------------------------
+# Onefile EXE — binaries and datas packed directly in; no COLLECT step
+# ---------------------------------------------------------------------------
 exe = EXE(
     pyz,
     a.scripts,
-    [],                         # onedir: no a.binaries/a.datas here
-    exclude_binaries=True,      # onedir
+    a.binaries,
+    a.datas,
+    [],
     name=_exe_name,
     debug=False,
     bootloader_ignore_signals=False,
@@ -118,14 +122,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=['libvlc.dll', 'libvlccore.dll'],
-    name=_exe_name,
 )

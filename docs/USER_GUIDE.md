@@ -73,6 +73,7 @@ high (0.9)  █░░░░░░░░░   full range — strong, sweeping mov
 
 ---
 
+
 ### 2. Frequency blend — how sensation tracks the action
 
 The frequency output is a blend of two signals:
@@ -106,7 +107,20 @@ python cli.py preview frequency-blend --ramp-ratio 8
 
 ---
 
-### 3. Pulse shape — the character of each pulse
+
+### 3. Volume - two-stage combine
+
+Volume uses two combines in sequence:
+
+**Combine 1 (always):** Ramp + speed produces the generated volume envelope. Controlled by `volume_ramp_combine_ratio` (Ramp | Speed) and Rest Level.
+
+**Combine 2 (optional):** Blends the generated volume with an external `.funscript` file. Enable on the Volume tab, browse to the file, and set the Generated | External ratio. Useful when a release ships a full-range volume file that is too wide for restim.
+
+```bash
+python cli.py preview volume-blend --ratio 4
+```
+
+### 4. Pulse shape — the character of each pulse
 
 Each electrical pulse has two physical dimensions:
 

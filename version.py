@@ -201,20 +201,35 @@ Version information for Restim Funscript Processor
         3. Lane assignment and conflict detection are now gated on a layout-dirty flag —
            skipped on pan/zoom/playhead redraws where event positions have not changed
         4. Funscript waveform rendering: replaced O(n) full-scan with O(log n) bisect lookup
-           on a precomputed timestamp index; added point subsampling to ≤2 pts/pixel,
+           on a precomputed timestamp index; added point subsampling to <=2 pts/pixel,
            reducing a 30-min funscript from ~14 000 visible points to ~2 000 at fit-view zoom
-        5. Event list treeview uses in-place item() updates for move/resize (≈50× faster than
+        5. Event list treeview uses in-place item() updates for move/resize (~50x faster than
            delete+reinsert); full rebuild only when event count changes
-        6. Event list selection update unwinds the <<TreeviewSelect>> → redraw feedback loop
+        6. Event list selection update unwinds the <<TreeviewSelect>> -> redraw feedback loop
            by temporarily unregistering the handler during programmatic selection_set()
         7. _init_sash retries capped at 10 attempts; update_idletasks() called only on the
            first attempt to prevent <Configure> event storms that caused continuous redraws
         8. Video tick playhead update uses a fast path that only redraws the playhead canvas
            item, falling back to a full redraw only when the view needs to auto-scroll
+2.4.7 - MCB extract, chapter export, volume blend, and Custom Event Builder improvements:
+        1. Added MCB extract event definitions: mcb_extract, mcb_extract_additive,
+           mcb_extract_4p, mcb_extract_4p_additive (4P e4->e1 upward pull with step_ratio),
+           and corrupt_4p (4P inharmonic drift)
+        2. Export custom events as OFS chapters in base .funscript metadata; optional
+           "Chapters: Funscript" checkbox in Custom Event Builder; merges with existing chapters
+        3. External volume blend (combine 2): blend generated volume with user-selected external file;
+           Volume tab controls, optional output range, CLI preview volume-blend
+        4. Fixed modulation waveform accuracy: _ensure_dense_timestamps() pre-inserts interpolated
+           points before applying modulation so waveforms are faithfully represented at any resolution
+        5. Custom Event Builder: Funscript snap mode (default), proportional event block drawing,
+           stable lane layout, waveform downsampling, debounced zoom/pan redraw, VLC seek-bar fixes
+        6. Dark mode: blue info labels use lighter accent color for readability
+        7. Windows build: PyInstaller onefile spec; release package copies exe and docs to versioned folder
+        8. RDP simplification preserves funscript metadata through simplify_funscript()
 """
 
-__version__ = "2.4.6"
+__version__ = "2.4.7"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
-__url__ = "https://github.com/edger477/funscript-tools"
+__url__ = "https://github.com/Senorgif33/funscript-tools"

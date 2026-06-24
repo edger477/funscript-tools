@@ -23,6 +23,7 @@ python cli.py <command> --help      # detailed help for any command
 | `config save` | Save default config to a file for editing |
 | `preview electrode-path` | Show 2D electrode path shape for an algorithm |
 | `preview frequency-blend` | Plain-language description of frequency blend settings |
+| `preview volume-blend` | Plain-language description of external volume blend (combine 2) |
 | `preview pulse-shape` | Pulse silhouette for given width and rise time settings |
 
 ---
@@ -208,7 +209,10 @@ python cli.py process scene.funscript --config configs/gentle.json
 | `frequency.pulse_freq_min` / `pulse_freq_max` | Pulse rate output range (0.0–1.0) |
 | `pulse.pulse_width_min` / `pulse_width_max` | Pulse width range |
 | `pulse.pulse_rise_min` / `pulse_rise_max` | Pulse sharpness — low = sharp, high = soft |
-| `volume.volume_ramp_combine_ratio` | Volume blend ratio |
+| `volume.volume_ramp_combine_ratio` | Combine 1: ramp + speed volume ratio |
+| `volume.enable_volume_blend` | Enable combine 2: blend generated volume with external file |
+| `volume.supplied_volume_path` | Path to external volume funscript |
+| `volume.supplied_volume_combine_ratio` | Combine 2: generated vs external ratio |
 | `options.overwrite_existing_files` | Whether to regenerate existing outputs |
 
 ---
@@ -279,6 +283,19 @@ python cli.py preview frequency-blend --ramp-ratio 1
 ```
 
 ---
+
+
+## `preview volume-blend`
+
+Describe external volume blend settings (combine 2). Combine 1 (ramp + speed) always runs first.
+
+```bash
+python cli.py preview volume-blend [--ratio N] [--json]
+```
+
+```bash
+python cli.py preview volume-blend
+```
 
 ## `preview pulse-shape`
 
