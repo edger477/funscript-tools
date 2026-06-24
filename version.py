@@ -226,9 +226,15 @@ Version information for Restim Funscript Processor
         6. Dark mode: blue info labels use lighter accent color for readability
         7. Windows build: PyInstaller onefile spec; release package copies exe and docs to versioned folder
         8. RDP simplification preserves funscript metadata through simplify_funscript()
+2.4.8 - Post-merge bugfixes:
+        1. Fixed alpha-prostate not respecting overwrite_existing=False: the output was always
+           overwritten on every processing run regardless of the setting
+        2. Fixed OFS chapter timestamp parsing: fractional-second fields shorter than 3 digits
+           (e.g. ".5" from third-party funscripts) are now zero-padded, preventing wrong sort order
+           in merge_chapter_lists
 """
 
-__version__ = "2.4.7"
+__version__ = "2.4.8"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"
