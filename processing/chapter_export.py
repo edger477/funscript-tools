@@ -172,7 +172,7 @@ def _ofs_time_to_ms(time_str: str) -> int:
     sec_parts = parts[2].split(".")
     minutes = int(parts[1])
     seconds = int(sec_parts[0])
-    millis = int(sec_parts[1]) if len(sec_parts) > 1 else 0
+    millis = int(sec_parts[1].ljust(3, '0')[:3]) if len(sec_parts) > 1 else 0
     return ((hours * 3600) + (minutes * 60) + seconds) * 1000 + millis
 
 

@@ -574,12 +574,11 @@ events:
             self._save(pulse_frequency, self._get_output_path("pulse_frequency"))
 
         # Generate alpha-prostate output using inverted main funscript (only if enabled)
+        main_inverted = invert_funscript(main_funscript)
         if self.params.get('prostate_generation', {}).get('generate_prostate_files', True):
-            main_inverted = invert_funscript(main_funscript)
-            self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
-            self._save(main_inverted, self._get_output_path("alpha-prostate"))
-        else:
-            main_inverted = invert_funscript(main_funscript)
+            if overwrite_existing or not self._output_file_exists("alpha-prostate"):
+                self._add_metadata(main_inverted, "alpha-prostate", "Inverted main funscript for prostate stimulation")
+                self._save(main_inverted, self._get_output_path("alpha-prostate"))
 
         # Check if frequency already exists
         if not overwrite_existing and self._output_file_exists("frequency"):
