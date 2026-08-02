@@ -232,9 +232,15 @@ Version information for Restim Funscript Processor
         2. Fixed OFS chapter timestamp parsing: fractional-second fields shorter than 3 digits
            (e.g. ".5" from third-party funscripts) are now zero-padded, preventing wrong sort order
            in merge_chapter_lists
+2.4.9 - Fix for Linux build:
+        1. Fixed Linux AppImage build in build_linux.py: appimagetool was invoked by bare filename
+           (resolved via $PATH instead of cwd, always failing with FileNotFoundError), the .desktop
+           Version key held the app version instead of the required desktop-entry-spec version, and
+           the Icon= file was never actually written. Linux build re-enabled in the tag-triggered
+           release workflow.
 """
 
-__version__ = "2.4.8"
+__version__ = "2.4.9"
 __app_name__ = "Restim Funscript Processor"
 __description__ = "GUI application for processing funscript files for electrostimulation devices"
 __author__ = "Funscript Tools Project"

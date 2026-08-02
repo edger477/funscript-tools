@@ -1,7 +1,5 @@
-## What's New in v2.4.8
+## What's New in v2.4.9
 
 ### Bug Fixes
 
-1. **alpha-prostate overwrite guard** — `alpha-prostate` now respects the "overwrite existing files" setting. Previously it was always regenerated and overwritten on every processing run regardless of the setting.
-
-2. **OFS chapter timestamp parsing** — fractional-second fields shorter than 3 digits (e.g. `.5` from third-party funscripts) are now zero-padded before parsing, so `00:00:01.5` correctly becomes 1500 ms instead of 1005 ms. Prevents wrong sort order when merging existing chapters.
+1. **Linux AppImage build fixed** — `build_linux.py` had three bugs preventing a working release build: `appimagetool` was invoked by bare filename (resolved via `$PATH` instead of the working directory, always failing with `FileNotFoundError`), the generated `.desktop` file's `Version` key held the app version instead of the required desktop-entry-spec version, and the referenced icon file was never actually written. The Linux build is now re-enabled in the tag-triggered release workflow, so `v*` tags produce both Windows and Linux release artifacts.
