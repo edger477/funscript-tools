@@ -13,7 +13,7 @@ from version import __version__, __app_name__
 
 def download_appimagetool():
     """Download appimagetool if not present."""
-    appimagetool_path = Path("appimagetool-x86_64.AppImage")
+    appimagetool_path = Path("appimagetool-x86_64.AppImage").resolve()
 
     if appimagetool_path.exists():
         print("appimagetool already exists")
@@ -176,13 +176,17 @@ Comment=Process funscript files for electrostimulation devices
 Exec=RestimFunscriptProcessor/RestimFunscriptProcessor
 Icon=RestimFunscriptProcessor
 Categories=AudioVideo;Audio;
-Version={__version__}
+Version=1.0
 """)
 
-    # Create a simple icon (text-based for now)
+    # Create a minimal placeholder icon (appimagetool requires the Icon= file to exist)
     icon_path = appdir / "RestimFunscriptProcessor.png"
-    # For now, we'll skip the icon or use a simple one
-    # In a real setup, you'd include a proper PNG icon
+    _MINIMAL_PNG = bytes.fromhex(
+        "89504e470d0a1a0a0000000d494844520000000100000001080600000"
+        "01f15c4890000000a49444154789c6360000002000100ffff03000006"
+        "00057cd6690000000049454e44ae426082"
+    )
+    icon_path.write_bytes(_MINIMAL_PNG)
 
     # Create AppRun script
     apprun = appdir / "AppRun"
